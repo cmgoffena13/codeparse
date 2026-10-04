@@ -25,6 +25,14 @@ CodeParse Total Tokens: 198,469 (-41% reduction)
 ----------------------------------------
 ```
 
+```mermaid
+xychart-beta
+    title "Cursor Benchmark Evaluation"
+    x-axis ["AI Baseline", "AI w/ CodeParse"]
+    y-axis "Total Tokens" 0 --> 350000
+    bar [337737, 198469]
+```
+
 ### Running the Evaluation
 
 Cursor Default Model: `grok 4.7`  
