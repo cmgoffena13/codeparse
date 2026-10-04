@@ -116,8 +116,7 @@ def get_symbol_context(qualified_name: str, ctx: Context) -> str:
     """
     Return the symbol code definition and aggregated count of reference sites
     (calls, accesses, type annotations).
-    References do not follow multi-hop attribute access (obj.field.method),
-    untyped locals, or cross-file field hops.
+    References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Use ``get_symbol_references`` for detailed call, access, and type-annotation
     sites.
     """
@@ -130,8 +129,7 @@ def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool
     """
     Return reference sites for a symbol (calls, accesses, type annotations) and
     which symbols they happen in.
-    References do not follow multi-hop attribute access (obj.field.method),
-    untyped locals, or cross-file field hops.
+    References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files by default; set ``include_tests`` to include them.
     """
     name = qualified_name.strip()
