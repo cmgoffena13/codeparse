@@ -117,8 +117,7 @@ def get_symbol_context(qualified_name: str, ctx: Context) -> str:
     Return the symbol code definition and aggregated count of reference sites
     (calls, accesses, type annotations).
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Use ``get_symbol_references`` for detailed call, access, and type-annotation
-    sites.
+    Use ``get_symbol_references`` for detailed call, access, and type-annotation sites.
     """
     name = qualified_name.strip()
     return _processor(ctx).run_query(lambda db: run_symbol_context(db, name))
