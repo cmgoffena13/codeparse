@@ -25,6 +25,9 @@ test:
 test-cov:
 	uv run -- pytest --cov=src --cov-report=term-missing
 
+upgrade:
+	uv sync --upgrade --all-extras
+
 # Usage:
 #   make eval-smoke
 #   make eval-smoke claude
@@ -59,6 +62,8 @@ compile:
 		--output-filename=codeparse \
 		--python-flag=no_warnings \
 		--include-package=src \
+		--include-package=certifi \
+		--include-package-data=certifi \
 		--include-distribution-metadata=caio \
 		--include-distribution-metadata=aiofile \
 		--nofollow-import-to=src.tests \

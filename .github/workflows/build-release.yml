@@ -50,6 +50,8 @@ jobs:
             --output-filename=codeparse \
             --python-flag="no_warnings" \
             --include-package=src \
+            --include-package=certifi \
+            --include-package-data=certifi \
             --include-distribution-metadata=caio \
             --include-distribution-metadata=aiofile \
             --nofollow-import-to=src.tests \
@@ -71,6 +73,8 @@ jobs:
             --output-filename=codeparse \
             --python-flag="no_warnings" \
             --include-package=src \
+            --include-package=certifi \
+            --include-package-data=certifi \
             --include-distribution-metadata=caio \
             --include-distribution-metadata=aiofile \
             --nofollow-import-to=src.tests \
@@ -93,6 +97,8 @@ jobs:
             --output-filename=codeparse.exe ^
             --python-flag="no_warnings" ^
             --include-package=src ^
+            --include-package=certifi ^
+            --include-package-data=certifi ^
             --include-distribution-metadata=caio ^
             --include-distribution-metadata=aiofile ^
             --nofollow-import-to=src.tests ^

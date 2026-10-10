@@ -1,5 +1,6 @@
 import io
 import json
+import ssl
 import sys
 import zipfile
 from pathlib import Path
@@ -137,16 +138,24 @@ def test_get_refuses_non_https() -> None:
 
 
 def test_get_reads_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    seen: list[str] = []
+    seen: dict[str, object] = {}
 
-    def fake_urlopen(request: object, timeout: int) -> io.BytesIO:
-        seen.append(getattr(request, "full_url", ""))
+    def fake_context(*, cafile: str) -> ssl.SSLContext:
+        seen["cafile"] = cafile
+        return ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+    def fake_urlopen(request: object, timeout: int, context: ssl.SSLContext) -> io.BytesIO:
+        seen["url"] = getattr(request, "full_url", "")
+        seen["context"] = context
         assert timeout == 60
         return io.BytesIO(b"payload")
 
+    monkeypatch.setattr(upgrade_mod.ssl, "create_default_context", fake_context)
     monkeypatch.setattr(upgrade_mod.urllib.request, "urlopen", fake_urlopen)
     assert upgrade_mod._get("https://example.com/x") == b"payload"
-    assert seen == ["https://example.com/x"]
+    assert seen["url"] == "https://example.com/x"
+    assert seen["cafile"] == upgrade_mod.certifi.where()
+    assert seen["context"] is not None
 
 
 def test_cli_upgrade_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:

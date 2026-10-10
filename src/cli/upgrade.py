@@ -4,10 +4,13 @@ import contextlib
 import io
 import json
 import platform
+import ssl
 import subprocess
 import sys
 import urllib.request
 import zipfile
+
+import certifi
 
 from src.utils import binary_path, get_version, is_compiled
 
@@ -22,7 +25,8 @@ def _get(url: str) -> bytes:
     if not url.startswith("https://"):
         raise ValueError(f"Refusing non-HTTPS download: {url}")
     request = urllib.request.Request(url, headers={"User-Agent": "codeparse"})  # noqa: S310
-    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+    context = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(request, timeout=60, context=context) as response:  # noqa: S310
         return response.read()
 
 
