@@ -19,8 +19,14 @@ Ten Questions found in `eval/tasks.json` are evaluated against the [SQLMesh](htt
 ```
 Cursor Benchmark Evaluation - Grok 4.7
 ----------------- Mean -----------------
-AI Baseline Total Tokene: 337,737
-AI w/ CodeParse Total Tokens: 198,469 (-41% reduction)
+AI Baseline Total Tokene: 393,530
+AI w/ CodeParse Total Tokens: 265,867 (-32% reduction)
+----------------------------------------
+
+Claude Benchmark Evaluation - Opus 5.5 Medium
+----------------- Mean -----------------
+AI Baseline Total Tokene: XXXX
+AI w/ CodeParse Total Tokens: XXXX
 ----------------------------------------
 ```
 

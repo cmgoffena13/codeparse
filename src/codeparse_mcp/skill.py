@@ -12,7 +12,7 @@ DESCRIPTION = (
 )
 
 _SKILL_BODY = """\
-IMPORTANT: ALWAYS USE ``get_symbol`` / ``get_file_overview`` instead of \
+IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` instead of \
 ``read`` to get file / symbol information.
 
 The information that is provided to you will determine the tool you should use.
@@ -37,7 +37,6 @@ The information that is provided to you will determine the tool you should use.
 
 ### ``grep``
  - Use when the clue is specific text in file contents.
- - DO NOT grep for symbol names; use ``search_symbols``.
  - DO NOT grep to find which files depend on a module; use ``find_importers``.
  - DO NOT grep for reference sites of an exact symbol; use ``get_symbol_references``.
 
