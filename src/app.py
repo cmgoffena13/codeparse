@@ -88,6 +88,10 @@ def main() -> int:
         ok = uninstall_mcp()
         remove_skill()
         return 0 if ok else 1
+    if args.command == "upgrade":
+        from src.cli.upgrade import upgrade
+
+        return upgrade()
     if args.command == "mcp":
         root = _require_indexable_root(args.cwd)
         if root is None:

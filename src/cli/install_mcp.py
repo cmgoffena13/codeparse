@@ -2,7 +2,6 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -15,23 +14,9 @@ from fastmcp.cli.install.goose import generate_goose_deeplink
 from fastmcp.cli.install.shared import open_deeplink, run_cli_command
 from fastmcp.mcp_config import MCPConfig, StdioMCPServer, update_config_file
 
+from src.utils import binary_path
+
 SERVER_NAME = "codeparse"
-
-
-def binary_path() -> Path:
-    """Absolute path to this codeparse executable.
-
-    A frozen build uses ``sys.executable``. ``sys.argv[0]`` is only the name
-    the shell used, which is a bare PATH entry or a symlink.
-    """
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve()
-    invoked = Path(sys.argv[0])
-    if not invoked.is_absolute():
-        found = shutil.which(sys.argv[0])
-        if found:
-            invoked = Path(found)
-    return invoked.resolve()
 
 
 def _goose_config_dir() -> Path:

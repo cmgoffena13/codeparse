@@ -35,6 +35,10 @@ def make_parser() -> argparse.ArgumentParser:
         "uninstall",
         help="Remove the codeparse MCP server and skill",
     )
+    subparsers.add_parser(
+        "upgrade",
+        help="Replace this binary with the latest release and update the skill",
+    )
 
     mcp_parser = subparsers.add_parser(
         "mcp",

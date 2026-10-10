@@ -1,5 +1,6 @@
 import hashlib
 import os
+import shutil
 import sys
 import tomllib
 from pathlib import Path
@@ -30,6 +31,26 @@ def get_version() -> str:
 
     with pyproject_path.open("rb") as f:
         return tomllib.load(f)["project"]["version"]
+
+
+def is_compiled() -> bool:
+    """True when running as the Nuitka-compiled binary (Nuitka never sets ``sys.frozen``)."""
+    return "__compiled__" in globals()
+
+
+def binary_path() -> Path:
+    """Absolute path to the codeparse executable.
+
+    Nuitka onefile sets ``sys.argv[0]`` to the binary the user ran; ``sys.executable``
+    is the Python unpacked into a temporary directory. A bare name from a PATH
+    lookup is resolved with ``shutil.which``, and symlinks are followed.
+    """
+    invoked = Path(sys.argv[0])
+    if not invoked.is_absolute():
+        found = shutil.which(sys.argv[0])
+        if found:
+            invoked = Path(found)
+    return invoked.resolve()
 
 
 def ensure_dir(path: Path) -> Path:

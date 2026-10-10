@@ -144,21 +144,20 @@ def test_install_registers_the_binary(
     assert "Restart the client" in out
 
 
-def test_binary_path_uses_executable_when_frozen(
+def test_binary_path_prefers_argv0_over_unpacked_python(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from src.cli.install_mcp import binary_path
+    from src.utils import binary_path
 
     binary = tmp_path / "codeparse"
     binary.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(binary))
-    monkeypatch.setattr(sys, "argv", ["codeparse", "install"])
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "onefile-tmp" / "python"))
+    monkeypatch.setattr(sys, "argv", [str(binary), "install"])
     assert binary_path() == binary.resolve()
 
 
 def test_binary_path_resolves_path_lookup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    from src.cli.install_mcp import binary_path
+    from src.utils import binary_path
 
     real = tmp_path / "real" / "codeparse"
     real.parent.mkdir()
@@ -166,9 +165,8 @@ def test_binary_path_resolves_path_lookup(monkeypatch: pytest.MonkeyPatch, tmp_p
     link = tmp_path / "bin" / "codeparse"
     link.parent.mkdir()
     link.symlink_to(real)
-    monkeypatch.delattr(sys, "frozen", raising=False)
     monkeypatch.setattr(sys, "argv", ["codeparse", "install"])
-    monkeypatch.setattr("src.cli.install_mcp.shutil.which", lambda _name: str(link))
+    monkeypatch.setattr("src.utils.shutil.which", lambda _name: str(link))
     assert binary_path() == real.resolve()
 
 
@@ -443,6 +441,79 @@ def test_uninstall_with_nothing_installed_exits_zero(
     out = capsys.readouterr().out
     assert "No MCP server entries found." in out
     assert "No codeparse skill found." in out
+
+
+def test_install_reports_client_cli_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from src.cli.install_mcp import install_mcp
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr("src.cli.install_mcp.get_claude_config_path", lambda: None)
+    monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: "/usr/bin/claude")
+    monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: "/usr/bin/gemini")
+
+    def fail(command: list[str]) -> None:
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr("src.cli.install_mcp.run_cli_command", fail)
+    assert install_mcp() == []
+    err = capsys.readouterr().err
+    assert "Failed to install codeparse in Claude Code" in err
+    assert "Failed to install codeparse in Gemini CLI" in err
+
+
+def test_uninstall_reports_cli_failure_and_bad_configs(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from src.cli.install_mcp import uninstall_mcp
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr("src.cli.install_mcp.get_claude_config_path", lambda: None)
+    monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: "/usr/bin/claude")
+    monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: None)
+
+    def fail(_command: list[str]) -> None:
+        raise OSError("boom")
+
+    monkeypatch.setattr("src.cli.install_mcp.run_cli_command", fail)
+    (tmp_path / ".claude.json").write_text("[1, 2]", encoding="utf-8")
+    goose = tmp_path / ".config" / "goose"
+    goose.mkdir(parents=True)
+    (goose / "config.yaml").write_text("extensions: [unclosed\n", encoding="utf-8")
+
+    assert uninstall_mcp() is False
+    err = capsys.readouterr().err
+    assert "not a JSON object" in err
+    assert "Failed to uninstall codeparse from Claude Code" in err
+    assert "config.yaml" in err
+
+
+def test_uninstall_goose_without_codeparse_is_untouched(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from src.cli.install_mcp import uninstall_mcp
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr("src.cli.install_mcp.get_claude_config_path", lambda: None)
+    monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: None)
+    monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: None)
+    goose = tmp_path / ".config" / "goose" / "config.yaml"
+    goose.parent.mkdir(parents=True)
+    text = "extensions:\n  other:\n    type: stdio\n    cmd: noop\n"
+    goose.write_text(text, encoding="utf-8")
+    (tmp_path / ".cursor").mkdir()
+    (tmp_path / ".cursor" / "mcp.json").write_text('{"mcpServers": {}}', encoding="utf-8")
+
+    assert uninstall_mcp() is True
+    assert goose.read_text(encoding="utf-8") == text
 
 
 def test_uninstall_invalid_config_exits_one(
