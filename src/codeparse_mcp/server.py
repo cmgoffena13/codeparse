@@ -1,7 +1,7 @@
 import hashlib
 import json
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -45,7 +45,7 @@ def index_root() -> Path:
 
 
 @asynccontextmanager
-async def _lifespan(_app: FastMCP) -> AsyncIterator[dict[str, Any]]:
+async def _lifespan(_app: FastMCP) -> AsyncGenerator[dict[str, Any], None]:
     get_code_parse_config_dir()
     root = index_root()
     db = CodeDB(root)
