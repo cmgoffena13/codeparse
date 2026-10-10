@@ -194,6 +194,7 @@ def test_invalid_claude_config_is_reported(
 
 
 def test_windows_deeplink_and_cmd_install(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastmcp.cli.install.claude_code import find_claude_command
     from fastmcp.cli.install.shared import open_deeplink, run_cli_command
 
     monkeypatch.setattr(sys, "platform", "win32")
@@ -225,8 +226,6 @@ def test_windows_deeplink_and_cmd_install(monkeypatch: pytest.MonkeyPatch) -> No
     assert str(recorded["executable"]).lower().endswith("cmd.exe")
     assert "codeparse.exe" in str(recorded["command"])
 
-    from fastmcp.cli.install.claude_code import find_claude_command
-
     def fake_version(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         assert command[0].endswith("claude.cmd")
         return subprocess.CompletedProcess(
@@ -247,7 +246,6 @@ def test_install_with_no_clients_prints_message(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: None)
     monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: None)
@@ -437,7 +435,6 @@ def test_uninstall_with_nothing_installed_exits_zero(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: None)
     monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: None)
@@ -454,7 +451,6 @@ def test_uninstall_invalid_config_exits_one(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     (tmp_path / ".cursor").mkdir()
     (tmp_path / ".cursor" / "mcp.json").write_text("{not json", encoding="utf-8")
