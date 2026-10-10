@@ -1,7 +1,16 @@
 import asyncio
 from pathlib import Path
 
-from src.codeparse_mcp.skill import SKILL_INSTRUCTIONS, materialize_skill
+import yaml
+
+from src.codeparse_mcp.skill import DESCRIPTION, SKILL_INSTRUCTIONS, materialize_skill
+
+
+def test_frontmatter_description_parses() -> None:
+    frontmatter, _, body = SKILL_INSTRUCTIONS.partition("\n---\n")
+    parsed = yaml.safe_load(frontmatter.removeprefix("---\n"))
+    assert parsed == {"name": "codeparse", "description": DESCRIPTION}
+    assert body.lstrip("\n").startswith("IMPORTANT:")
 
 
 def test_materialize_skill_writes_skill_md(tmp_path: Path) -> None:

@@ -10,7 +10,7 @@ import pytest
 from fastmcp import Client
 from fastmcp.client.client import CallToolResult
 
-from src.codeparse_mcp.skill import SKILL_INSTRUCTIONS
+from src.codeparse_mcp.skill import DESCRIPTION, SKILL_INSTRUCTIONS
 
 _PROJECT = Path(__file__).resolve().parent / "test_project"
 _TOOLS = {
@@ -57,6 +57,7 @@ def test_client_lists_tools_and_reads_skill(
             )
             digest = hashlib.sha256(SKILL_INSTRUCTIONS.encode()).hexdigest()
             assert manifest["skill"] == "codeparse"
+            assert manifest["description"] == DESCRIPTION
             assert manifest["files"] == [
                 {
                     "path": "SKILL.md",

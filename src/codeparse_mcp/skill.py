@@ -1,4 +1,8 @@
+import hashlib
+import json
 from pathlib import Path
+
+import yaml
 
 DESCRIPTION = (
     "Use when navigating a Python codebase: locating definitions/references, "
@@ -7,12 +11,7 @@ DESCRIPTION = (
     "Covers symbol search and entry points."
 )
 
-SKILL_INSTRUCTIONS = f"""\
----
-name: codeparse
-description: {DESCRIPTION}
----
-
+_SKILL_BODY = """\
 IMPORTANT: ALWAYS USE ``get_symbol`` / ``get_file_overview`` instead of \
 ``read`` to get file / symbol information.
 
@@ -46,6 +45,43 @@ The information that is provided to you will determine the tool you should use.
  - Use when the clue is part of a symbol name, signature, or docstring.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
 """
+
+
+def skill_frontmatter() -> str:
+    """YAML frontmatter agents can parse.
+
+    ``DESCRIPTION`` contains ``: ``, which is illegal in an unquoted YAML
+    scalar. Cursor, Claude, Codex, Gemini, Goose, Copilot, VS Code, and
+    OpenCode all read this block from ``SKILL.md`` and drop the skill
+    description when the block does not parse.
+    """
+    dumped = yaml.safe_dump(
+        {"name": "codeparse", "description": DESCRIPTION},
+        sort_keys=False,
+        allow_unicode=True,
+    ).rstrip("\n")
+    return f"---\n{dumped}\n---\n\n"
+
+
+SKILL_INSTRUCTIONS = skill_frontmatter() + _SKILL_BODY
+
+
+def skill_manifest(skill_bytes: bytes) -> str:
+    """Skill listing served at ``skill://codeparse/_manifest``."""
+    return json.dumps(
+        {
+            "skill": "codeparse",
+            "description": DESCRIPTION,
+            "files": [
+                {
+                    "path": "SKILL.md",
+                    "size": len(skill_bytes),
+                    "hash": f"sha256:{hashlib.sha256(skill_bytes).hexdigest()}",
+                }
+            ],
+        },
+        indent=2,
+    )
 
 
 def materialize_skill(base: Path) -> Path:

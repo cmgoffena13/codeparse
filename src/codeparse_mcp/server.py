@@ -1,5 +1,3 @@
-import hashlib
-import json
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -16,7 +14,7 @@ from src.codeparse_mcp.project_overview import (
     get_project_overview as run_project_overview,
 )
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
-from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
+from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill, skill_manifest
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
 from src.codeparse_mcp.symbol_references import (
     get_symbol_references as run_symbol_references,
@@ -74,20 +72,7 @@ def codeparse_skill() -> str:
     mime_type="application/json",
 )
 def codeparse_skill_manifest() -> str:
-    data = _SKILL_PATH.read_bytes()
-    return json.dumps(
-        {
-            "skill": "codeparse",
-            "files": [
-                {
-                    "path": "SKILL.md",
-                    "size": len(data),
-                    "hash": f"sha256:{hashlib.sha256(data).hexdigest()}",
-                }
-            ],
-        },
-        indent=2,
-    )
+    return skill_manifest(_SKILL_PATH.read_bytes())
 
 
 def _processor(ctx: Context) -> CodeProcessor:
