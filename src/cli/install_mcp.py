@@ -1,115 +1,115 @@
-"""Install codeparse as an MCP server in known client configs."""
+"""Register the codeparse binary with every MCP client FastMCP knows about."""
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
-SERVER_KEY = "codeparse"
+from fastmcp.cli.install.claude_code import find_claude_command
+from fastmcp.cli.install.claude_desktop import get_claude_config_path
+from fastmcp.cli.install.cursor import generate_cursor_deeplink
+from fastmcp.cli.install.gemini_cli import find_gemini_command
+from fastmcp.cli.install.goose import generate_goose_deeplink
+from fastmcp.cli.install.shared import open_deeplink, run_cli_command
+from fastmcp.mcp_config import MCPConfig, StdioMCPServer, update_config_file
 
-# Cursor expands this at runtime to the open project root. Kept as a literal
-# JSON string (no extra brace escaping) — ``json.dumps`` writes it unchanged.
-CURSOR_WORKSPACE_ARG = "${workspaceFolder}"
+SERVER_NAME = "codeparse"
 
 
-def resolve_cli_path() -> Path:
-    """Absolute path to the running ``codeparse`` binary."""
+def binary_path() -> Path:
+    """Absolute path to this codeparse executable.
+
+    A frozen build uses ``sys.executable``. ``sys.argv[0]`` is only the name
+    the shell used, which is a bare PATH entry or a symlink.
+    """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve()
-    return Path(sys.argv[0]).resolve()
+    invoked = Path(sys.argv[0])
+    if not invoked.is_absolute():
+        found = shutil.which(sys.argv[0])
+        if found:
+            invoked = Path(found)
+    return invoked.resolve()
 
 
-def cursor_mcp_config_path() -> Path:
-    return Path.home() / ".cursor" / "mcp.json"
-
-
-def claude_desktop_config_path() -> Path:
-    if sys.platform == "darwin":
-        return (
-            Path.home()
-            / "Library"
-            / "Application Support"
-            / "Claude"
-            / "claude_desktop_config.json"
-        )
+def _goose_config_dir() -> Path:
+    """Same directory FastMCP's Goose installer and discovery use."""
     if sys.platform == "win32":
-        appdata = os.environ.get("APPDATA")
-        if not appdata:
-            return Path.home() / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
-        return Path(appdata) / "Claude" / "claude_desktop_config.json"
-    return Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+        return Path(
+            os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"),
+            "Block",
+            "goose",
+            "config",
+        )
+    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"), "goose")
 
 
-def _load_config(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    text = path.read_text(encoding="utf-8").strip()
-    if not text:
-        return {}
-    data = json.loads(text)
-    if not isinstance(data, dict):
-        raise TypeError(f"MCP config is not a JSON object: {path}")
-    return data
+def _server(cli: Path) -> StdioMCPServer:
+    return StdioMCPServer(command=str(cli), args=["mcp"], type="stdio")
 
 
-def merge_mcp_server(config_path: Path, entry: dict[str, Any]) -> bool:
+def install_mcp() -> list[str] | None:
+    """Install the codeparse binary into each FastMCP client that is present.
+
+    FastMCP's ``install_*`` helpers launch a Python file with ``uv``. This CLI
+    is the compiled binary, so each client is given that executable instead.
+
+    Returns the client names that were installed, or ``None`` when no client
+    is installed.
     """
-    Upsert ``SERVER_KEY`` under ``mcpServers`` and write the config file.
+    cli = binary_path()
+    server = _server(cli)
+    installed: list[str] = []
+    saw_client = False
 
-    Returns True on success. On ``PermissionError``, prints a warning plus the
-    entry for manual install and returns False.
-    """
-    entry_json = json.dumps({SERVER_KEY: entry}, indent=2)
-    try:
-        config = _load_config(config_path)
-        servers = config.setdefault("mcpServers", {})
-        if not isinstance(servers, dict):
-            raise TypeError(f"mcpServers must be an object: {config_path}")
-        servers[SERVER_KEY] = entry
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-    except PermissionError as e:
-        print(f"Warning: Could not write to {config_path}: {e}", file=sys.stderr)
-        print("Manually add this entry:", file=sys.stderr)
-        print(entry_json, file=sys.stderr)
-        return False
+    cursor_dir = Path.home() / ".cursor"
+    if cursor_dir.is_dir():
+        saw_client = True
+        if open_deeplink(generate_cursor_deeplink(SERVER_NAME, server), expected_scheme="cursor"):
+            installed.append("cursor")
 
-    print(f"Wrote to {config_path}:\n{entry_json}")
-    return True
+    claude_dir = get_claude_config_path()
+    if claude_dir is not None:
+        saw_client = True
+        config_file = claude_dir / "claude_desktop_config.json"
+        try:
+            if config_file.is_file() and config_file.read_text(encoding="utf-8").strip():
+                update_config_file(config_file, SERVER_NAME, server)
+            else:
+                MCPConfig(mcpServers={SERVER_NAME: server}).write_to_file(config_file)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            print(f"Failed to install codeparse in Claude Desktop: {exc}", file=sys.stderr)
+        else:
+            installed.append("claude-desktop")
 
+    claude_cmd = find_claude_command()
+    if claude_cmd:
+        saw_client = True
+        try:
+            run_cli_command([claude_cmd, "mcp", "add", SERVER_NAME, "--", str(cli), "mcp"])
+        except (OSError, subprocess.CalledProcessError) as exc:
+            print(f"Failed to install codeparse in Claude Code: {exc}", file=sys.stderr)
+        else:
+            installed.append("claude-code")
 
-def install_mcp(
-    *,
-    cli_path: Path | None = None,
-    cursor_config: Path | None = None,
-    claude_config: Path | None = None,
-) -> list[Path]:
-    """
-    Register ``codeparse`` in Cursor (global) and Claude Desktop configs.
+    gemini_cmd = find_gemini_command()
+    if gemini_cmd:
+        saw_client = True
+        try:
+            run_cli_command([gemini_cmd, "mcp", "add", SERVER_NAME, str(cli), "--", "mcp"])
+        except (OSError, subprocess.CalledProcessError) as exc:
+            print(f"Failed to install codeparse in Gemini CLI: {exc}", file=sys.stderr)
+        else:
+            installed.append("gemini-cli")
 
-    Cursor gets ``mcp --cwd ${workspaceFolder}`` so one install follows the open
-    project (Cursor expands the variable). Claude Desktop gets ``mcp`` and relies
-    on ``CLAUDE_WORKSPACE`` / process cwd.
-    """
-    cli = (cli_path or resolve_cli_path()).resolve()
-    written: list[Path] = []
+    if _goose_config_dir().is_dir():
+        saw_client = True
+        deeplink = generate_goose_deeplink(SERVER_NAME, str(cli), ["mcp"])
+        if open_deeplink(deeplink, expected_scheme="goose"):
+            installed.append("goose")
 
-    cursor_path = cursor_config or cursor_mcp_config_path()
-    cursor_entry = {
-        "type": "stdio",
-        "command": str(cli),
-        "args": ["mcp", "--cwd", CURSOR_WORKSPACE_ARG],
-    }
-    if merge_mcp_server(cursor_path, cursor_entry):
-        written.append(cursor_path)
-
-    claude_path = claude_config or claude_desktop_config_path()
-    claude_entry = {
-        "command": str(cli),
-        "args": ["mcp"],
-    }
-    if merge_mcp_server(claude_path, claude_entry):
-        written.append(claude_path)
-
-    return written
+    if not saw_client:
+        return None
+    return installed

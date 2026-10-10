@@ -1,7 +1,4 @@
 from pathlib import Path
-from typing import Literal
-
-SkillTarget = Literal["claude", "cursor"]
 
 SKILL_INSTRUCTIONS = """\
 ---
@@ -47,35 +44,61 @@ The information that is provided to you will determine the tool you should use.
 """
 
 
-def generate_skill(
-    target: SkillTarget,
-    *,
-    root: Path | None = None,
-    cursor_skills_base: Path | None = None,
-) -> Path:
-    """Write the codeparse skill for ``claude`` (project) or ``cursor`` (user-global).
-
-    - ``claude`` → ``{root}/.claude/skills/codeparse/SKILL.md``
-    - ``cursor`` → ``~/.cursor/skills/codeparse/SKILL.md`` (all projects)
-    """
-    if target == "claude":
-        base = (root or Path.cwd()).resolve()
-        output_path = base / ".claude" / "skills" / "codeparse" / "SKILL.md"
-    elif target == "cursor":
-        base = (cursor_skills_base or (Path.home() / ".cursor" / "skills")).resolve()
-        output_path = base / "codeparse" / "SKILL.md"
-    else:
-        raise ValueError(f"unknown skill target: {target!r}")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(SKILL_INSTRUCTIONS, encoding="utf-8")
-    return output_path
+def materialize_skill(base: Path) -> Path:
+    """Write ``SKILL.md`` directly into ``base`` (the codeparse config directory)."""
+    base.mkdir(parents=True, exist_ok=True)
+    path = base / "SKILL.md"
+    path.write_text(SKILL_INSTRUCTIONS, encoding="utf-8")
+    return path
 
 
-if __name__ == "__main__":
-    import sys
+def available_skill_dirs() -> list[Path]:
+    """Skill directories FastMCP already knows about that exist on disk."""
+    from fastmcp.server.providers.skills import (
+        ClaudeSkillsProvider,
+        CodexSkillsProvider,
+        CopilotSkillsProvider,
+        CursorSkillsProvider,
+        GeminiSkillsProvider,
+        GooseSkillsProvider,
+        OpenCodeSkillsProvider,
+        VSCodeSkillsProvider,
+    )
 
-    if len(sys.argv) != 2 or sys.argv[1] not in ("claude", "cursor"):
-        print(f"Usage: {sys.argv[0]} claude|cursor", file=sys.stderr)
-        raise SystemExit(2)
-    print(generate_skill(sys.argv[1]))
+    providers = (
+        ClaudeSkillsProvider,
+        CodexSkillsProvider,
+        CopilotSkillsProvider,
+        CursorSkillsProvider,
+        GeminiSkillsProvider,
+        GooseSkillsProvider,
+        OpenCodeSkillsProvider,
+        VSCodeSkillsProvider,
+    )
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for provider_cls in providers:
+        for path in provider_cls()._roots:
+            if not path.is_dir():
+                continue
+            if path in seen:
+                continue
+            seen.add(path)
+            found.append(path)
+    return found
+
+
+def sync_skill() -> list[Path]:
+    """Write the codeparse skill into FastMCP vendor skill directories that exist."""
+    written: list[Path] = []
+    for target in available_skill_dirs():
+        skill_dir = target / "codeparse"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(SKILL_INSTRUCTIONS, encoding="utf-8")
+        written.append(skill_dir)
+    if not written:
+        print("No skill directories found.")
+        return written
+    for path in written:
+        print(f"Synced skill → {path}")
+    return written

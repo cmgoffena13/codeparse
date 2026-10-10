@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,6 +16,7 @@ from src.codeparse_mcp.project_overview import (
     get_project_overview as run_project_overview,
 )
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
+from src.codeparse_mcp.skill import materialize_skill
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
 from src.codeparse_mcp.symbol_references import (
     get_symbol_references as run_symbol_references,
@@ -26,6 +29,7 @@ _INSTRUCTIONS = """\
 codeparse tools read an up-to-date view of the codebase.
 Start the server in the repository you want to analyze.
 Utilize the ``codeparse`` skill for the best results if available.
+The skill is served at ``skill://codeparse/SKILL.md``.
 
 Current Supported File Languages: [Python]
 """
@@ -54,6 +58,40 @@ async def _lifespan(_app: FastMCP) -> AsyncIterator[dict[str, Any]]:
 
 
 mcp = FastMCP("codeparse", instructions=_INSTRUCTIONS, lifespan=_lifespan)
+_SKILL_PATH = materialize_skill(get_code_parse_config_dir())
+
+
+@mcp.resource(
+    "skill://codeparse/SKILL.md",
+    name="codeparse/SKILL.md",
+    description="Use the codeparse MCP Server effectively.",
+    mime_type="text/markdown",
+)
+def codeparse_skill() -> str:
+    return _SKILL_PATH.read_text(encoding="utf-8")
+
+
+@mcp.resource(
+    "skill://codeparse/_manifest",
+    name="codeparse/_manifest",
+    description="File listing for codeparse",
+    mime_type="application/json",
+)
+def codeparse_skill_manifest() -> str:
+    data = _SKILL_PATH.read_bytes()
+    return json.dumps(
+        {
+            "skill": "codeparse",
+            "files": [
+                {
+                    "path": "SKILL.md",
+                    "size": len(data),
+                    "hash": f"sha256:{hashlib.sha256(data).hexdigest()}",
+                }
+            ],
+        },
+        indent=2,
+    )
 
 
 def _processor(ctx: Context) -> CodeProcessor:

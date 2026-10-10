@@ -23,39 +23,24 @@ def make_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command")
 
-    create_skill_parser = subparsers.add_parser(
-        "create-skill",
-        help="Write the codeparse agent skill for Cursor or Claude",
+    subparsers.add_parser(
+        "sync",
+        help="Update the codeparse skill in existing skill directories",
     )
-    create_skill_parser.add_argument(
-        "target",
-        choices=("cursor", "claude"),
-        help=(
-            "cursor: ~/.cursor/skills/codeparse/ (all projects); "
-            "claude: .claude/skills/codeparse/ under --cwd"
-        ),
-    )
-    create_skill_parser.add_argument(
-        "--cwd",
-        type=Path,
-        default=Path.cwd(),
-        help="Project root for the Claude skill (ignored for cursor)",
+    subparsers.add_parser(
+        "install",
+        help="Register codeparse in installed MCP clients and write the skill",
     )
 
     mcp_parser = subparsers.add_parser(
         "mcp",
-        help="Start the MCP server, or manage client registration",
+        help="Start the MCP server",
     )
     mcp_parser.add_argument(
         "--cwd",
         type=Path,
         default=Path.cwd(),
         help="Workspace root to index (default: current directory)",
-    )
-    mcp_sub = mcp_parser.add_subparsers(dest="mcp_command", required=False)
-    mcp_sub.add_parser(
-        "install",
-        help="Register codeparse in Cursor and Claude Desktop MCP configs",
     )
 
     index_parser = subparsers.add_parser(

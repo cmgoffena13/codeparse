@@ -58,32 +58,30 @@ def main() -> int:
     if args.version:
         print(f"codeparse Version: {get_version()}")
         return 0
-    if args.command == "create-skill":
-        from src.codeparse_mcp.skill import generate_skill
+    if args.command == "sync":
+        from src.codeparse_mcp.skill import sync_skill
 
-        if args.target == "claude":
-            root = _require_dir(args.cwd)
-            if root is None:
-                return 1
-            path = generate_skill("claude", root=root)
-        else:
-            path = generate_skill("cursor")
-        print(f"Wrote skill → {path}")
+        sync_skill()
         return 0
     if args.command == "index":
         root = _require_indexable_root(args.cwd)
         if root is None:
             return 1
         return _run_index(root, full=args.full_reload)
-    if args.command == "mcp":
-        if getattr(args, "mcp_command", None) == "install":
-            from src.cli.install_mcp import install_mcp
+    if args.command == "install":
+        from src.cli.install_mcp import install_mcp
+        from src.codeparse_mcp.skill import sync_skill
 
-            written = install_mcp()
-            if written:
-                print("Restart the client (or reload MCP) to pick up the change.")
-                return 0
+        installed = install_mcp()
+        sync_skill()
+        if installed is None:
+            print("No MCP clients found.")
+            return 0
+        if not installed:
             return 1
+        print("Restart the client (or reload MCP) to pick up the change.")
+        return 0
+    if args.command == "mcp":
         root = _require_indexable_root(args.cwd)
         if root is None:
             return 1
