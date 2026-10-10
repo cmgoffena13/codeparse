@@ -31,8 +31,16 @@ def _goose_config_dir() -> Path:
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"), "goose")
 
 
-def _server(cli: Path) -> StdioMCPServer:
-    return StdioMCPServer(command=str(cli), args=["mcp"], type="stdio")
+def _server(cli: Path, *, cwd: str | None = None) -> StdioMCPServer:
+    args = ["mcp"]
+    if cwd is not None:
+        args.extend(["--cwd", cwd])
+    return StdioMCPServer(command=str(cli), args=args, type="stdio")
+
+
+def _note_installed(installed: list[str], client: str) -> None:
+    installed.append(client)
+    print(f"Installed MCP server → {client}")
 
 
 def install_mcp() -> list[str] | None:
@@ -46,14 +54,17 @@ def install_mcp() -> list[str] | None:
     """
     cli = binary_path()
     server = _server(cli)
+    cursor_server = _server(cli, cwd="${workspaceFolder}")
     installed: list[str] = []
     saw_client = False
 
     cursor_dir = Path.home() / ".cursor"
     if cursor_dir.is_dir():
         saw_client = True
-        if open_deeplink(generate_cursor_deeplink(SERVER_NAME, server), expected_scheme="cursor"):
-            installed.append("cursor")
+        if open_deeplink(
+            generate_cursor_deeplink(SERVER_NAME, cursor_server), expected_scheme="cursor"
+        ):
+            _note_installed(installed, "Cursor")
 
     claude_dir = get_claude_config_path()
     if claude_dir is not None:
@@ -67,7 +78,7 @@ def install_mcp() -> list[str] | None:
         except (OSError, json.JSONDecodeError, ValueError) as exc:
             print(f"Failed to install codeparse in Claude Desktop: {exc}", file=sys.stderr)
         else:
-            installed.append("claude-desktop")
+            _note_installed(installed, "Claude Desktop")
 
     claude_cmd = find_claude_command()
     if claude_cmd:
@@ -77,7 +88,7 @@ def install_mcp() -> list[str] | None:
         except (OSError, subprocess.CalledProcessError) as exc:
             print(f"Failed to install codeparse in Claude Code: {exc}", file=sys.stderr)
         else:
-            installed.append("claude-code")
+            _note_installed(installed, "Claude Code")
 
     gemini_cmd = find_gemini_command()
     if gemini_cmd:
@@ -87,13 +98,13 @@ def install_mcp() -> list[str] | None:
         except (OSError, subprocess.CalledProcessError) as exc:
             print(f"Failed to install codeparse in Gemini CLI: {exc}", file=sys.stderr)
         else:
-            installed.append("gemini-cli")
+            _note_installed(installed, "Gemini CLI")
 
     if _goose_config_dir().is_dir():
         saw_client = True
         deeplink = generate_goose_deeplink(SERVER_NAME, str(cli), ["mcp"])
         if open_deeplink(deeplink, expected_scheme="goose"):
-            installed.append("goose")
+            _note_installed(installed, "Goose")
 
     if not saw_client:
         return None
@@ -137,7 +148,7 @@ def _remove_from_mcp_json(path: Path) -> bool | None:
     except OSError as exc:
         print(f"Failed to uninstall codeparse from {path}: {exc}", file=sys.stderr)
         return None
-    print(f"Removed codeparse from {path}")
+    print(f"Removed mcp server config from {path}")
     return True
 
 
@@ -163,7 +174,7 @@ def _remove_goose() -> bool | None:
     except OSError as exc:
         print(f"Failed to uninstall codeparse from {path}: {exc}", file=sys.stderr)
         return None
-    print(f"Removed codeparse from {path}")
+    print(f"Removed mcp server config from {path}")
     return True
 
 

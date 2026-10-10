@@ -27,7 +27,7 @@ def test_version_flag_prints_and_exits_zero(
     monkeypatch.setattr(sys, "argv", ["codeparse", "--version"])
     assert main() == 0
     out = capsys.readouterr().out
-    assert "codeparse Version:" in out
+    assert "codeparse version:" in out
     assert get_version() in out
 
 
@@ -41,8 +41,8 @@ def test_info_flag_prints_paths_and_exits_zero(
     monkeypatch.setattr(sys, "argv", ["codeparse", "--info"])
     assert main() == 0
     out = capsys.readouterr().out
-    assert "CLI Path:" in out
-    assert "Config Directory:" in out
+    assert "CLI path:" in out
+    assert "Config directory:" in out
     assert str(config_dir) in out
 
 
@@ -128,7 +128,7 @@ def test_install_registers_the_binary(
         base64.urlsafe_b64decode(parse_qs(urlparse(cursor_url).query)["config"][0])
     )
     assert cursor_config["command"] == command
-    assert cursor_config["args"] == ["mcp"]
+    assert cursor_config["args"] == ["mcp", "--cwd", "${workspaceFolder}"]
     assert claude["mcpServers"]["codeparse"]["command"] == command
     assert claude["mcpServers"]["codeparse"]["args"] == ["mcp"]
     assert cli_calls == [
@@ -140,7 +140,13 @@ def test_install_registers_the_binary(
     out = capsys.readouterr().out
     skill = tmp_path / ".cursor" / "skills" / "codeparse" / "SKILL.md"
     assert skill.is_file()
+    assert "Installed MCP server → Cursor" in out
+    assert "Installed MCP server → Claude Desktop" in out
+    assert "Installed MCP server → Claude Code" in out
+    assert "Installed MCP server → Gemini CLI" in out
+    assert "Installed MCP server → Goose" in out
     assert f"Synced skill → {skill.parent}" in out
+    assert out.index("Installed MCP server → Cursor") < out.index("Synced skill")
     assert "Restart the client" in out
 
 
@@ -424,6 +430,7 @@ def test_uninstall_removes_server_and_skill(
         ["/usr/bin/gemini", "mcp", "remove", "codeparse"],
     ]
     out = capsys.readouterr().out
+    assert f"Removed mcp server config from {tmp_path / '.cursor' / 'mcp.json'}" in out
     assert f"Removed skill → {skill}" in out
 
 

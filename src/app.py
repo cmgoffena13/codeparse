@@ -52,11 +52,11 @@ def main() -> int:
     args = build_arg_parser()
     if args.info:
         cli_path = Path(sys.argv[0]).resolve()
-        print(f"CLI Path: {cli_path}")
-        print(f"Config Directory: {get_code_parse_config_dir()}")
+        print(f"CLI path: {cli_path}")
+        print(f"Config directory: {get_code_parse_config_dir()}")
         return 0
     if args.version:
-        print(f"codeparse Version: {get_version()}")
+        print(f"codeparse version: {get_version()}")
         return 0
     if args.command == "sync":
         from src.codeparse_mcp.skill import sync_skill
