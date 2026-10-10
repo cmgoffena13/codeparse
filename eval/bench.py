@@ -174,8 +174,7 @@ def build_prompt(task: dict[str, Any], *, arm: str) -> str:
         parts.insert(
             0,
             "You have read/grep/glob/ls plus the codeparse MCP server. "
-            "Prefer ``get_file_overview`` / ``get_symbol`` for file and "
-            "symbol contents when those tools fit (follow this skill).\n\n" + SKILL_INSTRUCTIONS,
+            "Below is the codeparse MCP skill instructions.\n\n" + SKILL_INSTRUCTIONS,
         )
     else:
         parts.insert(
