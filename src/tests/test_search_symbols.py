@@ -27,10 +27,10 @@ def test_search_symbols_excludes_is_test_by_default(
         assert "pkg.prod.format_model" in out
         assert "test_format_model" not in out
         assert "tests/" not in out
-        assert "Legend: # = Rank, L = Line" in out
+        assert "Legend: # = Rank" in out
         assert "pkg/prod.py" in out
         assert any(
-            line.startswith("  • #") and " L" in line and "pkg.prod.format_model" in line
+            line.startswith("  #") and " • " in line and "pkg.prod.format_model" in line
             for line in out.splitlines()
         )
         assert "Sig:" not in out
@@ -55,15 +55,17 @@ def test_search_symbols_groups_by_file_with_rank(tmp_path: Path, python_fixtures
     db = CodeDB(root)
     try:
         out = search_symbols(db, "format_model", limit=20)
-        hits = [line for line in out.splitlines() if line.startswith("  • #")]
+        hits = [line for line in out.splitlines() if line.startswith("  #")]
         assert hits
         ranks: list[int] = []
         for line in hits:
-            # "  • #3 L12-34  qualified_name"
+            # "  #3 • qualified_name" with the rank padded to the widest rank
             parts = line.split()
-            assert parts[1].startswith("#")
-            ranks.append(int(parts[1].removeprefix("#")))
-            assert parts[2].startswith("L")
+            assert parts[0].startswith("#")
+            assert parts[1] == "•"
+            ranks.append(int(parts[0].removeprefix("#")))
         assert sorted(ranks) == list(range(1, len(ranks) + 1))
+        name_at = [line.index(line.split()[-1]) for line in hits]
+        assert len(set(name_at)) == 1
     finally:
         db.close()

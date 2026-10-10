@@ -1,7 +1,6 @@
 import sqlite3
 from collections import OrderedDict
 
-from src.codeparse_mcp.format_utils import line_span
 from src.db import CodeDB
 
 _SYMBOL_SEARCH_SQL = """
@@ -48,7 +47,7 @@ def search_symbols(
 
     Query is space-separated phrases/terms, OR'd with prefix matching. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),
-    each with rank ``#n`` and line span for ``get_symbol``. By default
+    each with rank ``#n``. By default
     skips ``is_test`` files; pass ``include_tests=True`` to include them.
     """
     stripped = query.strip().replace("-", " ")
@@ -80,17 +79,20 @@ def search_symbols(
         )
 
     lines: list[str] = [
-        "Legend: # = Rank, L = Line\n",
+        "Legend: # = Rank\n",
         f'Search results for "{stripped}" ({len(rows)} matches)',
         "",
     ]
+    rank_width = max(
+        (len(str(rank)) for hits in by_path.values() for rank, *_rest in hits),
+        default=1,
+    )
     for path_index, (path, hits) in enumerate(by_path.items()):
         if path_index > 0:
             lines.append("")
         lines.append(path)
         ordered = sorted(hits, key=lambda item: (item[1], item[2], item[3]))
-        for rank, line_start, line_end, qn in ordered:
-            loc = line_span(line_start, line_end)
-            lines.append(f"  • #{rank} {loc}  {qn}")
+        for rank, _line_start, _line_end, qn in ordered:
+            lines.append(f"  #{rank:<{rank_width}} • {qn}")
 
     return "\n".join(lines).rstrip() + "\n"
