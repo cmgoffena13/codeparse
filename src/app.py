@@ -52,7 +52,7 @@ def main() -> int:
     args = build_arg_parser()
     if args.info:
         cli_path = Path(sys.argv[0]).resolve()
-        print(f"CLI path: {cli_path}")
+        print(f"Binary path: {cli_path}")
         print(f"Config directory: {get_code_parse_config_dir()}")
         return 0
     if args.version:

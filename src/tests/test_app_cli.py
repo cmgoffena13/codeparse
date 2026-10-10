@@ -41,7 +41,7 @@ def test_info_flag_prints_paths_and_exits_zero(
     monkeypatch.setattr(sys, "argv", ["codeparse", "--info"])
     assert main() == 0
     out = capsys.readouterr().out
-    assert "CLI path:" in out
+    assert "Binary path:" in out
     assert "Config directory:" in out
     assert str(config_dir) in out
 
