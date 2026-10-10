@@ -8,8 +8,7 @@ SELECT
     s.qualified_name,
     p.qualified_name AS parent_qualified_name,
     f.path AS file_path,
-    s.kind,
-    f.language AS file_language
+    s.kind
 FROM symbols AS s
 INNER JOIN files AS f
     ON f.id = s.file_id
@@ -67,7 +66,6 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
     path = row["file_path"]
     line_start = int(row["line_start"])
     line_end = int(row["line_end"])
-    lang = row["file_language"] or "—"
 
     abs_path = db.root / path
     body_lines: list[str] = []
@@ -89,16 +87,15 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
 
     lines: list[str] = [
         "Legend: L = Line\n",
-        f"Symbol: {key}",
+        f"File: {path}",
     ]
     parent_qn = row["parent_qualified_name"]
     if parent_qn:
         lines.append(f"Parent: {parent_qn}")
     lines.extend(
         [
+            f"Symbol: {key}",
             f"Kind: {row['kind']}",
-            f"File: {path}",
-            f"Language: {lang}",
             f"Lines: {lines_range(line_start, line_end)}",
             "",
             "## Code Definition",

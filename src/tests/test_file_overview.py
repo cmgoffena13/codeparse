@@ -41,6 +41,8 @@ def test_file_overview_includes_import_and_symbol_line_numbers(tmp_path: Path) -
     try:
         out = get_file_overview(db, "pkg/mod.py")
         assert "Legend: L = Line" in out
+        assert "Language:" not in out
+        assert out.index("File:") < out.index("Lines:")
         # Padded gutters (file has 13 lines → width 2).
         assert "L1   from pkg.other import helper" in out
         assert "L8   from pkg.late import late_thing" in out

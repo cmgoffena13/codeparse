@@ -50,14 +50,21 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "Access: 0" in out
         assert "Type Annotations: 0" in out
         assert "Parent:" not in out
+        assert "Language:" not in out
+        assert out.index("File:") < out.index("Symbol:")
+        assert out.index("Symbol:") < out.index("Kind:")
+        assert out.index("Kind:") < out.index("Lines:")
         assert "pkg/user.py" not in out
         assert "tests/test_target.py" not in out
         assert "## Calls" not in out
 
         method = get_symbol_context(db, "pkg.target.Worker.run")
         assert "Parent: pkg.target.Worker" in method
-        assert method.index("Symbol:") < method.index("Parent:")
-        assert method.index("Parent:") < method.index("Kind:")
+        assert "Language:" not in method
+        assert method.index("File:") < method.index("Parent:")
+        assert method.index("Parent:") < method.index("Symbol:")
+        assert method.index("Symbol:") < method.index("Kind:")
+        assert method.index("Kind:") < method.index("Lines:")
     finally:
         db.close()
 

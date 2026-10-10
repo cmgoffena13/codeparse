@@ -91,7 +91,7 @@ def get_file_overview(db: CodeDB, file_path: str) -> str:
         return str(exc)
 
     file_row = db.connection.execute(
-        "SELECT id, path, language, line_count FROM files WHERE path = ?",
+        "SELECT id, path, line_count FROM files WHERE path = ?",
         (path,),
     ).fetchone()
     if file_row is None:
@@ -104,7 +104,6 @@ def get_file_overview(db: CodeDB, file_path: str) -> str:
     lines_out: list[str] = [
         "Legend: L = Line\n",
         f"File: {file_row['path']}",
-        f"Language: {file_row['language'] or '—'}",
         f"Lines: {file_row['line_count']}",
         "",
         f"## Imports ({len(imp_rows)})",
