@@ -1,4 +1,5 @@
-# CodeParse
+<h1 align="center">CodeParse</h1>
+
 ![Lines of Code](https://aschey.tech/tokei/github/cmgoffena13/codeparse?category=code) [![Build Status](https://github.com/cmgoffena13/codeparse/actions/workflows/build-release.yml/badge.svg)](https://github.com/cmgoffena13/selene-ai/actions) ![License](https://img.shields.io/badge/license-MIT-informational?style=flat)
 
 CodeParse is a codebase indexer that gives agents fast, accurate, and compact context on your Python codebases while reducing token usage. It parses your codebase and stores the relationships of your code in a local SQLite database.
