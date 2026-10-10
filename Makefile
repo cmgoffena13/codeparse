@@ -59,6 +59,8 @@ compile:
 		--output-filename=codeparse \
 		--python-flag=no_warnings \
 		--include-package=src \
+		--include-distribution-metadata=caio \
+		--include-distribution-metadata=aiofile \
 		--nofollow-import-to=src.tests \
 		--nofollow-import-to=pytest \
 		--include-data-files=pyproject.toml=pyproject.toml \
