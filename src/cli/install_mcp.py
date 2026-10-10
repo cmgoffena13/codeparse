@@ -113,3 +113,119 @@ def install_mcp() -> list[str] | None:
     if not saw_client:
         return None
     return installed
+
+
+def _drop_server(data: dict[str, object]) -> bool:
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict) or SERVER_NAME not in servers:
+        return False
+    del servers[SERVER_NAME]
+    return True
+
+
+def _remove_from_mcp_json(path: Path) -> bool | None:
+    """Remove ``codeparse`` from an MCP JSON config.
+
+    Returns ``True`` when an entry was removed, ``False`` when the file has no
+    entry, and ``None`` when the file could not be updated.
+    """
+    if not path.is_file():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"Failed to uninstall codeparse from {path}: {exc}", file=sys.stderr)
+        return None
+    if not isinstance(data, dict):
+        print(f"Failed to uninstall codeparse from {path}: not a JSON object", file=sys.stderr)
+        return None
+    removed = _drop_server(data)
+    projects = data.get("projects")
+    if isinstance(projects, dict):
+        for project in projects.values():
+            if isinstance(project, dict):
+                removed = _drop_server(project) or removed
+    if not removed:
+        return False
+    try:
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(f"Failed to uninstall codeparse from {path}: {exc}", file=sys.stderr)
+        return None
+    print(f"Removed codeparse from {path}")
+    return True
+
+
+def _remove_goose() -> bool | None:
+    path = _goose_config_dir() / "config.yaml"
+    if not path.is_file():
+        return False
+    import yaml
+
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        print(f"Failed to uninstall codeparse from {path}: {exc}", file=sys.stderr)
+        return None
+    if not isinstance(data, dict):
+        return False
+    extensions = data.get("extensions")
+    if not isinstance(extensions, dict) or SERVER_NAME not in extensions:
+        return False
+    del extensions[SERVER_NAME]
+    try:
+        path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    except OSError as exc:
+        print(f"Failed to uninstall codeparse from {path}: {exc}", file=sys.stderr)
+        return None
+    print(f"Removed codeparse from {path}")
+    return True
+
+
+def _remove_via_cli(command: list[str], client: str) -> None:
+    try:
+        run_cli_command(command)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Failed to uninstall codeparse from {client}: {exc}", file=sys.stderr)
+
+
+def uninstall_mcp() -> bool:
+    """Remove the codeparse MCP server from installed clients.
+
+    Returns ``False`` when a config file could not be updated.
+    """
+    ok = True
+    removed = False
+    home = Path.home()
+    configs = [
+        home / ".cursor" / "mcp.json",
+        home / ".claude.json",
+        home / ".gemini" / "settings.json",
+    ]
+    claude_dir = get_claude_config_path()
+    if claude_dir is not None:
+        configs.append(claude_dir / "claude_desktop_config.json")
+    for path in configs:
+        result = _remove_from_mcp_json(path)
+        if result is None:
+            ok = False
+        removed = removed or result is True
+
+    claude_cmd = find_claude_command()
+    if claude_cmd:
+        for scope in ("user", "local"):
+            _remove_via_cli(
+                [claude_cmd, "mcp", "remove", SERVER_NAME, "--scope", scope],
+                "Claude Code",
+            )
+    gemini_cmd = find_gemini_command()
+    if gemini_cmd:
+        _remove_via_cli([gemini_cmd, "mcp", "remove", SERVER_NAME], "Gemini CLI")
+
+    goose = _remove_goose()
+    if goose is None:
+        ok = False
+    removed = removed or goose is True
+    if not removed:
+        print("No MCP server entries found.")
+    return ok

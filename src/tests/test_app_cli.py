@@ -329,3 +329,137 @@ def test_index_missing_cwd_exits_one(
     monkeypatch.setattr(sys, "argv", ["codeparse", "index", "--cwd", str(missing)])
     assert main() == 1
     assert "Not a directory" in capsys.readouterr().err
+
+
+def test_uninstall_removes_server_and_skill(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    import json
+
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    (tmp_path / ".cursor").mkdir()
+    (tmp_path / ".cursor" / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "codeparse": {"command": "codeparse", "args": ["mcp"]},
+                    "other": {"command": "noop"},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    claude_dir = tmp_path / "Library" / "Application Support" / "Claude"
+    claude_dir.mkdir(parents=True)
+    (claude_dir / "claude_desktop_config.json").write_text(
+        json.dumps({"mcpServers": {"codeparse": {"command": "codeparse", "args": ["mcp"]}}}),
+        encoding="utf-8",
+    )
+    (tmp_path / ".claude.json").write_text(
+        json.dumps(
+            {
+                "userID": "abc",
+                "mcpServers": {"codeparse": {"command": "codeparse"}},
+                "projects": {"/repo": {"mcpServers": {"codeparse": {"command": "codeparse"}}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    gemini = tmp_path / ".gemini"
+    gemini.mkdir()
+    (gemini / "settings.json").write_text(
+        json.dumps({"theme": "dark", "mcpServers": {"codeparse": {"command": "codeparse"}}}),
+        encoding="utf-8",
+    )
+    goose = tmp_path / ".config" / "goose"
+    goose.mkdir(parents=True)
+    (goose / "config.yaml").write_text(
+        "extensions:\n"
+        "  codeparse:\n"
+        "    type: stdio\n"
+        "    cmd: codeparse\n"
+        "  other:\n"
+        "    type: stdio\n"
+        "    cmd: noop\n",
+        encoding="utf-8",
+    )
+    skills = tmp_path / ".cursor" / "skills"
+    skills.mkdir()
+    skill = skills / "codeparse"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("skill", encoding="utf-8")
+    (skills / "other").mkdir()
+    calls: list[list[str]] = []
+    monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: "/usr/bin/claude")
+    monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: "/usr/bin/gemini")
+    monkeypatch.setattr(
+        "src.cli.install_mcp.run_cli_command",
+        lambda command: calls.append(command),
+    )
+    monkeypatch.setattr(sys, "argv", ["codeparse", "uninstall"])
+
+    assert main() == 0
+    cursor = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
+    assert "codeparse" not in cursor["mcpServers"]
+    assert cursor["mcpServers"]["other"]["command"] == "noop"
+    claude_desktop = json.loads(
+        (claude_dir / "claude_desktop_config.json").read_text(encoding="utf-8")
+    )
+    assert "codeparse" not in claude_desktop["mcpServers"]
+    claude_code = json.loads((tmp_path / ".claude.json").read_text(encoding="utf-8"))
+    assert claude_code["userID"] == "abc"
+    assert "codeparse" not in claude_code["mcpServers"]
+    assert "codeparse" not in claude_code["projects"]["/repo"]["mcpServers"]
+    gemini_data = json.loads((gemini / "settings.json").read_text(encoding="utf-8"))
+    assert gemini_data["theme"] == "dark"
+    assert "codeparse" not in gemini_data["mcpServers"]
+    goose_text = (goose / "config.yaml").read_text(encoding="utf-8")
+    assert "codeparse" not in goose_text
+    assert "noop" in goose_text
+    assert not skill.exists()
+    assert (skills / "other").is_dir()
+    assert calls == [
+        ["/usr/bin/claude", "mcp", "remove", "codeparse", "--scope", "user"],
+        ["/usr/bin/claude", "mcp", "remove", "codeparse", "--scope", "local"],
+        ["/usr/bin/gemini", "mcp", "remove", "codeparse"],
+    ]
+    out = capsys.readouterr().out
+    assert f"Removed skill → {skill}" in out
+
+
+def test_uninstall_with_nothing_installed_exits_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: None)
+    monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["codeparse", "uninstall"])
+    assert main() == 0
+    out = capsys.readouterr().out
+    assert "No MCP server entries found." in out
+    assert "No codeparse skill found." in out
+
+
+def test_uninstall_invalid_config_exits_one(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    (tmp_path / ".cursor").mkdir()
+    (tmp_path / ".cursor" / "mcp.json").write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr("src.cli.install_mcp.find_claude_command", lambda: None)
+    monkeypatch.setattr("src.cli.install_mcp.find_gemini_command", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["codeparse", "uninstall"])
+    assert main() == 1
+    assert "Failed to uninstall codeparse" in capsys.readouterr().err

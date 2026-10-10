@@ -102,3 +102,22 @@ def sync_skill() -> list[Path]:
     for path in written:
         print(f"Synced skill → {path}")
     return written
+
+
+def remove_skill() -> list[Path]:
+    """Delete synced ``codeparse`` skill directories."""
+    import shutil
+
+    removed: list[Path] = []
+    for target in available_skill_dirs():
+        skill_dir = target / "codeparse"
+        if not skill_dir.is_dir():
+            continue
+        shutil.rmtree(skill_dir)
+        removed.append(skill_dir)
+    if not removed:
+        print("No codeparse skill found.")
+        return removed
+    for path in removed:
+        print(f"Removed skill → {path}")
+    return removed

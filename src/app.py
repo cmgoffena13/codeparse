@@ -81,6 +81,13 @@ def main() -> int:
             return 1
         print("Restart the client (or reload MCP) to pick up the change.")
         return 0
+    if args.command == "uninstall":
+        from src.cli.install_mcp import uninstall_mcp
+        from src.codeparse_mcp.skill import remove_skill
+
+        ok = uninstall_mcp()
+        remove_skill()
+        return 0 if ok else 1
     if args.command == "mcp":
         root = _require_indexable_root(args.cwd)
         if root is None:
