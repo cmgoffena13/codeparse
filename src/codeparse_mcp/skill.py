@@ -1,9 +1,16 @@
 from pathlib import Path
 
-SKILL_INSTRUCTIONS = """\
+DESCRIPTION = (
+    "Use when navigating a Python codebase: locating definitions/references, "
+    "mapping repo structure, getting file summaries, or understanding how "
+    "files and symbols depend on each other. "
+    "Covers symbol search and entry points."
+)
+
+SKILL_INSTRUCTIONS = f"""\
 ---
 name: codeparse
-description: Use the codeparse MCP Server effectively.
+description: {DESCRIPTION}
 ---
 
 IMPORTANT: ALWAYS USE ``get_symbol_context`` / ``get_file_overview`` instead of \

@@ -16,7 +16,7 @@ from src.codeparse_mcp.project_overview import (
     get_project_overview as run_project_overview,
 )
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
-from src.codeparse_mcp.skill import materialize_skill
+from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
 from src.codeparse_mcp.symbol_references import (
     get_symbol_references as run_symbol_references,
@@ -26,12 +26,8 @@ from src.processor import CodeProcessor
 from src.utils import get_code_parse_config_dir
 
 _INSTRUCTIONS = """\
-codeparse tools read an up-to-date view of the codebase.
-Start the server in the repository you want to analyze.
-Utilize the ``codeparse`` skill for the best results if available.
-The skill is served at ``skill://codeparse/SKILL.md``.
-
-Current Supported File Languages: [Python]
+codeparse tools read an up-to-date view of Python codebases.
+Utilize the ``codeparse`` skill for guided exploration workflows.
 """
 
 
@@ -64,7 +60,7 @@ _SKILL_PATH = materialize_skill(get_code_parse_config_dir())
 @mcp.resource(
     "skill://codeparse/SKILL.md",
     name="codeparse/SKILL.md",
-    description="Use the codeparse MCP Server effectively.",
+    description=DESCRIPTION,
     mime_type="text/markdown",
 )
 def codeparse_skill() -> str:
