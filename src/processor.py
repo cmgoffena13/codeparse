@@ -91,6 +91,10 @@ class CodeProcessor:
         file_relative_path = file_path.relative_to(self.root)
         file_last_modified = file_path.lstat().st_mtime
         file_extension = file_relative_path.suffix
+
+        if not file_extension and not file_path.is_file():
+            return
+
         dir_path = file_path.parent.relative_to(self.root)
         directory_id = None if str(dir_path) == "." else self.directories_snapshot[dir_path]["id"]
 

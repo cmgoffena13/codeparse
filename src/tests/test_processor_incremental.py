@@ -184,6 +184,20 @@ def test_same_line_duplicate_calls_index_without_integrity_error(
     assert rows[0]["id"] != rows[1]["id"]
 
 
+def test_extensionless_broken_symlink_is_not_a_skipped_source(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "Makefile").write_text("all:\n", encoding="utf-8")
+    (tmp_path / "customers").symlink_to("../packages/customers")
+
+    db = CodeDB(tmp_path)
+    processor = CodeProcessor(db, tmp_path)
+    processor.process(full=True)
+    names = {row["name"] for row in db.connection.execute("SELECT name FROM files")}
+    assert {"mod.py", "Makefile"} <= names
+    assert "customers" not in names
+
+
 def test_concurrent_run_query_does_not_raise(tmp_path: Path) -> None:
     """MCP may run tools in parallel; shared SQLite must be serialized."""
     _write_nested_fixture(tmp_path)
