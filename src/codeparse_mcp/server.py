@@ -118,7 +118,7 @@ def search_symbols(
     Ranks results by text relevance to the query.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
-    Use multiple keywords, separated by spaces, to narrow your search.
+    Use multiple keywords, separated by spaces, to narrow your search (AND).
     Example input queries: ``loader``, ``dialect format``
     """
     return _processor(ctx).run_query(
