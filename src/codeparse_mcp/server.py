@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from mcp.server.mcpserver import Context, MCPServer
+from fastmcp import Context, FastMCP
 
 from src.codeparse_mcp.directory_tree import get_directory_tree as run_directory_tree
 from src.codeparse_mcp.file_overview import get_file_overview as run_file_overview
@@ -41,7 +41,7 @@ def index_root() -> Path:
 
 
 @asynccontextmanager
-async def _lifespan(_app: MCPServer) -> AsyncIterator[dict[str, Any]]:
+async def _lifespan(_app: FastMCP) -> AsyncIterator[dict[str, Any]]:
     get_code_parse_config_dir()
     root = index_root()
     db = CodeDB(root)
@@ -53,11 +53,11 @@ async def _lifespan(_app: MCPServer) -> AsyncIterator[dict[str, Any]]:
         db.close()
 
 
-mcp = MCPServer("codeparse", instructions=_INSTRUCTIONS, lifespan=_lifespan)
+mcp = FastMCP("codeparse", instructions=_INSTRUCTIONS, lifespan=_lifespan)
 
 
 def _processor(ctx: Context) -> CodeProcessor:
-    return ctx.request_context.lifespan_context["processor"]
+    return ctx.lifespan_context["processor"]
 
 
 @mcp.tool()
@@ -163,7 +163,7 @@ def find_importers(file_path: str, ctx: Context, include_tests: bool = False) ->
 
 
 def main() -> None:
-    mcp.run(transport="stdio")
+    mcp.run(transport="stdio", show_banner=False)
 
 
 if __name__ == "__main__":

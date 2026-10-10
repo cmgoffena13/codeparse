@@ -87,7 +87,7 @@ def test_main_starts_mcp_stdio(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     fake_server.mcp = fake_mcp
     monkeypatch.setitem(sys.modules, "src.codeparse_mcp.server", fake_server)
     assert main() == 0
-    fake_mcp.run.assert_called_once_with(transport="stdio")
+    fake_mcp.run.assert_called_once_with(transport="stdio", show_banner=False)
 
 
 def test_install_mcp_merges_into_cursor_and_claude(

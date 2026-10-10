@@ -44,7 +44,7 @@ def _run_mcp(root: Path) -> int:
     os.chdir(root)
     from src.codeparse_mcp.server import mcp
 
-    mcp.run(transport="stdio")
+    mcp.run(transport="stdio", show_banner=False)
     return 0
 
 
