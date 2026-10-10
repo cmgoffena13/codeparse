@@ -9,6 +9,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+collect_ignore = ["test_project"]
+
 from src.assigner import GlobalIDAssigner
 from src.db import CodeDB
 from src.parsers.factory import ParserFactory
@@ -24,6 +26,20 @@ def _isolate_code_parse_config(
         "CODE_PARSE_CONFIG_DIR",
         str(tmp_path / "codeparse-config"),
     )
+
+
+@pytest.fixture
+def mcp_client(_isolate_code_parse_config: None):
+    """In-process FastMCP client for the codeparse server."""
+    from fastmcp import Client
+
+    from src.codeparse_mcp import server
+    from src.codeparse_mcp.skill import materialize_skill
+    from src.utils import get_code_parse_config_dir
+
+    # A previous test in this process may have imported the server first.
+    server._SKILL_PATH = materialize_skill(get_code_parse_config_dir())
+    return Client(server.mcp)
 
 
 @pytest.fixture
