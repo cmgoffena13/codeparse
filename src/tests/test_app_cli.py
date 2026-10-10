@@ -198,8 +198,7 @@ def test_invalid_claude_config_is_reported(
 
 
 def test_windows_deeplink_and_cmd_install(monkeypatch: pytest.MonkeyPatch) -> None:
-    from fastmcp.cli.install.claude_code import find_claude_command
-    from fastmcp.cli.install.shared import open_deeplink, run_cli_command
+    from src.cli.fastmcp_cli_standin import find_claude_command, open_deeplink, run_cli_command
 
     monkeypatch.setattr(sys, "platform", "win32")
     opened: list[str] = []
@@ -214,7 +213,7 @@ def test_windows_deeplink_and_cmd_install(monkeypatch: pytest.MonkeyPatch) -> No
         recorded["executable"] = kwargs.get("executable")
         return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
-    monkeypatch.setattr("fastmcp.cli.install.shared.subprocess.run", fake_run)
+    monkeypatch.setattr("src.cli.fastmcp_cli_standin.subprocess.run", fake_run)
     monkeypatch.setenv("SYSTEMROOT", r"C:\Windows")
     run_cli_command(
         [
@@ -236,9 +235,9 @@ def test_windows_deeplink_and_cmd_install(monkeypatch: pytest.MonkeyPatch) -> No
             args=command, returncode=0, stdout="Claude Code 1.0\n", stderr=""
         )
 
-    monkeypatch.setattr("fastmcp.cli.install.claude_code.subprocess.run", fake_version)
+    monkeypatch.setattr("src.cli.fastmcp_cli_standin.subprocess.run", fake_version)
     monkeypatch.setattr(
-        "fastmcp.cli.install.claude_code.shutil.which",
+        "src.cli.fastmcp_cli_standin.shutil.which",
         lambda name: r"C:\npm\claude.cmd" if name == "claude" else None,
     )
     assert find_claude_command() == r"C:\npm\claude.cmd"

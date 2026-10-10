@@ -1,4 +1,4 @@
-"""Register the codeparse binary with every MCP client FastMCP knows about."""
+"""Register the codeparse binary with MCP clients."""
 
 import json
 import os
@@ -6,14 +6,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fastmcp.cli.install.claude_code import find_claude_command
-from fastmcp.cli.install.claude_desktop import get_claude_config_path
-from fastmcp.cli.install.cursor import generate_cursor_deeplink
-from fastmcp.cli.install.gemini_cli import find_gemini_command
-from fastmcp.cli.install.goose import generate_goose_deeplink
-from fastmcp.cli.install.shared import open_deeplink, run_cli_command
 from fastmcp.mcp_config import MCPConfig, StdioMCPServer, update_config_file
 
+from src.cli.fastmcp_cli_standin import (
+    find_claude_command,
+    find_gemini_command,
+    generate_cursor_deeplink,
+    generate_goose_deeplink,
+    get_claude_config_path,
+    open_deeplink,
+    run_cli_command,
+)
 from src.utils import binary_path
 
 SERVER_NAME = "codeparse"
@@ -44,10 +47,7 @@ def _note_installed(installed: list[str], client: str) -> None:
 
 
 def install_mcp() -> list[str] | None:
-    """Install the codeparse binary into each FastMCP client that is present.
-
-    FastMCP's ``install_*`` helpers launch a Python file with ``uv``. This CLI
-    is the compiled binary, so each client is given that executable instead.
+    """Install the codeparse binary into each MCP client that is present.
 
     Returns the client names that were installed, or ``None`` when no client
     is installed.
