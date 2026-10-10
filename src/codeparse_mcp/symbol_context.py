@@ -81,7 +81,7 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
                 gutter = _definition_gutter_width(line_start, len(chunk))
                 for index, ln in enumerate(chunk):
                     lineno = line_start + index
-                    body_lines.append(f"  L{lineno:<{gutter}}  {ln}")
+                    body_lines.append(f"L{lineno:<{gutter}} | {ln}")
     except OSError as e:
         body_lines.append(f"    (could not read source file: {e})")
 

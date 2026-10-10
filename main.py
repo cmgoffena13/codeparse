@@ -134,7 +134,7 @@ async def _print_tools() -> None:
             "SYMBOL CONTEXT",
             _body(
                 await client.call_tool(
-                    "get_symbol_context",
+                    "get_symbol",
                     {"qualified_name": "sqlmesh.RuntimeEnv.is_terminal"},
                 )
             ),

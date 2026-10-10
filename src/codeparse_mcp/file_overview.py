@@ -81,7 +81,7 @@ def get_file_overview(db: CodeDB, file_path: str) -> str:
     """
     Return imports and a nested symbol tree for one file.
 
-    Imports use a padded ``L{n}`` gutter (same idea as ``get_symbol_context``).
+    Imports use a padded ``L{n}`` gutter (same idea as ``get_symbol``).
     Symbols use ``L{start}[-{end}]  kind  qualified_name``. ``file_path`` is
     normalized to a POSIX path relative to the workspace root (e.g. ``pkg/mod.py``).
     """

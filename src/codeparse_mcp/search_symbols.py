@@ -48,7 +48,7 @@ def search_symbols(
 
     Query is space-separated phrases/terms, OR'd with prefix matching. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),
-    each with rank ``#n`` and line span for ``get_symbol_context``. By default
+    each with rank ``#n`` and line span for ``get_symbol``. By default
     skips ``is_test`` files; pass ``include_tests=True`` to include them.
     """
     stripped = query.strip()

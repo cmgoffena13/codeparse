@@ -19,7 +19,7 @@ _TOOLS = {
     "get_directory_tree",
     "get_file_overview",
     "get_project_overview",
-    "get_symbol_context",
+    "get_symbol",
     "get_symbol_references",
     "search_symbols",
 }
@@ -97,9 +97,7 @@ def test_client_tools_read_the_workspace(
             assert "TestChild" not in found
 
             context = _text(
-                await mcp_client.call_tool(
-                    "get_symbol_context", {"qualified_name": "pkg.child.Child"}
-                )
+                await mcp_client.call_tool("get_symbol", {"qualified_name": "pkg.child.Child"})
             )
             assert "## Code Definition" in context
             assert "class Child(Parent):" in context

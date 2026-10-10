@@ -115,7 +115,7 @@ def get_directory_tree(ctx: Context, path: str | None = None) -> str:
 def get_file_overview(file_path: str, ctx: Context) -> str:
     """
     Return imports and a nested symbol tree for one file with line numbers.
-    Use ``get_symbol_context`` for code definitions.
+    Use ``get_symbol`` for code definitions.
     """
     path = file_path.strip()
     return _processor(ctx).run_query(lambda db: run_file_overview(db, path))
@@ -146,7 +146,7 @@ def search_symbols(
 
 
 @mcp.tool()
-def get_symbol_context(qualified_name: str, ctx: Context) -> str:
+def get_symbol(qualified_name: str, ctx: Context) -> str:
     """
     Return the symbol code definition and aggregated count of reference sites
     (calls, accesses, type annotations).

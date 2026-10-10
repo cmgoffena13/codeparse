@@ -13,22 +13,22 @@ name: codeparse
 description: {DESCRIPTION}
 ---
 
-IMPORTANT: ALWAYS USE ``get_symbol_context`` / ``get_file_overview`` instead of \
+IMPORTANT: ALWAYS USE ``get_symbol`` / ``get_file_overview`` instead of \
 ``read`` to get file / symbol information.
 
 The information that is provided to you will determine the tool you should use.
 
 ## You are given the file name.
 1. Use ``get_file_overview`` to get a summary of the symbols in the file.
-2. Use ``get_symbol_context`` to get the code definition of the symbol. 
+2. Use ``get_symbol`` to get the code definition of the symbol. 
 
 ## You are given the file name and exact symbol name.
-1. Use ``get_symbol_context`` to get the code definition of the symbol. 
+1. Use ``get_symbol`` to get the code definition of the symbol. 
 
 ## You are NOT given the file name or exact symbol name. 
 1. Investigate the codebase using ``get_project_overview`` and keywords. 
 2. Use ``get_file_overview`` to get a summary of the symbols in the file.
-3. Use ``get_symbol_context`` to get the code definition of the symbol.
+3. Use ``get_symbol`` to get the code definition of the symbol.
 
 ## How to investigate the codebase using keywords
 
