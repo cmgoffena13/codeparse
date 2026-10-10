@@ -10,7 +10,7 @@ SELECT
     s.line_start,
     s.line_end,
     f.path AS path,
-    bm25(symbols_fts) AS rank
+    bm25(symbols_fts, 10.0, 5.0, 5.0) AS rank
 FROM symbols_fts
 INNER JOIN symbols AS s
     ON s.id = symbols_fts.rowid
@@ -24,15 +24,15 @@ LIMIT ?
 
 
 def build_fts_query(user_input: str) -> str:
-    """Turn free text into an OR of prefix terms (e.g. ``auth login`` → ``auth* OR login*``).
+    """Turn free text into an AND of prefix terms (e.g. ``auth login`` → ``auth* AND login*``).
 
-    Tokens are always OR'd. Do not treat ``AND``/``OR``/``NOT`` in the input as
+    Tokens are always AND'd. Do not treat ``AND``/``OR``/``NOT`` in the input as
     FTS operators — they become ordinary terms.
     """
-    terms = user_input.strip().split()
+    terms = user_input.split()
     if not terms:
         return ""
-    return " OR ".join(f"{term}*" for term in terms)
+    return " AND ".join(f"{term}*" for term in terms)
 
 
 def search_symbols(
@@ -51,7 +51,7 @@ def search_symbols(
     each with rank ``#n`` and line span for ``get_symbol``. By default
     skips ``is_test`` files; pass ``include_tests=True`` to include them.
     """
-    stripped = query.strip()
+    stripped = query.strip().replace("-", " ")
     if not stripped:
         return "No search text given; pass a non-empty query."
 
