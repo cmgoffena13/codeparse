@@ -54,6 +54,7 @@ eval-clean:
 	rm -rf eval/results
 
 compile:
+	rm -rf dist
 	uv run --no-dev -- nuitka src/app.py \
 		--standalone \
 		--onefile \
