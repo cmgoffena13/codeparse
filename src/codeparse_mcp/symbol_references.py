@@ -21,10 +21,10 @@ WHERE sr.ref_symbol_qualified_name = ?
 ORDER BY sr.ref_kind, f.path, sr.source_line
 """
 
-_SYMBOLS_IN_FILE_SQL = """
-SELECT qualified_name, line_start, line_end
+_SYMBOLS_IN_FILES_SQL = """
+SELECT file_id, qualified_name, line_start, line_end
 FROM symbols
-WHERE file_id = ?
+WHERE file_id IN ({placeholders})
 """
 
 _REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
@@ -46,12 +46,16 @@ def _enclosing_qn(spans: list[tuple[str, int, int]], source_line: int) -> str | 
 
 
 def _load_file_spans(db: CodeDB, file_ids: set[int]) -> dict[int, list[tuple[str, int, int]]]:
-    by_file: dict[int, list[tuple[str, int, int]]] = {}
-    for file_id in file_ids:
-        by_file[file_id] = [
+    ids = list(file_ids)
+    placeholders = ",".join("?" * len(ids))
+    by_file: dict[int, list[tuple[str, int, int]]] = {file_id: [] for file_id in ids}
+    for row in db.connection.execute(
+        _SYMBOLS_IN_FILES_SQL.format(placeholders=placeholders),
+        ids,
+    ):
+        by_file[int(row["file_id"])].append(
             (row["qualified_name"], int(row["line_start"]), int(row["line_end"]))
-            for row in db.connection.execute(_SYMBOLS_IN_FILE_SQL, (file_id,))
-        ]
+        )
     return by_file
 
 
@@ -127,8 +131,6 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
 
     for kind in sorted(k for k in by_kind if k not in covered):
         items = by_kind[kind]
-        if not items:
-            continue
         title = kind.replace("_", " ").title()
         lines.extend(
             _section_lines(f"## {title}", len(items), items[:_MAX_PER_KIND], spans_by_file)

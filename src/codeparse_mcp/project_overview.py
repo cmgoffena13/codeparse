@@ -40,9 +40,7 @@ ORDER BY f.path
 _MODULE_FILES_SQL = """
 SELECT path, normalized_path, line_count, symbol_count
 FROM files
-WHERE is_test = 0
-    AND language = 'python'
-    AND normalized_path IN ({placeholders})
+WHERE normalized_path IN ({placeholders})
 """
 
 

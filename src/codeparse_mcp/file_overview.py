@@ -10,7 +10,6 @@ SELECT
     parent_id,
     kind,
     qualified_name,
-    name,
     line_start,
     line_end
 FROM symbols
@@ -38,7 +37,7 @@ def _gutter_width(*line_numbers: int) -> int:
 def _symbol_label(row) -> str:
     loc = line_span(int(row["line_start"]), int(row["line_end"]))
     kind = (row["kind"] or "").strip()
-    label = (row["qualified_name"] or row["name"] or "").strip()
+    label = row["qualified_name"].strip()
     return f"{loc}  {kind}  {label}"
 
 
