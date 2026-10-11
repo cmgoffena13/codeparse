@@ -14,12 +14,6 @@ def make_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show CLI information",
     )
-    parser.add_argument(
-        "--cwd",
-        type=Path,
-        default=Path.cwd(),
-        help="Workspace root (default: current directory)",
-    )
 
     subparsers = parser.add_subparsers(dest="command")
 
