@@ -21,21 +21,23 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 
 Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server.
 
+### Benchmark Legend
  - **AI Baseline**: Builtin tools
- - **AI w/ CodeParse**: Builtin tools and CodeParse MCP Server w/ SKILL.md
- - **Total Tokens**: All tokens used by the agent to complete the task.
+ - **CodeParse**: Builtin tools and CodeParse MCP Server w/ SKILL.md
+ - **Tokens**: All tokens used by the agent to complete the task.
  
+### Benchmark Results
 ```
 Cursor Benchmark Evaluation - Grok 4.7
 ----------------- Mean -----------------
-AI Baseline Total Tokene: 393,530
-AI w/ CodeParse Total Tokens: 265,867 (-32% reduction)
+AI Baseline Tokene: 393,530
+CodeParse Tokens: 265,867 (-32% reduction)
 ----------------------------------------
 
 Claude Benchmark Evaluation - Opus 5.5 Medium
 ----------------- Mean -----------------
-AI Baseline Total Tokene: XXXX
-AI w/ CodeParse Total Tokens: XXXX
+AI Baseline Tokene: XXXX
+CodeParse Tokens: XXXX
 ----------------------------------------
 ```
 
