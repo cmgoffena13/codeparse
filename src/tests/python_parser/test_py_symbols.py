@@ -65,6 +65,7 @@ def test_python_fixture_file_parses_symbols_imports_and_references(python_parser
     assert fake_prop["modifiers"] is not None
     assert "_noop_deco" in fake_prop["modifiers"]
     assert "property" in fake_prop["modifiers"]
+    assert fake_prop["kind"] == "property"
 
 
 def test_python_module_qn_prefixes_root_symbols(python_parser, fixture_bytes):

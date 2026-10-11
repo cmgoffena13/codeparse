@@ -677,10 +677,6 @@ class PythonParser(ParserBase):
         line_start = outer.start_point.row + 1 if outer is not None else node.start_point.row + 1
         line_end = node.end_point.row + 1
 
-        kind = self._kind_for_definition(node)
-
-        scope_path = self._qualify(name)
-
         # Extract Modifiers (Decorators)
         modifiers = []
         if node.parent and node.parent.type == "decorated_definition":
@@ -693,6 +689,12 @@ class PythonParser(ParserBase):
                         dec_text = dec_text[1:].strip()
                     if dec_text:
                         modifiers.append(dec_text)
+
+        kind = self._kind_for_definition(node)
+        if kind == "method" and any(mod.split(".")[-1] == "property" for mod in modifiers):
+            kind = "property"
+
+        scope_path = self._qualify(name)
 
         # Extract Base Classes (for classes only). Raw text feeds is_test;
         # stored names are resolved qualified names.
