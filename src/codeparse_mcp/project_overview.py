@@ -10,7 +10,7 @@ _TOP_DIRECTORIES = 10
 
 _DIRECTORIES_SQL = """
 SELECT
-    COALESCE(d.path, '.') AS path,
+    d.path,
     COUNT(f.id) AS file_count,
     SUM(f.line_count) AS line_count,
     SUM(f.symbol_count) AS symbol_count
@@ -18,7 +18,7 @@ FROM files AS f
 LEFT JOIN directories AS d
     ON d.id = f.directory_id
 WHERE f.is_test = 0
-GROUP BY COALESCE(d.path, '.')
+GROUP BY d.path
 HAVING SUM(f.symbol_count) > 0
 ORDER BY symbol_count DESC, path
 LIMIT ?
