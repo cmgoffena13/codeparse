@@ -19,6 +19,7 @@ def assert_reference_shape(ref: dict, expected_file_id: int) -> None:
     assert ref["source_column"] >= 0
     assert isinstance(ref["context"], str)
     assert ref["context"]
+    assert ref["source_symbol_id"] is None or isinstance(ref["source_symbol_id"], int)
 
 
 def assert_symbol_references_invariants(references: list[dict]) -> None:

@@ -3,6 +3,7 @@ from src.tests.python_parser._assertions import (
     assert_reference_shape,
     assert_symbol_references_invariants,
     assert_symbols_invariants,
+    index_symbols,
 )
 
 
@@ -191,3 +192,39 @@ def test_param_receiver_call_resolves_via_annotation(python_parser, fixture_byte
         r["ref_symbol_qualified_name"] == "pkg.mod.DeployabilityIndex.is_representative"
         for r in calls
     )
+
+
+def test_source_symbol_id_is_the_enclosing_container(python_parser):
+    source = (
+        b"def helper():\n"
+        b"    return 1\n"
+        b"\n"
+        b"def outer():\n"
+        b"    def inner():\n"
+        b"        return helper()\n"
+        b"    return helper()\n"
+        b"\n"
+        b"helper()\n"
+        b"\n"
+        b"class Box:\n"
+        b"    def run(self) -> helper:\n"
+        b"        return helper()\n"
+    )
+    symbols, _, references = python_parser.parse(1, source, module_qn="pkg.mod")
+    by_qn = index_symbols(symbols)
+    calls = {
+        r["source_line"]: r["source_symbol_id"]
+        for r in references
+        if r["ref_kind"] == "call" and r["ref_symbol_name"] == "helper"
+    }
+    assert calls[6] == by_qn["pkg.mod.outer.inner"]["id"]
+    assert calls[7] == by_qn["pkg.mod.outer"]["id"]
+    assert calls[9] is None
+    assert calls[13] == by_qn["pkg.mod.Box.run"]["id"]
+
+    annotation = next(
+        r
+        for r in references
+        if r["ref_kind"] == "type_annotation" and r["ref_symbol_name"] == "helper"
+    )
+    assert annotation["source_symbol_id"] == by_qn["pkg.mod.Box.run"]["id"]

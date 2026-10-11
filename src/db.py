@@ -173,6 +173,7 @@ class CodeDB:
         ref_kind,
         source_line,
         source_column,
+        source_symbol_id,
         context
         FROM symbol_references
         WHERE source_file_id = ?
@@ -183,6 +184,7 @@ class CodeDB:
                 "id": row["id"],
                 "source_line": row["source_line"],
                 "source_column": row["source_column"],
+                "source_symbol_id": row["source_symbol_id"],
                 "context": row["context"],
                 "seen": False,
             }
@@ -322,10 +324,10 @@ class CodeDB:
                 """
                 INSERT INTO symbol_references_staging
                 (id, ref_symbol_name, ref_symbol_qualified_name, source_file_id,
-                 source_line, source_column, ref_kind, context)
+                 source_symbol_id, source_line, source_column, ref_kind, context)
                 VALUES (:id, :ref_symbol_name, :ref_symbol_qualified_name,
-                        :source_file_id, :source_line, :source_column, :ref_kind,
-                        :context)
+                        :source_file_id, :source_symbol_id, :source_line,
+                        :source_column, :ref_kind, :context)
                 """,
                 symbol_references,
             )
@@ -346,8 +348,8 @@ class CodeDB:
             self.connection.execute("""
             INSERT INTO symbol_references
             (id, ref_symbol_id, ref_symbol_file_id, ref_symbol_name,
-             ref_symbol_qualified_name, source_file_id, source_line,
-             source_column, ref_kind, context)
+             ref_symbol_qualified_name, source_file_id, source_symbol_id,
+             source_line, source_column, ref_kind, context)
             SELECT
             s.id,
             sy.id AS ref_symbol_id,
@@ -355,6 +357,7 @@ class CodeDB:
             s.ref_symbol_name,
             s.ref_symbol_qualified_name,
             s.source_file_id,
+            s.source_symbol_id,
             s.source_line,
             s.source_column,
             s.ref_kind,

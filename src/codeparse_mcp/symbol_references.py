@@ -10,21 +10,17 @@ _MAX_PER_KIND = 50
 _REFERENCES_SQL = """
 SELECT
     f.path AS source_path,
-    sr.source_file_id,
     sr.source_line,
-    sr.ref_kind
+    sr.ref_kind,
+    src.qualified_name AS source_qualified_name
 FROM symbol_references AS sr
 INNER JOIN files AS f
     ON f.id = sr.source_file_id
+LEFT JOIN symbols AS src
+    ON src.id = sr.source_symbol_id
 WHERE sr.ref_symbol_qualified_name = ?
 {test_filter}
 ORDER BY sr.ref_kind, f.path, sr.source_line
-"""
-
-_SYMBOLS_IN_FILES_SQL = """
-SELECT file_id, qualified_name, line_start, line_end
-FROM symbols
-WHERE file_id IN ({placeholders})
 """
 
 _REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
@@ -34,41 +30,12 @@ _REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _enclosing_qn(spans: list[tuple[str, int, int]], source_line: int) -> str | None:
-    """Tightest symbol whose span covers ``source_line``, if any."""
-    best: tuple[str, int, int] | None = None
-    for qn, start, end in spans:
-        if start <= source_line <= end:
-            span = end - start
-            if best is None or span < best[1] or (span == best[1] and start < best[2]):
-                best = (qn, span, start)
-    return best[0] if best else None
-
-
-def _load_file_spans(db: CodeDB, file_ids: set[int]) -> dict[int, list[tuple[str, int, int]]]:
-    ids = list(file_ids)
-    placeholders = ",".join("?" * len(ids))
-    by_file: dict[int, list[tuple[str, int, int]]] = {file_id: [] for file_id in ids}
-    for row in db.connection.execute(
-        _SYMBOLS_IN_FILES_SQL.format(placeholders=placeholders),
-        ids,
-    ):
-        by_file[int(row["file_id"])].append(
-            (row["qualified_name"], int(row["line_start"]), int(row["line_end"]))
-        )
-    return by_file
-
-
-def _section_lines(
-    heading: str,
-    total: int,
-    rows: list,
-    spans_by_file: dict[int, list[tuple[str, int, int]]],
-) -> list[str]:
-    by_file: OrderedDict[str, list[tuple[int, int]]] = OrderedDict()
+def _section_lines(heading: str, total: int, rows: list) -> list[str]:
+    by_file: OrderedDict[str, list[tuple[int, str | None]]] = OrderedDict()
     for r in rows:
-        path = r["source_path"]
-        by_file.setdefault(path, []).append((int(r["source_file_id"]), int(r["source_line"])))
+        by_file.setdefault(r["source_path"], []).append(
+            (int(r["source_line"]), r["source_qualified_name"])
+        )
 
     shown = len(rows)
     count_label = f"{shown} of {total}" if shown < total else str(total)
@@ -81,8 +48,7 @@ def _section_lines(
         if path_index > 0:
             lines_out.append("")
         lines_out.append(path)
-        for file_id, line_n in sites:
-            qn = _enclosing_qn(spans_by_file.get(file_id, []), line_n)
+        for line_n, qn in sites:
             if qn:
                 lines_out.append(bullet(f"L{line_n}  {qn}"))
             else:
@@ -94,9 +60,9 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
     """
     List reference sites for ``qualified_name``, grouped by ``ref_kind`` then file.
 
-    Each site shows the tightest enclosing symbol (by line span) when one exists.
-    At most ``_MAX_PER_KIND`` rows are shown per kind. Test files are skipped
-    unless ``include_tests`` is true.
+    Each site shows the enclosing symbol stored on the reference. A module-level
+    site has none. At most ``_MAX_PER_KIND`` rows are shown per kind. Test files
+    are skipped unless ``include_tests`` is true.
     """
     key = qualified_name.strip()
     if not key:
@@ -110,8 +76,6 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
     )
     if not rows:
         return f"No references to {key} were found."
-
-    spans_by_file = _load_file_spans(db, {int(r["source_file_id"]) for r in rows})
 
     by_kind: defaultdict[str, list] = defaultdict(list)
     for row in rows:
@@ -127,13 +91,11 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
         items = by_kind.get(kind, [])
         if not items:
             continue
-        lines.extend(_section_lines(heading, len(items), items[:_MAX_PER_KIND], spans_by_file))
+        lines.extend(_section_lines(heading, len(items), items[:_MAX_PER_KIND]))
 
     for kind in sorted(k for k in by_kind if k not in covered):
         items = by_kind[kind]
         title = kind.replace("_", " ").title()
-        lines.extend(
-            _section_lines(f"## {title}", len(items), items[:_MAX_PER_KIND], spans_by_file)
-        )
+        lines.extend(_section_lines(f"## {title}", len(items), items[:_MAX_PER_KIND]))
 
     return "\n".join(lines).rstrip() + "\n"

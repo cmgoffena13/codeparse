@@ -276,10 +276,12 @@ class PythonParser(ParserBase):
         context: str,
         key: tuple[str, str, int, int],
     ) -> None:
+        source_symbol_id = self.stack[-1].symbol_id if self.stack else None
         row = {
             "ref_symbol_name": target_name,
             "ref_symbol_qualified_name": ref_symbol_qualified_name,
             "source_file_id": file_id,
+            "source_symbol_id": source_symbol_id,
             "source_line": source_line,
             "source_column": source_column,
             "ref_kind": ref_kind,
@@ -287,16 +289,19 @@ class PythonParser(ParserBase):
         }
         if key in self.symbols_references_snapshot:
             self.symbols_references_snapshot[key]["seen"] = True
-            if self.symbols_references_snapshot[key]["context"] != context:
-                symbol_reference_id = self.symbols_references_snapshot[key]["id"]
+            prev = self.symbols_references_snapshot[key]
+            if prev["context"] != context or prev["source_symbol_id"] != source_symbol_id:
+                symbol_reference_id = prev["id"]
                 self.symbol_references.append({"id": symbol_reference_id, **row})
-                self.symbols_references_snapshot[key]["context"] = context
+                prev["context"] = context
+                prev["source_symbol_id"] = source_symbol_id
         else:
             symbol_reference_id = self.assigner.reserve("symbol_references", 1)[0]
             self.symbols_references_snapshot[key] = {
                 "id": symbol_reference_id,
                 "source_line": source_line,
                 "source_column": source_column,
+                "source_symbol_id": source_symbol_id,
                 "context": context,
                 "seen": True,
             }
@@ -444,6 +449,12 @@ class PythonParser(ParserBase):
                         self._class_param_annos[self.stack[-1].qualified_name] = annos
                 self.stack.append(StackFrame(symbol_id, scope_path, kind, is_test))
                 pushed_stack = True
+            # Return annotations sit on the header. Record them after the push so
+            # source_symbol_id is this function, not its parent.
+            if node.type in ("function_definition", "async_function_definition"):
+                return_type = node.child_by_field_name("return_type")
+                if return_type is not None:
+                    self._extract_reference(return_type, "type_annotation", file_id)
         elif node.type in (
             "assignment",
             "annotated_assignment",
@@ -655,10 +666,9 @@ class PythonParser(ParserBase):
         elif node.type == "attribute":
             self._extract_reference(node, "access", file_id)
         else:
-            for field in ("type", "return_type"):
-                type_node = node.child_by_field_name(field)
-                if type_node is not None:
-                    self._extract_reference(type_node, "type_annotation", file_id)
+            type_node = node.child_by_field_name("type")
+            if type_node is not None:
+                self._extract_reference(type_node, "type_annotation", file_id)
 
     def _extract_symbol(self, node: Node, file_id: int, file_bytes: bytes) -> dict | None:
         """Extract symbol definition (Class, Function, Variable)."""
