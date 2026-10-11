@@ -55,6 +55,13 @@ def test_directory_tree_path_scopes(tmp_path: Path) -> None:
         assert "pkg/__init__.py" not in out
         assert "test_dialect.py" not in out
 
+        pkg = get_directory_tree(db, path="pkg")
+        assert "pkg/" in pkg
+        assert "core/" in pkg
+        assert "dialect.py" in pkg
+        assert "__init__.py" in pkg
+        assert "test_dialect.py" not in pkg
+
         with_slash = get_directory_tree(db, path="pkg/core/")
         assert "dialect.py" in with_slash
     finally:

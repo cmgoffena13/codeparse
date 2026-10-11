@@ -24,6 +24,50 @@ SELECT
 FROM files
 """
 
+# Paths under one directory. ``path`` is unique, so the bounds are an index range.
+# ``pkg/core/`` through ``pkg/core0`` is every path under ``pkg/core``, because
+# ``/`` is the byte immediately before ``0``.
+_SUBTREE_SQL = """
+SELECT
+    'directory' AS row_type,
+    id,
+    parent_id AS parent_id,
+    name,
+    NULL AS line_count,
+    NULL AS symbol_count
+FROM directories
+WHERE path >= ? AND path < ?
+UNION ALL
+SELECT
+    'file' AS row_type,
+    id,
+    directory_id AS parent_id,
+    name,
+    line_count,
+    symbol_count
+FROM files
+WHERE path >= ? AND path < ?
+"""
+
+
+def _children_by_parent(rows):
+    children_by_parent_id = defaultdict(list)
+    for row in rows:
+        is_directory = row["row_type"] == "directory"
+        children_by_parent_id[row["parent_id"]].append((is_directory, row))
+    for sibling_list in children_by_parent_id.values():
+        sibling_list.sort(
+            key=lambda item: (not item[0], item[1]["name"].lower()),
+        )
+    return children_by_parent_id
+
+
+def _render(children_by_parent_id, root_key, root_label: str) -> str:
+    body_lines = _lines_under_parent(children_by_parent_id, root_key, "")
+    if not body_lines:
+        return root_label.rstrip("/") or "."
+    return "Legend: L = Lines, S = Symbols\n\n" + root_label + "\n" + "\n".join(body_lines)
+
 
 def _lines_under_parent(children_by_parent_id, parent_key, branch_prefix):
     lines = []
@@ -54,33 +98,27 @@ def get_directory_tree(db: CodeDB, path: str | None = None) -> str:
 
     Optional ``path`` scopes to one directory tree (exact path).
     """
-    children_by_parent_id = defaultdict(list)
-    for row in db.connection.execute(_TREE_SQL):
-        is_directory = row["row_type"] == "directory"
-        children_by_parent_id[row["parent_id"]].append((is_directory, row))
-    for sibling_list in children_by_parent_id.values():
-        sibling_list.sort(
-            key=lambda item: (not item[0], item[1]["name"].lower()),
-        )
-
-    root_key = None
-    root_label = "."
+    scoped = None
     if path and path.strip():
         try:
-            scoped = normalize_repo_file_path(path, db.root).rstrip("/")
+            normalized = normalize_repo_file_path(path, db.root).rstrip("/")
         except ValueError as exc:
             return str(exc)
-        if scoped not in ("", "."):
-            dir_row = db.connection.execute(
-                "SELECT id, path FROM directories WHERE path = ?",
-                (scoped,),
-            ).fetchone()
-            if dir_row is None:
-                return f"No directory matches {scoped!r}."
-            root_key = dir_row["id"]
-            root_label = f"{dir_row['path']}/"
+        if normalized not in ("", "."):
+            scoped = normalized
 
-    body_lines = _lines_under_parent(children_by_parent_id, root_key, "")
-    if not body_lines:
-        return root_label.rstrip("/") or "."
-    return "Legend: L = Lines, S = Symbols\n\n" + root_label + "\n" + "\n".join(body_lines)
+    if scoped is None:
+        rows = db.connection.execute(_TREE_SQL)
+        return _render(_children_by_parent(rows), None, ".")
+
+    dir_row = db.connection.execute(
+        "SELECT id, path FROM directories WHERE path = ?",
+        (scoped,),
+    ).fetchone()
+    if dir_row is None:
+        return f"No directory matches {scoped!r}."
+
+    prefix = f"{dir_row['path']}/"
+    upper = f"{dir_row['path']}0"
+    rows = db.connection.execute(_SUBTREE_SQL, (prefix, upper, prefix, upper))
+    return _render(_children_by_parent(rows), dir_row["id"], f"{dir_row['path']}/")
