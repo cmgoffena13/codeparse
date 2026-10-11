@@ -44,6 +44,7 @@ def test_base_only_change_rewrites_symbol_bases(python_parser, tmp_db) -> None:
         {
             "directories": [],
             "files": [],
+            "entry_points": [],
             "symbols": symbols,
             "imports": imports,
             "symbol_references": refs,
@@ -61,6 +62,7 @@ def test_base_only_change_rewrites_symbol_bases(python_parser, tmp_db) -> None:
         {
             "directories": [],
             "files": [],
+            "entry_points": [],
             "symbols": changed,
             "imports": [],
             "symbol_references": [],

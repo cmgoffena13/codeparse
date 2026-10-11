@@ -1,10 +1,9 @@
 """Repo map: largest directories and where the program starts."""
 
-import re
 import tomllib
 from pathlib import Path
 
-from src.codeparse_mcp.format_utils import file_label
+from src.codeparse_mcp.format_utils import bullet, file_label
 from src.db import CodeDB
 
 _TOP_DIRECTORIES = 10
@@ -13,27 +12,38 @@ _DIRECTORIES_SQL = """
 SELECT
     COALESCE(d.path, '.') AS path,
     COUNT(f.id) AS file_count,
-    COALESCE(SUM(f.line_count), 0) AS line_count,
-    COALESCE(SUM(f.symbol_count), 0) AS symbol_count
+    SUM(f.line_count) AS line_count,
+    SUM(f.symbol_count) AS symbol_count
 FROM files AS f
 LEFT JOIN directories AS d
     ON d.id = f.directory_id
 WHERE f.is_test = 0
 GROUP BY COALESCE(d.path, '.')
-HAVING COALESCE(SUM(f.symbol_count), 0) > 0
+HAVING SUM(f.symbol_count) > 0
 ORDER BY symbol_count DESC, path
 LIMIT ?
 """
 
-_PYTHON_FILES_SQL = """
-SELECT path, name, normalized_path, line_count, symbol_count
-FROM files
-WHERE is_test = 0
-    AND (language = 'python' OR name LIKE '%.py')
-ORDER BY path
+_PYTHON_ENTRY_POINTS_SQL = """
+SELECT
+    f.path,
+    f.line_count,
+    f.symbol_count,
+    e.has_main_guard,
+    e.is_named_entry
+FROM files AS f
+INNER JOIN entry_points AS e
+    ON e.id = f.id
+ORDER BY f.path
 """
 
-_MAIN_GUARD = re.compile(r"""(?m)^[ \t]*if[ \t]+__name__[ \t]*==[ \t]*(['"])__main__\1[ \t]*:""")
+_MODULE_FILES_SQL = """
+SELECT path, normalized_path, line_count, symbol_count
+FROM files
+WHERE is_test = 0
+    AND language = 'python'
+    AND normalized_path IN ({placeholders})
+"""
 
 
 def _script_targets(root: Path) -> tuple[list[tuple[str, str]], str | None]:
@@ -59,50 +69,48 @@ def _script_targets(root: Path) -> tuple[list[tuple[str, str]], str | None]:
 
 def _entry_point_lines(db: CodeDB) -> list[str]:
     """One line per file. Scripts, then ``app.py`` / ``main.py``, then ``__main__``."""
-    by_module: dict[str, str] = {}
     file_stats: dict[str, tuple[int, int]] = {}
     named: set[str] = set()
     guards: set[str] = set()
-    for row in db.connection.execute(_PYTHON_FILES_SQL):
+    for row in db.connection.execute(_PYTHON_ENTRY_POINTS_SQL):
         path = row["path"]
-        file_stats[path] = (
-            int(row["line_count"] or 0),
-            int(row["symbol_count"] or 0),
-        )
-        module = (row["normalized_path"] or "").lower()
-        if module:
-            by_module[module] = path
-        if row["name"] in ("app.py", "main.py"):
+        file_stats[path] = (int(row["line_count"]), int(row["symbol_count"]))
+        if row["is_named_entry"]:
             named.add(path)
-        file_path = db.root / path
-        try:
-            text = file_path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        if _MAIN_GUARD.search(text):
+        if row["has_main_guard"]:
             guards.add(path)
 
-    def _bullet(path: str) -> str:
-        line_count, symbol_count = file_stats.get(path, (0, 0))
-        return f"  • {file_label(path, line_count, symbol_count)}"
-
     scripts, _error = _script_targets(db.root)
+    modules = [
+        (qualified.rsplit(".", 1)[0] if "." in qualified else qualified).lower()
+        for _command, qualified in scripts
+    ]
+    by_module = {}
+    if modules:
+        placeholders = ",".join("?" * len(modules))
+        for row in db.connection.execute(
+            _MODULE_FILES_SQL.format(placeholders=placeholders),
+            modules,
+        ):
+            by_module[row["normalized_path"]] = row
+
     lines: list[str] = []
     claimed: set[str] = set()
-    for _command, qualified in scripts:
-        module = qualified.rsplit(".", 1)[0] if "." in qualified else qualified
-        path = by_module.get(module.lower())
-        if path is None or path in claimed:
+    for module in modules:
+        row = by_module.get(module)
+        if row is None or row["path"] in claimed:
             continue
+        path = row["path"]
+        file_stats[path] = (int(row["line_count"]), int(row["symbol_count"]))
         claimed.add(path)
-        lines.append(_bullet(path))
+        lines.append(bullet(file_label(path, *file_stats[path])))
 
     for path in sorted(named - claimed):
-        lines.append(_bullet(path))
+        lines.append(bullet(file_label(path, *file_stats[path])))
         claimed.add(path)
 
     for path in sorted(guards - claimed):
-        lines.append(_bullet(path))
+        lines.append(bullet(file_label(path, *file_stats[path])))
 
     return lines or ["No entry points."]
 
@@ -130,7 +138,7 @@ def get_project_overview(db: CodeDB) -> str:
             symbols = int(row["symbol_count"])
             line_count = int(row["line_count"])
             files = int(row["file_count"])
-            lines.append(f"  • {row['path']} ({line_count}L, {symbols}S, {files}F)")
+            lines.append(bullet(f"{row['path']} ({line_count}L, {symbols}S, {files}F)"))
     else:
         lines.append("No symbols.")
 

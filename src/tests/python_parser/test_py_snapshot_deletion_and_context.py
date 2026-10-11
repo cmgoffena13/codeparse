@@ -19,6 +19,7 @@ def _parse_with_shared_db(file_id: int, first: bytes, second: bytes):
             {
                 "directories": [],
                 "files": [],
+                "entry_points": [],
                 "symbols": a[0],
                 "imports": a[1],
                 "symbol_references": a[2],

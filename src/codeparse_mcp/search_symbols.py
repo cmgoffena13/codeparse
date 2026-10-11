@@ -1,6 +1,7 @@
 import sqlite3
 from collections import OrderedDict
 
+from src.codeparse_mcp.format_utils import bullet
 from src.db import CodeDB
 
 _SYMBOL_SEARCH_SQL = """
@@ -93,6 +94,6 @@ def search_symbols(
         lines.append(path)
         ordered = sorted(hits, key=lambda item: (item[1], item[2], item[3]))
         for rank, _line_start, _line_end, qn in ordered:
-            lines.append(f"  #{rank:<{rank_width}} • {qn}")
+            lines.append(bullet(qn, f"#{rank:<{rank_width}} "))
 
     return "\n".join(lines).rstrip() + "\n"

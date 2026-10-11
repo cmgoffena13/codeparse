@@ -1,12 +1,14 @@
 """Reverse-import lookup: which files import a given module."""
 
+from src.codeparse_mcp.format_utils import bullet
 from src.codeparse_mcp.paths import normalize_repo_file_path
 from src.db import CodeDB
 
 _MAX_IMPORTER_FILES = 100
 
 _IMPORTERS_SQL = """
-SELECT DISTINCT f.path AS importer_path
+SELECT DISTINCT 
+f.path AS importer_path
 FROM imports AS i
 INNER JOIN files AS f
     ON f.id = i.file_id
@@ -46,7 +48,7 @@ def find_importers(db: CodeDB, file_path: str, *, include_tests: bool = False) -
     lines_out = [
         f"Importers of {path} — {total} files",
         "",
-        *(f"  • {p}" for p in paths[:_MAX_IMPORTER_FILES]),
+        *(bullet(p) for p in paths[:_MAX_IMPORTER_FILES]),
     ]
     if total > _MAX_IMPORTER_FILES:
         lines_out.extend(["", f"...[{total - _MAX_IMPORTER_FILES} more importer files truncated]"])

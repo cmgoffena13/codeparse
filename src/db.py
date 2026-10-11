@@ -10,6 +10,7 @@ TABLE_BATCH_MAP = {
     "symbols",
     "imports",
     "symbol_references",
+    "entry_points",
 }
 
 
@@ -98,6 +99,7 @@ class CodeDB:
 
     def delete_files(self, files: dict[Path, dict[str, Any]]) -> None:
         file_ids = [file["id"] for file in files.values() if not file["seen"]]
+        self.delete_ids("entry_points", file_ids)
         self.delete_ids("files", file_ids)
 
     def get_symbols_snapshot(self, file_id: int) -> dict[tuple[str, str], dict[str, Any]]:
@@ -248,6 +250,14 @@ class CodeDB:
                         :is_test)
                 """,
                 files,
+            )
+
+            self.connection.executemany(
+                """
+                INSERT OR REPLACE INTO entry_points (id, has_main_guard, is_named_entry)
+                VALUES (:id, :has_main_guard, :is_named_entry)
+                """,
+                db_batches["entry_points"],
             )
 
             base_rows: list[dict[str, Any]] = []

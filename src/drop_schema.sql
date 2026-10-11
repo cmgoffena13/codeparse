@@ -1,6 +1,7 @@
 /* NOTE: For full reload. */
 DROP TABLE IF EXISTS watermarks;
 DROP TABLE IF EXISTS directories;
+DROP TABLE IF EXISTS entry_points;
 DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS symbol_bases;
 DROP TABLE IF EXISTS symbols;

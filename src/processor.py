@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import threading
 import time
@@ -14,6 +15,13 @@ from src.git_utils import path_spec_for_indexing, relative_path_is_ignored
 from src.parsers.factory import FILE_EXTENSION_MAPPING, ParserFactory
 
 T = TypeVar("T")
+
+_MAIN_GUARD = re.compile(r"""(?m)^[ \t]*if[ \t]+__name__[ \t]*==[ \t]*(['"])__main__\1[ \t]*:""")
+_NAMED_PYTHON_ENTRY_FILES = frozenset({"app.py", "main.py"})
+
+
+def file_has_main_guard(file_bytes: bytes) -> bool:
+    return _MAIN_GUARD.search(file_bytes.decode("utf-8", errors="replace")) is not None
 
 
 def file_path_is_test(relative_path: Path) -> bool:
@@ -41,9 +49,7 @@ class CodeProcessor:
         self._index_ignore_spec = path_spec_for_indexing(self.root)
         self.last_full_parse, self.last_incremental = self.db.get_watermark()
         self.db_batch_size = 1000
-        self.db_batches: dict[str, list[dict]] = {}
-        for table in TABLE_BATCH_MAP:
-            self.db_batches[table] = []
+        self.db_batches = self._new_batches()
 
         self.files_skipped: int = 0
         self.files_indexed: int = 0
@@ -149,6 +155,13 @@ class CodeProcessor:
                 self.files_skipped += 1
                 return
 
+            self._record_entry_point(
+                file_id,
+                file_name=file_name,
+                lang=lang,
+                is_test=is_test,
+                file_bytes=file_bytes,
+            )
             parser = ParserFactory.get_parser(
                 FILE_EXTENSION_MAPPING[file_extension], self.assigner, self.db
             )
@@ -168,6 +181,33 @@ class CodeProcessor:
             self.files_indexed += 1
             self._insert_batch()
 
+    def _new_batches(self) -> dict[str, list[dict]]:
+        return {table: [] for table in TABLE_BATCH_MAP}
+
+    def _record_entry_point(
+        self,
+        file_id: int,
+        *,
+        file_name: str,
+        lang: str | None,
+        is_test: bool,
+        file_bytes: bytes,
+    ) -> None:
+        if lang != "python" or is_test:
+            return
+        has_guard = file_has_main_guard(file_bytes)
+        is_named = file_name in _NAMED_PYTHON_ENTRY_FILES
+        if not has_guard and not is_named:
+            self.db.delete_ids("entry_points", [file_id])
+            return
+        self.db_batches["entry_points"].append(
+            {
+                "id": file_id,
+                "has_main_guard": int(has_guard),
+                "is_named_entry": int(is_named),
+            }
+        )
+
     def _process_files(self, file_names: list[str], directory_path: Path, full: bool) -> None:
         for file_name in file_names:
             self._process_file(file_name, directory_path, full)
@@ -179,9 +219,7 @@ class CodeProcessor:
             return
 
         self.db.bulk_insert(self.db_batches)
-        self.db_batches = {}
-        for table in TABLE_BATCH_MAP:
-            self.db_batches[table] = []
+        self.db_batches = self._new_batches()
 
     def _bulk_operations(self, now: int, last_incremental: int) -> None:
         self.db.resolve_symbol_references()

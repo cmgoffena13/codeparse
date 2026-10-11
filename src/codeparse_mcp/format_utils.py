@@ -15,6 +15,11 @@ def lines_range(line_start: int, line_end: int) -> str:
     return f"{line_start}-{line_end}"
 
 
+def bullet(text: str, lead: str = "") -> str:
+    """``  • text``. A ``lead`` such as ``#1 `` sits before the dot."""
+    return f"  {lead}• {text}"
+
+
 def file_label(name: str, line_count: int, symbol_count: int) -> str:
     """``name``, ``name (12L)``, or ``name (12L, 3S)``."""
     label = name or "(unknown path)"

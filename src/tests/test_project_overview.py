@@ -61,9 +61,21 @@ def test_project_overview_directories_and_entry_points(indexed_project: Path) ->
     db = CodeDB(indexed_project)
     try:
         out = get_project_overview(db)
+        stored = [
+            row["path"]
+            for row in db.connection.execute(
+                """
+                SELECT f.path
+                FROM entry_points AS e
+                JOIN files AS f ON f.id = e.id
+                ORDER BY f.path
+                """
+            )
+        ]
     finally:
         db.close()
 
+    assert stored == ["pkg/app.py", "pkg/cli.py", "pkg/main.py"]
     assert out.startswith(f"Project: {indexed_project.name}\n")
     assert "Legend: L = Lines, S = Symbols, F = Files" in out
     assert "  • pkg (29L, 8S, 6F)" in out
@@ -83,3 +95,52 @@ def test_project_overview_directories_and_entry_points(indexed_project: Path) ->
     )
     assert "tests/main.py" not in out
     assert "pkg/worker.py" not in out
+
+
+def test_project_overview_reads_pyproject_only(
+    indexed_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = Path.read_text
+
+    def _read_text(self: Path, *args, **kwargs):
+        if self.name != "pyproject.toml":
+            raise AssertionError(f"overview read {self}")
+        return original(self, *args, **kwargs)
+
+    db = CodeDB(indexed_project)
+    monkeypatch.setattr(Path, "read_text", _read_text)
+    try:
+        out = get_project_overview(db)
+    finally:
+        db.close()
+    assert "pkg/cli.py" in out
+
+
+def test_main_guard_tracks_content_and_deletion(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    script = tmp_path / "run.py"
+    script.write_text(
+        "def run() -> None:\n    pass\n\nif __name__ == '__main__':\n    run()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    try:
+        CodeProcessor(db, tmp_path).process()
+        assert "run.py" in get_project_overview(db)
+        assert (
+            db.connection.execute("SELECT has_main_guard FROM entry_points").fetchone()[
+                "has_main_guard"
+            ]
+            == 1
+        )
+
+        script.write_text("def run() -> None:\n    pass\n", encoding="utf-8")
+        CodeProcessor(db, tmp_path).process()
+        assert "run.py" not in get_project_overview(db)
+        assert db.connection.execute("SELECT COUNT(*) AS c FROM entry_points").fetchone()["c"] == 0
+
+        script.unlink()
+        CodeProcessor(db, tmp_path).process()
+        assert db.connection.execute("SELECT COUNT(*) AS c FROM entry_points").fetchone()["c"] == 0
+    finally:
+        db.close()

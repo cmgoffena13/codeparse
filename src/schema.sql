@@ -30,6 +30,12 @@ CREATE TABLE IF NOT EXISTS files (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS files_normalized_path_index ON files (normalized_path);
 
+CREATE TABLE IF NOT EXISTS entry_points (
+    id              INTEGER NOT NULL PRIMARY KEY REFERENCES files(id),
+    has_main_guard  BOOLEAN NOT NULL,
+    is_named_entry  BOOLEAN NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS symbols (
     id              INTEGER NOT NULL PRIMARY KEY,
     file_id         INTEGER NOT NULL REFERENCES files(id),

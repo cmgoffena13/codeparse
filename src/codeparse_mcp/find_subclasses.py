@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 
+from src.codeparse_mcp.format_utils import bullet
 from src.db import CodeDB
 
 _MAX_SUBCLASSES = 100
@@ -60,7 +61,7 @@ def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool = Fa
             lines_out.append("")
         lines_out.append(path)
         for row in sym_rows:
-            lines_out.append(f"  • {row['qualified_name']}")
+            lines_out.append(bullet(row["qualified_name"]))
 
     if total > _MAX_SUBCLASSES:
         omitted = total - _MAX_SUBCLASSES

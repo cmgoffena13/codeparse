@@ -2,6 +2,7 @@
 
 from collections import OrderedDict, defaultdict
 
+from src.codeparse_mcp.format_utils import bullet
 from src.db import CodeDB
 
 _MAX_PER_KIND = 50
@@ -79,9 +80,9 @@ def _section_lines(
         for file_id, line_n in sites:
             qn = _enclosing_qn(spans_by_file.get(file_id, []), line_n)
             if qn:
-                lines_out.append(f"  • L{line_n}  {qn}")
+                lines_out.append(bullet(f"L{line_n}  {qn}"))
             else:
-                lines_out.append(f"  • L{line_n}")
+                lines_out.append(bullet(f"L{line_n}"))
     return lines_out
 
 
