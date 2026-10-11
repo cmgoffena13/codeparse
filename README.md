@@ -15,7 +15,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 
 ## Benchmark Evaluation (in-progress)
 
-Ten Questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server.
+Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server.
 
  - **AI Baseline**: Builtin tools
  - **AI w/ CodeParse**: Builtin tools and CodeParse MCP Server
