@@ -22,10 +22,17 @@ class CodeDB:
         self.connection_closed = False
         self._apply_schema()
 
+    def _script(self, name: str) -> None:
+        path = Path(__file__).resolve().parent / name
+        self.connection.executescript(path.read_text(encoding="utf-8"))
+
     def _apply_schema(self):
-        schema_path = Path(__file__).resolve().parent / "schema.sql"
-        with schema_path.open("r", encoding="utf-8") as f:
-            self.connection.executescript(f.read())
+        self._script("schema.sql")
+
+    def recreate_schema(self) -> None:
+        """Drop every index table, then create them again from ``schema.sql``."""
+        self._script("drop_schema.sql")
+        self._apply_schema()
 
     def exec_tran(self, query: str, params: tuple) -> None:
         try:

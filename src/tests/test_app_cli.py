@@ -18,7 +18,7 @@ def test_bare_codeparse_prints_help(
     out = capsys.readouterr().out
     assert "usage:" in out
     assert "mcp" in out
-    assert "index" in out
+    assert "reload" in out
 
 
 def test_version_flag_prints_and_exits_zero(
@@ -295,39 +295,52 @@ def test_sync_with_no_skill_dirs_prints_message(
     assert "No skill directories found." in capsys.readouterr().out
 
 
-def test_index_incremental(
+def test_reload_recreates_the_index(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     (tmp_path / ".gitignore").write_text("# fixture\n", encoding="utf-8")
     (tmp_path / "mod.py").write_text("def hello():\n    return 1\n", encoding="utf-8")
-    monkeypatch.setattr(sys, "argv", ["codeparse", "index", "--cwd", str(tmp_path)])
+    monkeypatch.setattr(sys, "argv", ["codeparse", "reload", "--cwd", str(tmp_path)])
     assert main() == 0
     assert "Indexed" in capsys.readouterr().err
 
+    from src.db import CodeDB
 
-def test_index_full_reload(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    (tmp_path / ".gitignore").write_text("# fixture\n", encoding="utf-8")
-    (tmp_path / "mod.py").write_text("def hello():\n    return 1\n", encoding="utf-8")
-    monkeypatch.setattr(
-        sys, "argv", ["codeparse", "index", "--full-reload", "--cwd", str(tmp_path)]
-    )
+    db = CodeDB(tmp_path)
+    try:
+        db.connection.execute(
+            "INSERT INTO directories (id, name, path, depth) VALUES (99, 'ghost', 'ghost', 0)"
+        )
+        db.connection.commit()
+    finally:
+        db.close()
+
     assert main() == 0
-    assert "Indexed" in capsys.readouterr().err
+    db = CodeDB(tmp_path)
+    try:
+        ghost = db.connection.execute(
+            "SELECT COUNT(*) AS c FROM directories WHERE path = 'ghost'"
+        ).fetchone()["c"]
+        assert ghost == 0
+        assert (
+            db.connection.execute(
+                "SELECT COUNT(*) AS c FROM symbols WHERE name = 'hello'"
+            ).fetchone()["c"]
+            == 1
+        )
+    finally:
+        db.close()
 
 
-def test_index_missing_cwd_exits_one(
+def test_reload_missing_cwd_exits_one(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     missing = tmp_path / "gone"
-    monkeypatch.setattr(sys, "argv", ["codeparse", "index", "--cwd", str(missing)])
+    monkeypatch.setattr(sys, "argv", ["codeparse", "reload", "--cwd", str(missing)])
     assert main() == 1
     assert "Not a directory" in capsys.readouterr().err
 

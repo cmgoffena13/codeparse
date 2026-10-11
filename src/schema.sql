@@ -1,16 +1,6 @@
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 
--- DROP TABLE IF EXISTS watermarks; -- TODO: Remove this after testing.
--- DROP TABLE IF EXISTS directories;
--- DROP TABLE IF EXISTS files;
--- DROP TABLE IF EXISTS symbol_bases;
--- DROP TABLE IF EXISTS symbols;
--- DROP TABLE IF EXISTS symbol_references_staging;
--- DROP TABLE IF EXISTS symbol_references;
--- DROP TABLE IF EXISTS imports;
--- DROP TABLE IF EXISTS symbols_fts;
-
 CREATE TABLE IF NOT EXISTS watermarks (
     id                  INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
     last_full_parse     INTEGER NOT NULL DEFAULT 0,

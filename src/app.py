@@ -28,13 +28,14 @@ def _require_indexable_root(path: Path) -> Path | None:
     return root
 
 
-def _run_index(root: Path, *, full: bool) -> int:
+def _run_reload(root: Path) -> int:
     from src.db import CodeDB
     from src.processor import CodeProcessor
 
     db = CodeDB(root)
     try:
-        CodeProcessor(db, root).process(full=full)
+        db.recreate_schema()
+        CodeProcessor(db, root).process(full=True)
     finally:
         db.close()
     return 0
@@ -63,11 +64,11 @@ def main() -> int:
 
         sync_skill()
         return 0
-    if args.command == "index":
+    if args.command == "reload":
         root = _require_indexable_root(args.cwd)
         if root is None:
             return 1
-        return _run_index(root, full=args.full_reload)
+        return _run_reload(root)
     if args.command == "install":
         from src.cli.install_mcp import install_mcp
         from src.codeparse_mcp.skill import sync_skill

@@ -51,20 +51,15 @@ def make_parser() -> argparse.ArgumentParser:
         help="Workspace root to index (default: current directory)",
     )
 
-    index_parser = subparsers.add_parser(
-        "index",
-        help="Index the workspace (incremental by default)",
+    reload_parser = subparsers.add_parser(
+        "reload",
+        help="Drop the index and reprocess the workspace",
     )
-    index_parser.add_argument(
+    reload_parser.add_argument(
         "--cwd",
         type=Path,
         default=Path.cwd(),
         help="Workspace root to index (default: current directory)",
-    )
-    index_parser.add_argument(
-        "--full-reload",
-        action="store_true",
-        help="Force a full reparse instead of incremental",
     )
 
     return parser

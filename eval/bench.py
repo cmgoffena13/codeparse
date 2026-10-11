@@ -87,7 +87,7 @@ def ensure_sqlmesh(sha: str, repo_url: str) -> Path:
     return SQLMESH_DIR.resolve()
 
 
-def index_sqlmesh(sqlmesh: Path) -> None:
+def reload_sqlmesh(sqlmesh: Path) -> None:
     subprocess.run(
         [
             "uv",
@@ -98,7 +98,7 @@ def index_sqlmesh(sqlmesh: Path) -> None:
             "python",
             "-m",
             "src.app",
-            "index",
+            "reload",
             "--cwd",
             str(sqlmesh),
         ],
@@ -771,7 +771,7 @@ def main(argv: list[str] | None = None) -> int:
     repeats = 1 if args.smoke else args.repeats
     arms = ("baseline", "codeparse")
 
-    index_sqlmesh(sqlmesh)
+    reload_sqlmesh(sqlmesh)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")

@@ -71,5 +71,6 @@ compile:
 		--nofollow-import-to=fastmcp.cli \
 		--include-data-files=pyproject.toml=pyproject.toml \
 		--include-data-files=src/schema.sql=src/schema.sql \
+		--include-data-files=src/drop_schema.sql=src/drop_schema.sql \
 		--noinclude-data-files=src/tests/* \
 		--output-dir=dist/

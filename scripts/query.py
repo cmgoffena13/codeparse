@@ -25,7 +25,7 @@ def _open_db(root: Path, *, reindex: bool) -> CodeDB:
     db_file = db_path_for_index_root(root)
     if not db_file.exists() and not reindex:
         raise SystemExit(
-            f"No index at {db_file}\nIndex first (codeparse index --cwd {root}) or pass --reindex."
+            f"No index at {db_file}\nIndex first (codeparse reload --cwd {root}) or pass --reindex."
         )
     db = CodeDB(root)
     if reindex:
