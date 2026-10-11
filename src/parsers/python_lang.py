@@ -288,24 +288,28 @@ class PythonParser(ParserBase):
             "context": context,
         }
         if key in self.symbols_references_snapshot:
-            self.symbols_references_snapshot[key]["seen"] = True
-            prev = self.symbols_references_snapshot[key]
-            if prev["context"] != context or prev["source_symbol_id"] != source_symbol_id:
-                symbol_reference_id = prev["id"]
-                self.symbol_references.append({"id": symbol_reference_id, **row})
-                prev["context"] = context
-                prev["source_symbol_id"] = source_symbol_id
-        else:
-            symbol_reference_id = self.assigner.reserve("symbol_references", 1)[0]
-            self.symbols_references_snapshot[key] = {
-                "id": symbol_reference_id,
-                "source_line": source_line,
-                "source_column": source_column,
-                "source_symbol_id": source_symbol_id,
-                "context": context,
-                "seen": True,
-            }
-            self.symbol_references.append({"id": symbol_reference_id, **row})
+            stored_ref = self.symbols_references_snapshot[key]
+            if (
+                stored_ref["context"] == context
+                and stored_ref["source_symbol_id"] == source_symbol_id
+            ):
+                stored_ref["seen"] = True
+                return
+            # NOTE: Stay unseen so this file's delete removes the row and the
+            # insert writes the same id back with the new source_symbol_id.
+            stored_ref["seen"] = False
+            self.symbol_references.append({"id": stored_ref["id"], **row})
+            return
+        symbol_reference_id = self.assigner.reserve("symbol_references", 1)[0]
+        self.symbols_references_snapshot[key] = {
+            "id": symbol_reference_id,
+            "source_line": source_line,
+            "source_column": source_column,
+            "source_symbol_id": source_symbol_id,
+            "context": context,
+            "seen": True,
+        }
+        self.symbol_references.append({"id": symbol_reference_id, **row})
 
     def _register_import_ref_binding(
         self,
