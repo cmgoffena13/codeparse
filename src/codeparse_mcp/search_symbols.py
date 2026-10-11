@@ -43,9 +43,9 @@ def search_symbols(
 ) -> str:
     """
     Search symbols via ``symbols_fts`` (qualified_name, signature,
-    docstring). Repo-wide only — use ``get_file_overview`` to map one file.
+    docstring).
 
-    Query is space-separated phrases/terms, OR'd with prefix matching. Returns
+    Query is space-separated phrases/terms, AND'd with prefix matching. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),
     each with rank ``#n``. By default
     skips ``is_test`` files; pass ``include_tests=True`` to include them.
