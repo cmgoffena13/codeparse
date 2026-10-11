@@ -711,32 +711,23 @@ class PythonParser(ParserBase):
             file_bytes, sig_start_byte, end_byte, tail_rstrip=True
         )
 
-        # Extract Docstring (First string in body)
+        # A docstring is the first statement, or nothing.
         docstring = None
-        body = node.child_by_field_name("body")
-        if body:
-            # In tree-sitter-python, docstrings usually appear as:
-            # block -> expression_statement -> string
-            for stmt in body.named_children:
-                str_node = None
-                if stmt.type == "expression_statement":
-                    # expression_statement's first named child is typically the string
-                    if stmt.named_children:
-                        candidate = stmt.named_children[0]
-                        if candidate.type == "string":
-                            str_node = candidate
-                elif stmt.type == "string":
-                    str_node = stmt
-
-                if str_node is not None:
-                    if str_node.text is None:
-                        continue
-                    raw = str_node.text.decode("utf-8", errors="replace")
-                    try:
-                        docstring = ast.literal_eval(raw)
-                    except (ValueError, SyntaxError):
-                        docstring = raw.strip("\"'")
-                    break
+        if body_node is not None and body_node.named_children:
+            stmt = body_node.named_children[0]
+            str_node = None
+            if stmt.type == "expression_statement" and stmt.named_children:
+                candidate = stmt.named_children[0]
+                if candidate.type == "string":
+                    str_node = candidate
+            elif stmt.type == "string":
+                str_node = stmt
+            if str_node is not None and str_node.text is not None:
+                raw = str_node.text.decode("utf-8", errors="replace")
+                try:
+                    docstring = ast.literal_eval(raw)
+                except (ValueError, SyntaxError):
+                    docstring = raw.strip("\"'")
 
         # Determine is_test (pytest + unittest)
         parent_is_test = self.stack[-1].is_test if self.stack else False

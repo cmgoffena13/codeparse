@@ -67,6 +67,19 @@ def test_python_fixture_file_parses_symbols_imports_and_references(python_parser
     assert fake_prop["kind"] == "property"
 
 
+def test_docstring_is_only_the_first_statement(python_parser):
+    source = (
+        b'def documented():\n    """real"""\n    x = 1\n\n'
+        b'def later_string():\n    x = 1\n    "not a docstring"\n\n'
+        b'def commented():\n    # note\n    """still a docstring"""\n'
+    )
+    symbols, _, _ = python_parser.parse(1, source)
+    by_qn = index_symbols(symbols)
+    assert by_qn["documented"]["docstring"] == "real"
+    assert by_qn["later_string"]["docstring"] is None
+    assert by_qn["commented"]["docstring"] == "still a docstring"
+
+
 def test_python_module_qn_prefixes_root_symbols(python_parser, fixture_bytes):
     """When module_qn is set, root symbols are prefixed; nested keep parent chain."""
     file_bytes = fixture_bytes("file.py")

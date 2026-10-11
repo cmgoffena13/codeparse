@@ -20,7 +20,7 @@ LEFT JOIN directories AS d
 WHERE f.is_test = 0
 GROUP BY d.path
 HAVING SUM(f.symbol_count) > 0
-ORDER BY symbol_count DESC, path
+ORDER BY symbol_count DESC, d.path
 LIMIT ?
 """
 
