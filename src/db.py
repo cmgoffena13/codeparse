@@ -289,12 +289,20 @@ class CodeDB:
                 )
 
             fts_symbols = [
-                (s["id"], s["qualified_name"], s["docstring"], s["signature"]) for s in symbols
+                (
+                    s["id"],
+                    s["qualified_name"],
+                    s["docstring"],
+                    s["signature"],
+                    s["modifiers"],
+                )
+                for s in symbols
             ]
             self.connection.executemany(
                 """
-                INSERT OR REPLACE INTO symbols_fts (rowid, qualified_name, docstring, signature)
-                VALUES (?, ?, ?, ?)
+                INSERT OR REPLACE INTO symbols_fts
+                (rowid, qualified_name, docstring, signature, modifiers)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 fts_symbols,
             )

@@ -106,6 +106,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(
     qualified_name,
     docstring,
     signature,
+    modifiers,
     content='symbols',
     content_rowid='id'
 );

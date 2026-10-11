@@ -114,7 +114,7 @@ def search_symbols(
     include_tests: bool = False,
 ) -> str:
     """
-    Full-text search across all symbols (``qualified_name``, signatures, and docstrings).
+    Full-text search across all symbols (``qualified_name``, signatures, docstrings, and modifiers).
     Ranks results by text relevance to the query.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.

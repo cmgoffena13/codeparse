@@ -41,7 +41,7 @@ The information that is provided to you will determine the tool you should use.
  - DO NOT grep for reference sites of an exact symbol; use ``get_symbol_references``.
 
 ### ``search_symbols``
- - Use when the clue is part of a symbol name, signature, or docstring.
+ - Use when the clue is part of a symbol name, signature, docstring, or decorator.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
 """
 

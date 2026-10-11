@@ -9,7 +9,7 @@ SELECT
     s.line_start,
     s.line_end,
     f.path AS path,
-    bm25(symbols_fts, 10.0, 5.0, 5.0) AS rank
+    bm25(symbols_fts, 10.0, 5.0, 5.0, 5.0) AS rank
 FROM symbols_fts
 INNER JOIN symbols AS s
     ON s.id = symbols_fts.rowid
@@ -43,7 +43,7 @@ def search_symbols(
 ) -> str:
     """
     Search symbols via ``symbols_fts`` (qualified_name, signature,
-    docstring).
+    docstring, modifiers).
 
     Query is space-separated phrases/terms, AND'd with prefix matching. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),

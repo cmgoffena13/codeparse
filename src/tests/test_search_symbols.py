@@ -39,6 +39,25 @@ def test_search_symbols_excludes_is_test_by_default(
         db.close()
 
 
+def test_search_symbols_matches_decorator_modifiers(
+    tmp_path: Path, python_fixtures_dir: Path
+) -> None:
+    root = _index(tmp_path, python_fixtures_dir)
+    db = CodeDB(root)
+    try:
+        rows = db.connection.execute(
+            """
+            SELECT s.qualified_name
+            FROM symbols_fts
+            INNER JOIN symbols AS s ON s.id = symbols_fts.rowid
+            WHERE symbols_fts MATCH 'modifiers : traced*'
+            """
+        ).fetchall()
+        assert [row["qualified_name"] for row in rows] == ["pkg.prod.load_rows"]
+    finally:
+        db.close()
+
+
 def test_search_symbols_include_tests(tmp_path: Path, python_fixtures_dir: Path) -> None:
     root = _index(tmp_path, python_fixtures_dir)
     db = CodeDB(root)
