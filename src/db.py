@@ -227,6 +227,7 @@ class CodeDB:
     def bulk_insert(self, db_batches: dict[str, list[dict[str, Any]]]) -> None:
         directories = db_batches["directories"]
         files = db_batches["files"]
+        entry_points = db_batches["entry_points"]
         symbols = db_batches["symbols"]
         symbol_references = db_batches["symbol_references"]
         imports = db_batches["imports"]
@@ -257,7 +258,7 @@ class CodeDB:
                 INSERT OR REPLACE INTO entry_points (id, has_main_guard, is_named_entry)
                 VALUES (:id, :has_main_guard, :is_named_entry)
                 """,
-                db_batches["entry_points"],
+                entry_points,
             )
 
             base_rows: list[dict[str, Any]] = []
