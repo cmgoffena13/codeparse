@@ -145,9 +145,7 @@ async def _print_tools() -> None:
                 await client.call_tool(
                     "get_symbol_references",
                     {
-                        "qualified_name": (
-                            "sqlmesh.core.snapshot.definition.DeployabilityIndex.is_representative"
-                        ),
+                        "qualified_name": ("sqlmesh.RuntimeEnv.is_terminal"),
                         "include_tests": True,
                     },
                 )

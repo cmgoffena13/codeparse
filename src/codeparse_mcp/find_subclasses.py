@@ -28,7 +28,7 @@ def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool = Fa
 
     One hop only: ``class Grand(Child)`` is not listed for ``Parent``. Test
     files are skipped unless ``include_tests`` is true. Hits are grouped by
-    file with line numbers.
+    file.
     """
     key = qualified_name.strip()
     if not key:
@@ -52,7 +52,6 @@ def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool = Fa
         by_file.setdefault(row["file_path"], []).append(row)
 
     lines_out = [
-        "Legend: L = Line\n",
         f"Subclasses of {key} — {total} {label}",
         "",
     ]
@@ -61,7 +60,7 @@ def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool = Fa
             lines_out.append("")
         lines_out.append(path)
         for row in sym_rows:
-            lines_out.append(f"  • L{int(row['line_start'])}  {row['qualified_name']}")
+            lines_out.append(f"  • {row['qualified_name']}")
 
     if total > _MAX_SUBCLASSES:
         omitted = total - _MAX_SUBCLASSES

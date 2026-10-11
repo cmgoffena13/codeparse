@@ -46,11 +46,11 @@ def test_find_subclasses_lists_direct_children(indexed_hierarchy: Path) -> None:
     try:
         out = find_subclasses(db, "pkg.base.Parent")
         assert "Subclasses of pkg.base.Parent — 2 classes" in out
-        assert "Legend: L = Line" in out
+        assert "Legend:" not in out
         assert "pkg/base.py" in out
-        assert "  • L4  pkg.base.Sibling" in out
+        assert "  • pkg.base.Sibling" in out
         assert "pkg/child.py" in out
-        assert "  • L3  pkg.child.Child" in out
+        assert "  • pkg.child.Child" in out
         assert "pkg.child.Grand" not in out
         assert "pkg.base.Alone" not in out
         assert "tests/test_parent.py" not in out
@@ -63,7 +63,7 @@ def test_find_subclasses_include_tests(indexed_hierarchy: Path) -> None:
     try:
         out = find_subclasses(db, "pkg.base.Parent", include_tests=True)
         assert "tests/test_parent.py" in out
-        assert "  • L3  tests.test_parent.TestChild" in out
+        assert "  • tests.test_parent.TestChild" in out
         assert "3 classes" in out
     finally:
         db.close()
