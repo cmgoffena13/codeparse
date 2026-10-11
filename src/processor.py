@@ -203,8 +203,8 @@ class CodeProcessor:
         self.db_batches["entry_points"].append(
             {
                 "id": file_id,
-                "has_main_guard": int(has_guard),
-                "is_named_entry": int(is_named),
+                "has_main_guard": has_guard,
+                "is_named_entry": is_named,
             }
         )
 
