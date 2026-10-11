@@ -34,6 +34,18 @@ def _version_key(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.removeprefix("v").split("."))
 
 
+def _minor_changed(current: str, tag: str) -> bool:
+    """True when major or minor differs. A patch bump does not rebuild indexes."""
+
+    def pair(version: str) -> tuple[int, int]:
+        parts = _version_key(version)
+        major = parts[0] if parts else 0
+        minor = parts[1] if len(parts) > 1 else 0
+        return major, minor
+
+    return pair(current) != pair(tag)
+
+
 def asset_name() -> str:
     """Release zip for this platform, matching ``build-release.yml``."""
     system = _SYSTEMS.get(platform.system())
@@ -86,4 +98,16 @@ def upgrade() -> int:
 
     print(f"Upgraded codeparse to {tag.removeprefix('v')}")
     subprocess.run([str(exe), "sync"], check=False)  # noqa: S603
+    if _minor_changed(current, tag):
+        from src.db import index_workspace_paths
+
+        for db_file, root in index_workspace_paths():
+            if not root.is_dir():
+                print(f"Removing index for missing workspace {root}")
+                db_file.unlink(missing_ok=True)
+                db_file.with_suffix(".db-wal").unlink(missing_ok=True)
+                db_file.with_suffix(".db-shm").unlink(missing_ok=True)
+                continue
+            print(f"Reloading index for {root}")
+            subprocess.run([str(exe), "reload", "--cwd", str(root)], check=False)  # noqa: S603
     return 0

@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS watermarks (
 );
 INSERT OR IGNORE INTO watermarks (id, last_full_parse, last_incremental) VALUES (1, 0, 0);
 
+CREATE TABLE IF NOT EXISTS index_root (
+    id      INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    path    TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS directories (
     id              INTEGER NOT NULL PRIMARY KEY,
     parent_id       INTEGER REFERENCES directories(id),  

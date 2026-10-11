@@ -2,7 +2,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from src.utils import db_path_for_index_root
+from src.utils import db_path_for_index_root, get_code_parse_config_dir
 
 TABLE_BATCH_MAP = {
     "directories",
@@ -14,6 +14,22 @@ TABLE_BATCH_MAP = {
 }
 
 
+def index_workspace_paths() -> list[tuple[Path, Path]]:
+    """``(db file, workspace path)`` for each index that recorded a root."""
+    records: list[tuple[Path, Path]] = []
+    for db_file in sorted(get_code_parse_config_dir("indexes").glob("*.db")):
+        connection = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
+        try:
+            row = connection.execute("SELECT path FROM index_root WHERE id = 1").fetchone()
+        except sqlite3.OperationalError:
+            continue
+        finally:
+            connection.close()
+        if row is not None and row[0]:
+            records.append((db_file, Path(row[0])))
+    return records
+
+
 class CodeDB:
     def __init__(self, root: Path):
         self.root = root.resolve()
@@ -22,6 +38,13 @@ class CodeDB:
         self.connection.row_factory = sqlite3.Row
         self.connection_closed = False
         self._apply_schema()
+        self._store_index_root()
+
+    def _store_index_root(self) -> None:
+        self.exec_tran(
+            "INSERT OR REPLACE INTO index_root (id, path) VALUES (1, ?)",
+            (str(self.root),),
+        )
 
     def _script(self, name: str) -> None:
         path = Path(__file__).resolve().parent / name
@@ -34,6 +57,7 @@ class CodeDB:
         """Drop every index table, then create them again from ``schema.sql``."""
         self._script("drop_schema.sql")
         self._apply_schema()
+        self._store_index_root()
 
     def exec_tran(self, query: str, params: tuple) -> None:
         try:

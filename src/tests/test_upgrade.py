@@ -65,6 +65,55 @@ def test_upgrade_replaces_binary_and_syncs_skill(
     assert "Upgrading codeparse 0.1.19 -> 0.2.0" in capsys.readouterr().out
 
 
+def test_upgrade_minor_reloads_each_linked_index(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from src.db import CodeDB
+
+    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"])
+    workspace = tmp_path / "proj"
+    workspace.mkdir()
+    CodeDB(workspace).close()
+
+    assert upgrade_mod.upgrade() == 0
+    assert synced == [
+        [str(exe.resolve()), "sync"],
+        [str(exe.resolve()), "reload", "--cwd", str(workspace.resolve())],
+    ]
+
+
+def test_upgrade_minor_removes_index_when_workspace_is_gone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from src.db import CodeDB
+
+    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"])
+    workspace = tmp_path / "proj"
+    workspace.mkdir()
+    db = CodeDB(workspace)
+    db_file = db.db_file
+    db.close()
+    workspace.rmdir()
+
+    assert upgrade_mod.upgrade() == 0
+    assert synced == [[str(exe.resolve()), "sync"]]
+    assert not db_file.exists()
+
+
+def test_upgrade_patch_does_not_reload_indexes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from src.db import CodeDB
+
+    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.1.20", assets=["codeparse-macos-arm64.zip"])
+    workspace = tmp_path / "proj"
+    workspace.mkdir()
+    CodeDB(workspace).close()
+
+    assert upgrade_mod.upgrade() == 0
+    assert synced == [[str(exe.resolve()), "sync"]]
+
+
 def test_upgrade_up_to_date_compares_without_v_prefix(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
