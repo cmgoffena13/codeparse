@@ -703,11 +703,10 @@ class PythonParser(ParserBase):
         if kind == "class":
             raw_bases, base_qualified_names = self._class_bases(node)
 
-        # Extract Signature: entire decorated_definition prefix (all @ lines) through the
-        # inner definition header (same end_byte = start of def/class body).
+        # Signature is the def/class header only. Decorators stay in modifiers.
         body_node = node.child_by_field_name("body")
         end_byte = body_node.start_byte if body_node is not None else node.end_byte
-        sig_start_byte = outer.start_byte if outer is not None else node.start_byte
+        sig_start_byte = node.start_byte
         signature = self._normalize_signature_bytes(
             file_bytes, sig_start_byte, end_byte, tail_rstrip=True
         )
