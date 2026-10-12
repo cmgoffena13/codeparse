@@ -58,6 +58,22 @@ def test_find_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.Mon
         db.close()
 
 
+def test_find_importers_includes_relative_import(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "sib.py").write_text("class Foo:\n    pass\n", encoding="utf-8")
+    (pkg / "caller.py").write_text("from .sib import Foo\n", encoding="utf-8")
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process()
+    try:
+        out = find_importers(db, "pkg/sib.py")
+        assert "pkg/caller.py" in out
+    finally:
+        db.close()
+
+
 def test_find_importers_accepts_absolute_path(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     pkg = tmp_path / "pkg"

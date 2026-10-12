@@ -17,6 +17,19 @@ def test_imports_spot_checks_from_fixture_file(python_parser, fixture_bytes):
     assert any(i["import_type"] == "relative" for i in imports)
 
 
+def test_relative_import_path_is_the_resolved_module(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("ref_qn_relative_import.py")
+    _, imports, _ = python_parser.parse(53, file_bytes, module_qn="pkg.sub.caller")
+
+    assert any(
+        i["import_type"] == "relative"
+        and i["import_path"] == "pkg.sub.sib"
+        and i["imported_symbol"] == "Foo"
+        and i["signature"] == "from .sib import Foo"
+        for i in imports
+    )
+
+
 def test_imports_aliases(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("imports_aliases.py")
     symbols, imports, references = python_parser.parse(10, file_bytes)

@@ -845,6 +845,14 @@ class PythonParser(ParserBase):
                         import_path = child.text.decode("utf-8")
                         break
 
+            # Keep the source spelling in ``signature``. ``import_path`` is the
+            # module key ``resolve_imports`` matches to ``files.normalized_path``.
+            stored_path = import_path
+            if import_type == "relative":
+                resolved = self._resolve_relative_import_path(import_path)
+                if resolved:
+                    stored_path = resolved.lower()
+
             for child in node.children:
                 imported_symbol = None
                 alias = None
@@ -880,7 +888,7 @@ class PythonParser(ParserBase):
 
                 self._record_import(
                     file_id,
-                    import_path,
+                    stored_path,
                     imported_symbol,
                     alias,
                     line_number,
