@@ -15,6 +15,7 @@ from src.codeparse_mcp.project_overview import (
 )
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill, skill_manifest
+from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_symbol_at_lines
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
 from src.codeparse_mcp.symbol_references import (
     get_symbol_references as run_symbol_references,
@@ -143,6 +144,24 @@ def get_symbol(qualified_name: str, ctx: Context) -> str:
     """
     name = qualified_name.strip()
     return _processor(ctx).run_query(lambda db: run_symbol_context(db, name))
+
+
+@mcp.tool()
+def get_symbol_at_lines(
+    file_path: str,
+    line_start: int,
+    ctx: Context,
+    line_end: int | None = None,
+) -> str:
+    """
+    Return the qualified name of the symbol that covers a line range in a file.
+
+    ``line_end`` defaults to ``line_start``. When several symbols cover the range,
+    the one with the smallest span is returned (a method inside a class, not the class).
+    A range that crosses two symbols and sits inside neither returns both.
+    """
+    path = file_path.strip()
+    return _processor(ctx).run_query(lambda db: run_symbol_at_lines(db, path, line_start, line_end))
 
 
 @mcp.tool()

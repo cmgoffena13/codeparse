@@ -24,6 +24,10 @@ The information that is provided to you will determine the tool you should use.
 ## You are given the file name and exact symbol name.
 1. Use ``get_symbol`` to get the code definition of the symbol. 
 
+## You are given a file and line numbers.
+1. Use ``get_symbol_at_lines`` to get the qualified name of the symbol that covers those lines.
+2. Use ``get_symbol`` to get the code definition of that symbol. 
+
 ## You are NOT given the file name or exact symbol name. 
 1. Investigate the codebase using ``get_project_overview`` and keywords. 
 2. Use ``get_file_overview`` to get a summary of the symbols in the file.
