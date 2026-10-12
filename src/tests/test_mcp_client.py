@@ -20,6 +20,7 @@ _TOOLS = {
     "get_file_overview",
     "get_project_overview",
     "get_symbol",
+    "get_symbol_at_lines",
     "get_symbol_references",
     "search_symbols",
 }
