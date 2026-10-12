@@ -85,7 +85,24 @@ class CodeProcessor:
                 "seen": True,
             }
 
+    def _python_import_path(self, relative: Path) -> Path:
+        """Start the module path at the outermost package.
+
+        A directory is a package when it contains ``__init__.py``. Leading
+        directories that are not packages are dropped, so
+        ``src/fundamentals/xxx.py`` becomes ``fundamentals/xxx.py``. A path
+        with no package keeps every directory.
+        """
+        dirs = relative.parts[:-1]
+        for index in range(len(dirs)):
+            package = self.root.joinpath(*dirs[: index + 1])
+            if (package / "__init__.py").is_file():
+                return Path(*relative.parts[index:])
+        return relative
+
     def _normalize_path(self, path: Path, language: str | None = None) -> str:
+        if language == "python":
+            path = self._python_import_path(path)
         posix = path.with_suffix("").as_posix().lower()
         if language == "python":
             posix = posix.replace("/", ".")
