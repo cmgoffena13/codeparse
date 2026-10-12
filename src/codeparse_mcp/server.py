@@ -101,7 +101,7 @@ def get_directory_tree(ctx: Context, path: str | None = None) -> str:
 def get_file_overview(file_path: str, ctx: Context) -> str:
     """
     Return imports and a nested symbol tree for one file with line numbers.
-    Use ``get_symbol`` for code definitions.
+    Use ``get_symbol`` for symbol definitions.
     """
     path = file_path.strip()
     return _processor(ctx).run_query(lambda db: run_file_overview(db, path))
@@ -137,6 +137,7 @@ def get_symbol(qualified_name: str, ctx: Context) -> str:
     """
     Return the symbol definition with line numbers and aggregated count of reference sites
     (calls, accesses, type annotations).
+
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Use ``get_symbol_references`` for detailed call, access, and type-annotation sites.
     """
@@ -149,6 +150,7 @@ def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool
     """
     Return reference sites (calls, accesses, type annotations) for a symbol, grouped by file,
     with line numbers and which symbols they happen in.
+
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files by default; set ``include_tests`` to include them.
     """
