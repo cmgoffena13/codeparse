@@ -66,7 +66,7 @@ def _render(children_by_parent_id, root_key, root_label: str) -> str:
     body_lines = _lines_under_parent(children_by_parent_id, root_key, "")
     if not body_lines:
         return root_label.rstrip("/") or "."
-    return "Legend: L = Lines, S = Symbols\n\n" + root_label + "\n" + "\n".join(body_lines)
+    return root_label + "\n" + "\n".join(body_lines)
 
 
 def _lines_under_parent(children_by_parent_id, parent_key, branch_prefix):

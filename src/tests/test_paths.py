@@ -38,6 +38,26 @@ def test_normalize_rejects_empty(tmp_path: Path) -> None:
         normalize_repo_file_path("  ", tmp_path)
 
 
+def test_find_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "target.py").write_text("def helper() -> int:\n    return 1\n", encoding="utf-8")
+    (pkg / "a.py").write_text("from pkg.target import helper\n", encoding="utf-8")
+    (pkg / "b.py").write_text("from pkg.target import helper\n", encoding="utf-8")
+    monkeypatch.setattr("src.codeparse_mcp.find_importers._MAX_IMPORTER_FILES", 1)
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process()
+    try:
+        out = find_importers(db, "pkg/target.py")
+        assert out.startswith("Showing 1 of 2 files\n")
+        assert "pkg/a.py" in out
+        assert "pkg/b.py" not in out
+    finally:
+        db.close()
+
+
 def test_find_importers_accepts_absolute_path(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     pkg = tmp_path / "pkg"
@@ -51,6 +71,7 @@ def test_find_importers_accepts_absolute_path(tmp_path: Path) -> None:
         abs_target = str((tmp_path / "pkg" / "target.py").resolve())
         out = find_importers(db, abs_target)
         assert "pkg/importer.py" in out
-        assert "Importers of pkg/target.py" in out
+        assert "Importers of" not in out
+        assert "Showing" not in out
     finally:
         db.close()

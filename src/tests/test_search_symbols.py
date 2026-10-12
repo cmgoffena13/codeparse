@@ -27,7 +27,8 @@ def test_search_symbols_excludes_is_test_by_default(
         assert "pkg.prod.format_model" in out
         assert "test_format_model" not in out
         assert "tests/" not in out
-        assert "Legend: # = Rank" in out
+        assert "Legend:" not in out
+        assert "Search results" not in out
         assert "pkg/prod.py" in out
         assert any(
             line.startswith("  #") and " • " in line and "pkg.prod.format_model" in line

@@ -1,4 +1,3 @@
-from src.codeparse_mcp.format_utils import lines_range
 from src.db import CodeDB
 
 _SYMBOL_ROW_SQL = """
@@ -7,8 +6,7 @@ SELECT
     s.line_end,
     s.qualified_name,
     p.qualified_name AS parent_qualified_name,
-    f.path AS file_path,
-    s.kind
+    f.path AS file_path
 FROM symbols AS s
 INNER JOIN files AS f
     ON f.id = s.file_id
@@ -43,7 +41,11 @@ def _reference_totals(db: CodeDB, qualified_name: str) -> tuple[int, list[str]]:
         for row in db.connection.execute(_REF_KIND_COUNTS_SQL, (qualified_name,))
     }
     total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
-    lines = [f"{label}: {counts.get(kind, 0)}" for kind, label in _REF_KIND_LABELS]
+    lines = [
+        f"{label}: {count}"
+        for kind, label in _REF_KIND_LABELS
+        if (count := counts.get(kind, 0)) > 0
+    ]
     return total, lines
 
 
@@ -86,22 +88,12 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
         body_lines.append(f"    (could not read source file: {e})")
 
     lines: list[str] = [
-        "Legend: L = Line\n",
         f"File: {path}",
     ]
     parent_qn = row["parent_qualified_name"]
     if parent_qn:
         lines.append(f"Parent: {parent_qn}")
-    lines.extend(
-        [
-            f"Symbol: {key}",
-            f"Kind: {row['kind']}",
-            f"Lines: {lines_range(line_start, line_end)}",
-            "",
-            "## Code Definition",
-            "",
-        ]
-    )
+    lines.extend([f"Symbol: {key}", ""])
     lines.extend(body_lines)
     ref_total, ref_lines = _reference_totals(db, key)
     lines.extend(["", f"## References ({ref_total})", ""])

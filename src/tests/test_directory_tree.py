@@ -35,7 +35,7 @@ def test_directory_tree_full(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_directory_tree(db)
-        assert out.startswith("Legend: L = Lines, S = Symbols")
+        assert "Legend:" not in out
         assert ".\n" in out
         assert "dialect.py" in out
         assert "test_dialect.py" in out
@@ -48,7 +48,7 @@ def test_directory_tree_path_scopes(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_directory_tree(db, path="pkg/core")
-        assert out.startswith("Legend:")
+        assert "Legend:" not in out
         assert "pkg/core/" in out
         assert "dialect.py" in out
         assert "other.py" in out

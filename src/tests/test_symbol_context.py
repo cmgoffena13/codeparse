@@ -44,16 +44,18 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
     db = CodeDB(root)
     try:
         out = get_symbol_context(db, "pkg.target.helper")
-        assert "## Code Definition" in out
+        assert "## Code Definition" not in out
+        assert "Legend:" not in out
+        assert "Kind:" not in out
+        assert "Lines:" not in out
         assert "## References (3)" in out
         assert "Calls: 3" in out
-        assert "Access: 0" in out
-        assert "Type Annotations: 0" in out
+        assert "Access:" not in out
+        assert "Type Annotations:" not in out
         assert "Parent:" not in out
         assert "Language:" not in out
         assert out.index("File:") < out.index("Symbol:")
-        assert out.index("Symbol:") < out.index("Kind:")
-        assert out.index("Kind:") < out.index("Lines:")
+        assert out.index("Symbol:") < out.index("def helper()")
         assert "pkg/user.py" not in out
         assert "tests/test_target.py" not in out
         assert "## Calls" not in out
@@ -61,10 +63,11 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         method = get_symbol_context(db, "pkg.target.Worker.run")
         assert "Parent: pkg.target.Worker" in method
         assert "Language:" not in method
+        assert "Kind:" not in method
+        assert "Lines:" not in method
         assert method.index("File:") < method.index("Parent:")
         assert method.index("Parent:") < method.index("Symbol:")
-        assert method.index("Symbol:") < method.index("Kind:")
-        assert method.index("Kind:") < method.index("Lines:")
+        assert method.index("Symbol:") < method.index("def run(")
     finally:
         db.close()
 
@@ -74,8 +77,9 @@ def test_symbol_references_lists_calls_with_counts(tmp_path: Path) -> None:
     db = CodeDB(root)
     try:
         out = get_symbol_references(db, "pkg.target.helper")
-        assert "References of pkg.target.helper" in out
-        assert "total" in out
+        assert "References of" not in out
+        assert "Legend:" not in out
+        assert "total" not in out
         assert "pkg/user.py" in out
         assert "tests/test_target.py" not in out
         assert "## Calls" in out

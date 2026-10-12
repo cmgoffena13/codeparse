@@ -79,11 +79,7 @@ def search_symbols(
             (rank, int(row["line_start"] or 0), int(row["line_end"] or 0), qn)
         )
 
-    lines: list[str] = [
-        "Legend: # = Rank\n",
-        f'Search results for "{stripped}" ({len(rows)} matches)',
-        "",
-    ]
+    lines: list[str] = []
     rank_width = max(
         (len(str(rank)) for hits in by_path.values() for rank, *_rest in hits),
         default=1,

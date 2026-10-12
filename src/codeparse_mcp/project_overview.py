@@ -124,10 +124,6 @@ def get_project_overview(db: CodeDB) -> str:
     entry_points = _entry_point_lines(db)
 
     lines = [
-        f"Project: {db.root.name}",
-        "",
-        "Legend: L = Lines, S = Symbols, F = Files",
-        "",
         "Directories - Top 10",
         "",
     ]

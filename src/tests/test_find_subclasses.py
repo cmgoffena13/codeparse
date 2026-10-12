@@ -45,7 +45,7 @@ def test_find_subclasses_lists_direct_children(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
         out = find_subclasses(db, "pkg.base.Parent")
-        assert "Subclasses of pkg.base.Parent — 2 classes" in out
+        assert "Subclasses of" not in out
         assert "Legend:" not in out
         assert "pkg/base.py" in out
         assert "  • pkg.base.Sibling" in out
@@ -64,7 +64,6 @@ def test_find_subclasses_include_tests(indexed_hierarchy: Path) -> None:
         out = find_subclasses(db, "pkg.base.Parent", include_tests=True)
         assert "tests/test_parent.py" in out
         assert "  • tests.test_parent.TestChild" in out
-        assert "3 classes" in out
     finally:
         db.close()
 

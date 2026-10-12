@@ -85,9 +85,8 @@ def get_file_overview(db: CodeDB, file_path: str) -> str:
     sym_rows = list(db.connection.execute(_SYMBOLS_SQL, (file_id,)))
 
     lines_out: list[str] = [
-        "Legend: L = Line\n",
         f"File: {file_row['path']}",
-        f"Lines: {file_row['line_count']}",
+        f"Total Lines: {file_row['line_count']}",
         "",
         f"## Imports ({len(imp_rows)})",
         "",

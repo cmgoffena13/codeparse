@@ -76,8 +76,8 @@ def test_project_overview_directories_and_entry_points(indexed_project: Path) ->
         db.close()
 
     assert stored == ["pkg/app.py", "pkg/cli.py", "pkg/main.py"]
-    assert out.startswith(f"Project: {indexed_project.name}\n")
-    assert "Legend: L = Lines, S = Symbols, F = Files" in out
+    assert out.startswith("Directories - Top 10\n")
+    assert "Legend:" not in out
     assert "  • pkg (29L, 8S, 6F)" in out
     assert out.index("  • pkg (") < out.index("  • other (")
 

@@ -81,10 +81,7 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
     for row in rows:
         by_kind[row["ref_kind"]].append(row)
 
-    lines: list[str] = [
-        "Legend: L = Line\n",
-        f"References of {key} — {len(rows)} total",
-    ]
+    lines: list[str] = []
 
     covered = {k for k, _ in _REF_KIND_SECTIONS}
     for kind, heading in _REF_KIND_SECTIONS:
@@ -98,4 +95,4 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
         title = kind.replace("_", " ").title()
         lines.extend(_section_lines(f"## {title}", len(items), items[:_MAX_PER_KIND]))
 
-    return "\n".join(lines).rstrip() + "\n"
+    return "\n".join(lines).strip() + "\n"

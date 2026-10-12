@@ -46,16 +46,12 @@ def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool = Fa
 
     total = len(rows)
     shown = rows[:_MAX_SUBCLASSES]
-    label = "class" if total == 1 else "classes"
 
     by_file: OrderedDict[str, list] = OrderedDict()
     for row in shown:
         by_file.setdefault(row["file_path"], []).append(row)
 
-    lines_out = [
-        f"Subclasses of {key} — {total} {label}",
-        "",
-    ]
+    lines_out: list[str] = []
     for path_index, (path, sym_rows) in enumerate(by_file.items()):
         if path_index > 0:
             lines_out.append("")

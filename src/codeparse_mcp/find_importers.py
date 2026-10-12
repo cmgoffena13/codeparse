@@ -45,11 +45,9 @@ def find_importers(db: CodeDB, file_path: str, *, include_tests: bool = False) -
 
     paths = [row["importer_path"] for row in rows]
     total = len(paths)
-    lines_out = [
-        f"Importers of {path} — {total} files",
-        "",
-        *(bullet(p) for p in paths[:_MAX_IMPORTER_FILES]),
-    ]
+    shown = paths[:_MAX_IMPORTER_FILES]
+    lines_out = [bullet(p) for p in shown]
     if total > _MAX_IMPORTER_FILES:
-        lines_out.extend(["", f"...[{total - _MAX_IMPORTER_FILES} more importer files truncated]"])
+        lines_out.insert(0, f"Showing {len(shown)} of {total} files")
+        lines_out.insert(1, "")
     return "\n".join(lines_out).rstrip() + "\n"

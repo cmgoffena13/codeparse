@@ -77,7 +77,8 @@ def test_client_tools_read_the_workspace(
     async def run() -> None:
         async with mcp_client:
             overview = _text(await mcp_client.call_tool("get_project_overview"))
-            assert overview.startswith(f"Project: {_PROJECT.name}\n")
+            assert overview.startswith("Directories - Top 10\n")
+            assert "Legend:" not in overview
             assert "pkg/cli.py" in overview
             assert "tests/test_child.py" not in overview
 
@@ -100,7 +101,7 @@ def test_client_tools_read_the_workspace(
             context = _text(
                 await mcp_client.call_tool("get_symbol", {"qualified_name": "pkg.child.Child"})
             )
-            assert "## Code Definition" in context
+            assert "## Code Definition" not in context
             assert "class Child(Parent):" in context
 
             references = _text(

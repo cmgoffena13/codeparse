@@ -82,7 +82,8 @@ def _processor(ctx: Context) -> CodeProcessor:
 @mcp.tool()
 def get_project_overview(ctx: Context) -> str:
     """
-    Return the top ten directories and all project entry points.
+    Return the top ten directories by symbol count and all project entry points.
+    Directories are (lines L, symbols S, files F) and entry points are (lines L, symbols S).
     """
     return _processor(ctx).run_query(run_project_overview)
 
@@ -90,7 +91,7 @@ def get_project_overview(ctx: Context) -> str:
 @mcp.tool()
 def get_directory_tree(ctx: Context, path: str | None = None) -> str:
     """
-    Return the repo's directory/file tree with line and symbol counts.
+    Return the repo's directory/file tree. Files are (lines L, symbols S).
     Optional ``path`` scopes to one directory tree (exact path).
     """
     return _processor(ctx).run_query(lambda db: run_directory_tree(db, path=path))
@@ -115,7 +116,7 @@ def search_symbols(
 ) -> str:
     """
     Full-text search across all symbols (``qualified_name``, signatures, docstrings, and modifiers).
-    Ranks results by text relevance to the query.
+    Results are ordered #1, #2, #3 by relevance.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
     Use multiple keywords, separated by spaces, to narrow your search (AND).
@@ -146,7 +147,7 @@ def get_symbol(qualified_name: str, ctx: Context) -> str:
 @mcp.tool()
 def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return reference sites for a symbol (calls, accesses, type annotations) and
+    Return reference sites for a symbol (calls, accesses, type annotations) with line numbers and
     which symbols they happen in.
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files by default; set ``include_tests`` to include them.
