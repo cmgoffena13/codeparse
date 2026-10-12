@@ -174,7 +174,7 @@ def build_prompt(task: dict[str, Any], *, arm: str) -> str:
         parts.insert(
             0,
             "You have read/grep/glob/ls plus the codeparse MCP server. "
-            "Below is the codeparse MCP skill.\n\n" + SKILL_INSTRUCTIONS,
+            "Below is the codeparse skill.\n\n" + SKILL_INSTRUCTIONS,
         )
     else:
         parts.insert(
