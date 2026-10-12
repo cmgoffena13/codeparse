@@ -4,14 +4,10 @@ _SYMBOL_ROW_SQL = """
 SELECT
     s.line_start,
     s.line_end,
-    s.qualified_name,
-    p.qualified_name AS parent_qualified_name,
     f.path AS file_path
 FROM symbols AS s
 INNER JOIN files AS f
     ON f.id = s.file_id
-LEFT JOIN symbols AS p
-    ON p.id = s.parent_id
 WHERE s.qualified_name = ?
 """
 
@@ -89,11 +85,8 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
 
     lines: list[str] = [
         f"File: {path}",
+        "",
     ]
-    parent_qn = row["parent_qualified_name"]
-    if parent_qn:
-        lines.append(f"Parent: {parent_qn}")
-    lines.extend([f"Symbol: {key}", ""])
     lines.extend(body_lines)
     ref_total, ref_lines = _reference_totals(db, key)
     lines.extend(["", f"## References ({ref_total})", ""])

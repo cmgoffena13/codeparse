@@ -115,8 +115,8 @@ def search_symbols(
     include_tests: bool = False,
 ) -> str:
     """
-    Full-text search across all symbols (``qualified_name``, signatures, docstrings, and modifiers).
-    Results are ordered #1, #2, #3 by relevance.
+    Full-text search across all symbols (``qualified_name``, signatures, docstrings, and modifiers),
+    grouped by file. Results are ordered #1, #2, #3 by relevance.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
     Use multiple keywords, separated by spaces, to narrow your search (AND).
@@ -135,7 +135,7 @@ def search_symbols(
 @mcp.tool()
 def get_symbol(qualified_name: str, ctx: Context) -> str:
     """
-    Return the symbol code definition and aggregated count of reference sites
+    Return the symbol definition with line numbers and aggregated count of reference sites
     (calls, accesses, type annotations).
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Use ``get_symbol_references`` for detailed call, access, and type-annotation sites.
@@ -147,8 +147,8 @@ def get_symbol(qualified_name: str, ctx: Context) -> str:
 @mcp.tool()
 def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return reference sites for a symbol (calls, accesses, type annotations) with line numbers and
-    which symbols they happen in.
+    Return reference sites (calls, accesses, type annotations) for a symbol, grouped by file,
+    with line numbers and which symbols they happen in.
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files by default; set ``include_tests`` to include them.
     """
@@ -161,7 +161,7 @@ def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool
 @mcp.tool()
 def find_subclasses(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return classes that directly inherit from a given class, with file and line.
+    Return classes that directly inherit from a given class, grouped by file.
     Excludes test files by default; set ``include_tests`` to include them.
     """
     name = qualified_name.strip()
