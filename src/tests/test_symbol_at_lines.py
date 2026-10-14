@@ -49,7 +49,7 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
             db, "pkg.target.helper"
         )
         assert get_symbol_at_lines(db, "pkg/target.py", 2, 5) == (
-            "Multiple symbols found. Call get_symbol with one qualified name.\n"
+            "Multiple symbols found.\n"
             "  • pkg.target.helper — lines 1-2 — References: 1\n"
             "  • pkg.target.Worker — lines 5-7 — References: 0\n"
         )
