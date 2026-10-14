@@ -153,6 +153,19 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
+            "SYMBOL AT LINES MULTIPLE",
+            _body(
+                await client.call_tool(
+                    "get_symbol_at_lines",
+                    {
+                        "file_path": "sqlmesh/__init__.py",
+                        "line_start": 125,
+                        "line_end": 128,
+                    },
+                )
+            ),
+        )
+        _print_section(
             "SYMBOL REFERENCES",
             _body(
                 await client.call_tool(

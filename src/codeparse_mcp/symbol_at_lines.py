@@ -1,7 +1,8 @@
 """Resolve a file line range to the symbol that covers it."""
 
-from src.codeparse_mcp.format_utils import bullet
+from src.codeparse_mcp.format_utils import bullet, lines_range
 from src.codeparse_mcp.paths import normalize_repo_file_path
+from src.codeparse_mcp.symbol_context import _reference_totals, get_symbol_context
 from src.db import CodeDB
 
 _SYMBOL_AT_LINES_SQL = """
@@ -26,38 +27,59 @@ def get_symbol_at_lines(
     line_end: int | None = None,
 ) -> str:
     """
-    Return the qualified name of the symbol that covers the line range.
+    Return ``get_symbol`` output for the tightest symbol containing the range.
 
     ``line_end`` defaults to ``line_start``. A class and a method both cover a
     line inside the method; the method is returned because its span is smaller.
-    A range that crosses two symbols, and sits inside neither, returns both.
+    A range that crosses two symbols, and sits inside neither, lists each
+    qualified name, its line span, and its reference count.
     """
-    if line_start < 1:
-        return "line_start must be >= 1."
+    result = ""
     end = line_start if line_end is None else line_end
-    if end < line_start:
-        return "line_end must be >= line_start."
+    path = ""
+    if line_start < 1:
+        result = "line_start must be >= 1."
+    elif end < line_start:
+        result = "line_end must be >= line_start."
+    else:
+        try:
+            path = normalize_repo_file_path(file_path, db.root)
+        except ValueError as exc:
+            result = str(exc)
+    if result == "" and path:
+        rows = list(db.connection.execute(_SYMBOL_AT_LINES_SQL, (path, end, line_start)))
+        if not rows:
+            result = "No symbol found."
+        else:
+            result = _format_hits(db, _chosen_rows(rows, line_start, end))
+    return result
 
-    try:
-        path = normalize_repo_file_path(file_path, db.root)
-    except ValueError as exc:
-        return str(exc)
 
-    rows = list(db.connection.execute(_SYMBOL_AT_LINES_SQL, (path, end, line_start)))
-    if not rows:
-        span = str(line_start) if end == line_start else f"{line_start}-{end}"
-        return f"No symbol in {path} covers line {span}."
-
+def _chosen_rows(rows, line_start: int, end: int):
     covering = [row for row in rows if row["line_start"] <= line_start and row["line_end"] >= end]
+    chosen = [row for row in rows if not any(_strictly_contains(other, row) for other in rows)]
     if covering:
         tightest = min(row["line_end"] - row["line_start"] for row in covering)
         chosen = [row for row in covering if row["line_end"] - row["line_start"] == tightest]
+    return chosen
+
+
+def _format_hits(db: CodeDB, chosen) -> str:
+    text = ""
+    if len(chosen) == 1:
+        text = get_symbol_context(db, str(chosen[0]["qualified_name"]))
     else:
-        chosen = [row for row in rows if not any(_strictly_contains(other, row) for other in rows)]
-    return "".join(f"{bullet(row['qualified_name'])}\n" for row in chosen)
+        lines = ["Multiple symbols found."]
+        for row in chosen:
+            count, _lines = _reference_totals(db, str(row["qualified_name"]))
+            span = lines_range(int(row["line_start"]), int(row["line_end"]))
+            name = row["qualified_name"]
+            lines.append(bullet(f"{name} — lines {span} — References: {count}"))
+        text = "\n".join(lines) + "\n"
+    return text
 
 
 def _strictly_contains(outer, inner) -> bool:
-    if outer["qualified_name"] == inner["qualified_name"]:
-        return False
-    return outer["line_start"] <= inner["line_start"] and outer["line_end"] >= inner["line_end"]
+    same = outer["qualified_name"] == inner["qualified_name"]
+    covers = outer["line_start"] <= inner["line_start"] and outer["line_end"] >= inner["line_end"]
+    return (not same) and covers

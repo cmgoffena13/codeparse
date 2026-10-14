@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines
+from src.codeparse_mcp.symbol_context import get_symbol_context
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -32,13 +33,25 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        assert get_symbol_at_lines(db, "pkg/target.py", 1) == "  • pkg.target.helper\n"
-        assert get_symbol_at_lines(db, "pkg/target.py", 7) == "  • pkg.target.Worker.run\n"
-        assert get_symbol_at_lines(db, "pkg/target.py", 6, 7) == "  • pkg.target.Worker.run\n"
-        assert get_symbol_at_lines(db, "pkg/target.py", 5, 7) == "  • pkg.target.Worker\n"
-        assert (
-            get_symbol_at_lines(db, "pkg/target.py", 2, 5)
-            == "  • pkg.target.helper\n  • pkg.target.Worker\n"
+        assert get_symbol_at_lines(db, "pkg/target.py", 1) == get_symbol_context(
+            db, "pkg.target.helper"
+        )
+        assert get_symbol_at_lines(db, "pkg/target.py", 7) == get_symbol_context(
+            db, "pkg.target.Worker.run"
+        )
+        assert get_symbol_at_lines(db, "pkg/target.py", 6, 7) == get_symbol_context(
+            db, "pkg.target.Worker.run"
+        )
+        assert get_symbol_at_lines(db, "pkg/target.py", 5, 7) == get_symbol_context(
+            db, "pkg.target.Worker"
+        )
+        assert get_symbol_at_lines(db, "pkg/target.py", 2, 3) == get_symbol_context(
+            db, "pkg.target.helper"
+        )
+        assert get_symbol_at_lines(db, "pkg/target.py", 2, 5) == (
+            "Multiple symbols found. Call get_symbol with one qualified name.\n"
+            "  • pkg.target.helper — lines 1-2 — References: 1\n"
+            "  • pkg.target.Worker — lines 5-7 — References: 0\n"
         )
         assert "No symbol" in get_symbol_at_lines(db, "pkg/target.py", 4)
     finally:

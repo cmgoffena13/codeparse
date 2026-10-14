@@ -12,7 +12,7 @@ DESCRIPTION = (
 )
 
 _SKILL_BODY = """\
-IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` instead of \
+IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` / ``get_symbol_at_lines`` instead of \
 ``read`` to get file / symbol information.
 
 The information that is provided to you will determine the tool you should use.
@@ -24,9 +24,8 @@ The information that is provided to you will determine the tool you should use.
 ## You are given the file name and exact symbol name.
 1. Use ``get_symbol`` to get the code definition of the symbol. 
 
-## You are given a file and line numbers.
-1. Use ``get_symbol_at_lines`` to get the qualified name of the symbol that covers those lines.
-2. Use ``get_symbol`` to get the code definition of that symbol. 
+## You are given a file and line numbers (or a ``code selection`` in Cursor or VS Code).
+1. Use ``get_symbol_at_lines`` to get the symbol that covers those lines.
 
 ## You are NOT given the file name or exact symbol name. 
 1. Investigate the codebase using ``get_project_overview`` and keywords. 
@@ -41,6 +40,7 @@ The information that is provided to you will determine the tool you should use.
 
 ### ``grep``
  - Use when the clue is specific text in file contents.
+ - If output has a line number, follow up with ``get_symbol_at_lines``.
  - DO NOT grep to find which files depend on a module; use ``find_importers``.
  - DO NOT grep for reference sites of an exact symbol; use ``get_symbol_references``.
 

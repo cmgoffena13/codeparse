@@ -154,11 +154,11 @@ def get_symbol_at_lines(
     line_end: int | None = None,
 ) -> str:
     """
-    Return the qualified name of the symbol that covers a line range in a file.
+    Same output as ``get_symbol`` for the tightest symbol containing the range
+    (a method, not its class). A range inside no single symbol returns each qualified name,
+    its line span, and its reference count.
 
-    ``line_end`` defaults to ``line_start``. When several symbols cover the range,
-    the one with the smallest span is returned (a method inside a class, not the class).
-    A range that crosses two symbols and sits inside neither returns both.
+    ``line_end`` defaults to ``line_start`` if not provided.
     """
     path = file_path.strip()
     return _processor(ctx).run_query(lambda db: run_symbol_at_lines(db, path, line_start, line_end))
