@@ -17,6 +17,20 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 1. Put the `codeparse` binary on your PATH (release asset or `make compile` → `dist/codeparse`).
 2. `codeparse install`
 
+## Tools
+
+| Tool | Description |
+| --- | --- |
+| `get_project_overview` | Return the largest directories and the project entry points. |
+| `get_directory_tree` | Return the directory tree. |
+| `get_file_overview` | Return one file's imports and the symbol tree of the file. |
+| `search_symbols` | Search symbol names, signatures, docstrings, and decorators. |
+| `get_symbol` | Return one symbol's definition and how many places reference it. |
+| `get_symbol_at_lines` | Return the symbol that covers a line range in a file. |
+| `get_symbol_references` | Return the call, access, and type-annotation sites for one symbol. |
+| `find_subclasses` | Return the classes that directly inherit from a class. |
+| `find_importers` | Return the files that import a module. |
+
 ## Benchmark Evaluation (in-progress)
 
 Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server. The average amount of tokens is calculated at the end for comparison.
