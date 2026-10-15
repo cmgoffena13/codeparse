@@ -12,22 +12,22 @@ DESCRIPTION = (
 )
 
 _SKILL_BODY = """\
-IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` / ``get_symbol_at_lines`` instead of \
-``read`` to get file / symbol information.
+IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` instead of \
+``read`` to get file / symbol information. NEVER use ``read`` on a Python file.
 
 The information that is provided to you will determine the tool you should use.
 
 ## You are given the file name.
 1. Use ``get_file_overview`` to get a summary of the symbols in the file.
-2. Use ``get_symbol`` to get the code definition of the symbol. 
+2. Use ``get_symbol`` to get the symbol definition.
 
-## You are given the file name and exact symbol name.
-1. Use ``get_symbol`` to get the code definition of the symbol. 
+## You are given the file name and symbol's qualified name.
+1. Use ``get_symbol`` to get the symbol definition. 
 
-## You are given a file and line numbers (or a ``code selection`` in Cursor or VS Code).
-1. Use ``get_symbol_at_lines`` to get the symbol that covers those lines.
+## You are given a file name and line numbers from ``grep`` or a ``code selection`` in Cursor.
+1. Use ``get_symbol_at_lines`` to get the symbol definition that covers those lines.
 
-## You are NOT given the file name or exact symbol name. 
+## You are NOT given the file name or symbol's qualified name. 
 1. Investigate the codebase using ``get_project_overview`` and keywords. 
 2. Use ``get_file_overview`` to get a summary of the symbols in the file.
 3. Use ``get_symbol`` to get the code definition of the symbol.
@@ -40,12 +40,12 @@ The information that is provided to you will determine the tool you should use.
 
 ### ``grep``
  - Use when the clue is specific text in file contents.
- - If output has a line number, follow up with ``get_symbol_at_lines``.
  - DO NOT grep to find which files depend on a module; use ``find_importers``.
  - DO NOT grep for reference sites of an exact symbol; use ``get_symbol_references``.
 
 ### ``search_symbols``
  - Use when the clue is part of a symbol name, signature, docstring, or decorator.
+ - One search per symbol MAX. Follow up with ``grep`` / ``glob`` if needed.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
 """
 

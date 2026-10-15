@@ -2,7 +2,7 @@
 
 from src.codeparse_mcp.format_utils import bullet, lines_range
 from src.codeparse_mcp.paths import normalize_repo_file_path
-from src.codeparse_mcp.symbol_context import _reference_totals, get_symbol_context
+from src.codeparse_mcp.symbol_context import get_symbol_context
 from src.db import CodeDB
 
 _SYMBOL_AT_LINES_SQL = """
@@ -32,7 +32,7 @@ def get_symbol_at_lines(
     ``line_end`` defaults to ``line_start``. A class and a method both cover a
     line inside the method; the method is returned because its span is smaller.
     A range that crosses two symbols, and sits inside neither, lists each
-    qualified name, its line span, and its reference count.
+    qualified name and its line span.
     """
     result = ""
     end = line_start if line_end is None else line_end
@@ -69,12 +69,11 @@ def _format_hits(db: CodeDB, chosen) -> str:
     if len(chosen) == 1:
         text = get_symbol_context(db, str(chosen[0]["qualified_name"]))
     else:
-        lines = ["Multiple symbols found."]
+        lines = ["Multiple symbols found:"]
         for row in chosen:
-            count, _lines = _reference_totals(db, str(row["qualified_name"]))
             span = lines_range(int(row["line_start"]), int(row["line_end"]))
             name = row["qualified_name"]
-            lines.append(bullet(f"{name} — lines {span} — References: {count}"))
+            lines.append(bullet(f"{name} — lines {span}"))
         text = "\n".join(lines) + "\n"
     return text
 

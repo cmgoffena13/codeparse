@@ -112,7 +112,7 @@ def get_file_overview(file_path: str, ctx: Context) -> str:
 def search_symbols(
     query: str,
     ctx: Context,
-    limit: int = 10,
+    limit: int = 20,
     include_tests: bool = False,
 ) -> str:
     """
@@ -155,8 +155,8 @@ def get_symbol_at_lines(
 ) -> str:
     """
     Same output as ``get_symbol`` for the tightest symbol containing the range
-    (a method, not its class). A range inside no single symbol returns each qualified name,
-    its line span, and its reference count.
+    (a method, not its class). A range inside no single symbol returns each symbol
+    and its line span.
 
     ``line_end`` defaults to ``line_start`` if not provided.
     """
@@ -167,8 +167,8 @@ def get_symbol_at_lines(
 @mcp.tool()
 def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return reference sites (calls, accesses, type annotations) for a symbol, grouped by file,
-    with line numbers and which symbols they happen in.
+    Return reference sites (calls, accesses, type annotations) for a symbol, grouped by file
+    and the symbol they happen in. A site with no enclosing symbol shows its line number.
 
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files by default; set ``include_tests`` to include them.

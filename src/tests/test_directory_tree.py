@@ -19,6 +19,7 @@ def _index(root: Path) -> None:
         encoding="utf-8",
     )
     (core / "other.py").write_text("x = 1\n", encoding="utf-8")
+    (core / "notes.py").write_text("# just a comment\n", encoding="utf-8")
     tests = root / "tests"
     tests.mkdir()
     (tests / "test_dialect.py").write_text(
@@ -52,6 +53,7 @@ def test_directory_tree_path_scopes(tmp_path: Path) -> None:
         assert "pkg/core/" in out
         assert "dialect.py" in out
         assert "other.py" in out
+        assert "notes.py (2L, 0S)" in out
         assert "pkg/__init__.py" not in out
         assert "test_dialect.py" not in out
 

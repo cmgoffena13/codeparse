@@ -50,9 +50,9 @@ def _section_lines(heading: str, total: int, rows: list) -> list[str]:
         lines_out.append(path)
         for line_n, qn in sites:
             if qn:
-                lines_out.append(bullet(f"L{line_n}  {qn}"))
+                lines_out.append(bullet(qn))
             else:
-                lines_out.append(bullet(f"L{line_n}"))
+                lines_out.append(bullet(f"L{line_n}  (no symbol)"))
     return lines_out
 
 
@@ -61,7 +61,8 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
     List reference sites for ``qualified_name``, grouped by ``ref_kind`` then file.
 
     Each site shows the enclosing symbol stored on the reference. A module-level
-    site has none. At most ``_MAX_PER_KIND`` rows are shown per kind. Test files
+    site has none and shows its line number instead. At most ``_MAX_PER_KIND`` rows
+    are shown per kind. Test files
     are skipped unless ``include_tests`` is true.
     """
     key = qualified_name.strip()

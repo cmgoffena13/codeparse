@@ -24,7 +24,7 @@ def _index(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (pkg / "user.py").write_text(
-        "from pkg.target import helper\n\n\ndef run() -> int:\n    return helper()\n",
+        "from pkg.target import helper\n\nhelper()\n\ndef run() -> int:\n    return helper()\n",
         encoding="utf-8",
     )
     tests = tmp_path / "tests"
@@ -48,8 +48,8 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "Legend:" not in out
         assert "Kind:" not in out
         assert "Lines:" not in out
-        assert "## References (3)" in out
-        assert "Calls: 3" in out
+        assert "## References (4)" in out
+        assert "Calls: 4" in out
         assert "Access:" not in out
         assert "Type Annotations:" not in out
         assert "Parent:" not in out
@@ -82,8 +82,9 @@ def test_symbol_references_lists_calls_with_counts(tmp_path: Path) -> None:
         assert "pkg/user.py" in out
         assert "tests/test_target.py" not in out
         assert "## Calls" in out
-        assert "  • L" in out
-        assert "pkg.user.run" in out
+        assert "  • pkg.user.run" in out
+        assert "  • L3  (no symbol)" in out
+        assert "L5" not in out
         assert "pkg/user.py:" not in out
         assert "(" in out  # kind section counts
     finally:

@@ -21,9 +21,8 @@ def bullet(text: str, lead: str = "") -> str:
 
 
 def file_label(name: str, line_count: int, symbol_count: int) -> str:
-    """``name``, ``name (12L)``, or ``name (12L, 3S)``."""
+    """``name`` when the file has no lines, otherwise ``name (12L, 3S)``."""
     label = name or "(unknown path)"
-    if line_count <= 0:
-        return label
-    stats = f"({line_count}L)" if symbol_count <= 0 else f"({line_count}L, {symbol_count}S)"
-    return f"{label} {stats}"
+    if line_count > 0:
+        label = f"{label} ({line_count}L, {symbol_count}S)"
+    return label
