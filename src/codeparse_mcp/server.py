@@ -102,7 +102,7 @@ def get_directory_tree(ctx: Context, path: str | None = None) -> str:
 def get_file_overview(file_path: str, ctx: Context) -> str:
     """
     Return imports and a nested symbol tree for one file with line numbers.
-    Use ``get_symbol`` for symbol definitions.
+    Follow up with ``get_symbol`` for symbol definitions.
     """
     path = file_path.strip()
     return _processor(ctx).run_query(lambda db: run_file_overview(db, path))
