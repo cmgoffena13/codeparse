@@ -75,7 +75,7 @@ def test_symbol_references_lists_calls_with_counts(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        out = get_symbol_references(db, "pkg.target.helper")
+        out = get_symbol_references(db, "pkg.target.helper", include_tests=False)
         assert "References of" not in out
         assert "Legend:" not in out
         assert "total" not in out
@@ -106,7 +106,7 @@ def test_symbol_references_none(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        out = get_symbol_references(db, "pkg.target.missing")
+        out = get_symbol_references(db, "pkg.target.missing", include_tests=False)
         assert out == "No references to pkg.target.missing were found."
     finally:
         db.close()

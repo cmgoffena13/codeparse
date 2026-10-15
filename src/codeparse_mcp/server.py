@@ -120,7 +120,7 @@ def search_symbols(
     grouped by file. Results are ordered #1, #2, #3 by relevance.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
-    Use multiple keywords, separated by spaces, to narrow your search (AND).
+    Narrow with one distinctive word; extra space-separated words must all match.
     Example input queries: ``loader``, ``dialect format``
     """
     return _processor(ctx).run_query(

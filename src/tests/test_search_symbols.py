@@ -23,7 +23,7 @@ def test_search_symbols_excludes_is_test_by_default(
     root = _index(tmp_path, python_fixtures_dir)
     db = CodeDB(root)
     try:
-        out = search_symbols(db, "format_model", limit=20)
+        out = search_symbols(db, "format_model", limit=20, include_tests=False)
         assert "pkg.prod.format_model" in out
         assert "test_format_model" not in out
         assert "tests/" not in out
@@ -74,7 +74,7 @@ def test_search_symbols_groups_by_file_with_rank(tmp_path: Path, python_fixtures
     root = _index(tmp_path, python_fixtures_dir)
     db = CodeDB(root)
     try:
-        out = search_symbols(db, "format_model", limit=20)
+        out = search_symbols(db, "format_model", limit=20, include_tests=False)
         hits = [line for line in out.splitlines() if line.startswith("  #")]
         assert hits
         ranks: list[int] = []

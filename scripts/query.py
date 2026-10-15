@@ -80,7 +80,7 @@ def main() -> int:
         help="Same output as the MCP search_symbols tool",
     )
     ss.add_argument("query", help='FTS query, e.g. "format_model" or "dialect format"')
-    ss.add_argument("--limit", type=int, default=10)
+    ss.add_argument("--limit", type=int, default=20)
     ss.add_argument(
         "--include-tests",
         action="store_true",

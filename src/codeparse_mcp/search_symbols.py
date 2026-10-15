@@ -38,9 +38,9 @@ def build_fts_query(user_input: str) -> str:
 def search_symbols(
     db: CodeDB,
     query: str,
-    limit: int = 10,
+    limit: int,
     *,
-    include_tests: bool = False,
+    include_tests: bool,
 ) -> str:
     """
     Search symbols via ``symbols_fts`` (qualified_name, signature,

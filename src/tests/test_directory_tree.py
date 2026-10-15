@@ -35,7 +35,7 @@ def test_directory_tree_full(tmp_path: Path) -> None:
     _index(tmp_path)
     db = CodeDB(tmp_path)
     try:
-        out = get_directory_tree(db)
+        out = get_directory_tree(db, None)
         assert "Legend:" not in out
         assert ".\n" in out
         assert "dialect.py" in out

@@ -23,7 +23,7 @@ ORDER BY f.path, s.line_start, s.qualified_name
 """
 
 
-def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool = False) -> str:
+def find_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     """
     List classes whose base list includes ``qualified_name``.
 

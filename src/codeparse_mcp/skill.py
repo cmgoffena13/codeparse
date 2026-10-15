@@ -45,8 +45,8 @@ The information that is provided to you will determine the tool you should use.
 
 ### ``search_symbols``
  - Use when the clue is part of a symbol name, signature, docstring, or decorator.
- - One search per symbol MAX. Follow up with ``grep`` / ``glob`` if needed.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
+ - DO NOT call it again with a reworded query.
 """
 
 

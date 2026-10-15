@@ -50,7 +50,7 @@ def test_find_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.Mon
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        out = find_importers(db, "pkg/target.py")
+        out = find_importers(db, "pkg/target.py", include_tests=False)
         assert out.startswith("Showing 1 of 2 files\n")
         assert "└── pkg/\n    └── a.py\n" in out
         assert "b.py" not in out
@@ -68,7 +68,7 @@ def test_find_importers_includes_relative_import(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        out = find_importers(db, "pkg/sib.py")
+        out = find_importers(db, "pkg/sib.py", include_tests=False)
         assert "└── pkg/\n    └── caller.py\n" in out
     finally:
         db.close()
@@ -85,7 +85,7 @@ def test_find_importers_accepts_absolute_path(tmp_path: Path) -> None:
     CodeProcessor(db, tmp_path).process()
     try:
         abs_target = str((tmp_path / "pkg" / "target.py").resolve())
-        out = find_importers(db, abs_target)
+        out = find_importers(db, abs_target, include_tests=False)
         assert out.startswith("File Count: 1\n")
         assert "└── pkg/\n    └── importer.py\n" in out
         assert "Importers of" not in out

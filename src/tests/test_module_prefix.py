@@ -34,7 +34,7 @@ def test_src_layout_strips_non_package_prefix(tmp_path: Path) -> None:
             "SELECT qualified_name FROM symbols WHERE name = 'y'"
         ).fetchone()
         assert symbol["qualified_name"] == "fundamentals.xxx.y"
-        assert "└── use.py\n" in find_importers(db, "src/fundamentals/xxx.py")
+        assert "└── use.py\n" in find_importers(db, "src/fundamentals/xxx.py", include_tests=False)
     finally:
         db.close()
 
@@ -77,7 +77,7 @@ def test_relative_import_under_src_omits_src(tmp_path: Path) -> None:
         assert row["import_type"] == "relative"
         assert row["import_path"] == "fundamentals.sib"
         assert "└── src/\n    └── fundamentals/\n        └── caller.py\n" in find_importers(
-            db, "src/fundamentals/sib.py"
+            db, "src/fundamentals/sib.py", include_tests=False
         )
     finally:
         db.close()

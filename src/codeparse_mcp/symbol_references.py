@@ -56,7 +56,7 @@ def _section_lines(heading: str, total: int, rows: list) -> list[str]:
     return lines_out
 
 
-def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: bool = False) -> str:
+def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     """
     List reference sites for ``qualified_name``, grouped by ``ref_kind`` then file.
 

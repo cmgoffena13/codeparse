@@ -92,7 +92,7 @@ def _lines_under_parent(children_by_parent_id, parent_key, branch_prefix):
     return lines
 
 
-def get_directory_tree(db: CodeDB, path: str | None = None) -> str:
+def get_directory_tree(db: CodeDB, path: str | None) -> str:
     """
     Return the directory/file tree with line and symbol counts.
 

@@ -38,10 +38,10 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        assert get_symbol_at_lines(db, "pkg/target.py", 1) == _with_symbol_header(
+        assert get_symbol_at_lines(db, "pkg/target.py", 1, None) == _with_symbol_header(
             get_symbol_context(db, "pkg.target.helper"), "pkg.target.helper"
         )
-        assert get_symbol_at_lines(db, "pkg/target.py", 7) == _with_symbol_header(
+        assert get_symbol_at_lines(db, "pkg/target.py", 7, None) == _with_symbol_header(
             get_symbol_context(db, "pkg.target.Worker.run"), "pkg.target.Worker.run"
         )
         assert get_symbol_at_lines(db, "pkg/target.py", 6, 7) == _with_symbol_header(
@@ -56,6 +56,6 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
         assert get_symbol_at_lines(db, "pkg/target.py", 2, 5) == (
             "Multiple symbols found:\n  • pkg.target.helper — L1-2\n  • pkg.target.Worker — L5-7\n"
         )
-        assert "No symbol" in get_symbol_at_lines(db, "pkg/target.py", 4)
+        assert "No symbol" in get_symbol_at_lines(db, "pkg/target.py", 4, None)
     finally:
         db.close()

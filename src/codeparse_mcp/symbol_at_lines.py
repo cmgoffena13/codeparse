@@ -24,7 +24,7 @@ def get_symbol_at_lines(
     db: CodeDB,
     file_path: str,
     line_start: int,
-    line_end: int | None = None,
+    line_end: int | None,
 ) -> str:
     """
     Return ``get_symbol`` output for the tightest symbol containing the range,
