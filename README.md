@@ -24,10 +24,10 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `get_project_overview` | Return the largest directories and the project entry points. |
 | `get_directory_tree` | Return the directory tree. |
 | `get_file_overview` | Return one file's imports and the symbol tree of the file. |
-| `search_symbols` | Search symbol names, signatures, docstrings, and decorators. |
-| `get_symbol` | Return one symbol's definition and how many places reference it. |
+| `get_symbol` | Return one symbol's definition and its reference counts. |
 | `get_symbol_at_lines` | Return the symbol that covers a line range in a file. |
 | `get_symbol_references` | Return the call, access, and type-annotation sites for one symbol. |
+| `search_symbols` | Search symbol names, signatures, docstrings, and decorators. |
 | `find_subclasses` | Return the classes that directly inherit from a class. |
 | `find_importers` | Return the files that import a module. |
 
