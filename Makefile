@@ -34,7 +34,10 @@ upgrade:
 #   make eval-smoke v
 #   make eval-smoke verbose
 #   make eval cursor
+#   make eval-smoke v TASK=search-dialect-transpilation ARM=codeparse
 # Note: `make … -v` is Make's --version; use the `v` / `verbose` goal instead.
+TASK_ARGS := $(if $(TASK),--tasks $(TASK),)
+ARM_ARGS := $(if $(ARM),--arm $(ARM),)
 RUNTIME := $(firstword $(filter cursor claude,$(MAKECMDGOALS)))
 ifeq ($(RUNTIME),)
 RUNTIME := cursor
@@ -42,10 +45,10 @@ endif
 VERBOSE := $(if $(filter v verbose,$(MAKECMDGOALS)),--verbose,)
 
 eval:
-	uv run -- python eval/bench.py --provider $(RUNTIME) $(VERBOSE)
+	uv run -- python eval/bench.py --provider $(RUNTIME) $(VERBOSE) $(TASK_ARGS) $(ARM_ARGS)
 
 eval-smoke:
-	uv run -- python eval/bench.py --smoke --provider $(RUNTIME) $(VERBOSE)
+	uv run -- python eval/bench.py --smoke --provider $(RUNTIME) $(VERBOSE) $(TASK_ARGS) $(ARM_ARGS)
 
 cursor claude v verbose:
 	@:

@@ -36,17 +36,15 @@ The information that is provided to you will determine the tool you should use.
 
 ### ``glob``
  - Use when the clue is a path or a file name.
- - DO NOT glob for specific directory files; use ``get_directory_tree`` with the path.
 
 ### ``grep``
  - Use when the clue is specific text in file contents.
- - DO NOT grep to find which files depend on a module; use ``find_importers``.
- - DO NOT grep for reference sites of an exact symbol; use ``get_symbol_references``.
+ - Use ``find_importers`` to find which files depend on a module; DO NOT grep for this.
+ - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
 
 ### ``search_symbols``
  - Use when the clue is part of a symbol name, signature, docstring, or decorator.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
- - DO NOT call it again with a reworded query.
 """
 
 

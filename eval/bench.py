@@ -713,6 +713,13 @@ def select_tasks(
     return tasks
 
 
+def selected_arms(arm: list[str] | None) -> tuple[str, ...]:
+    arms = ("baseline", "codeparse")
+    if arm:
+        arms = tuple(arm)
+    return arms
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -729,6 +736,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Print per-step tool call timelines after each run",
     )
     parser.add_argument("--tasks", nargs="+", help="Task ids to run")
+    parser.add_argument(
+        "--arm",
+        action="append",
+        choices=("baseline", "codeparse"),
+        default=None,
+        help="Arm to run (default: baseline and codeparse). Repeat to run several.",
+    )
     parser.add_argument("--repeats", type=int, default=10, help="Repeats per arm (default 10)")
     parser.add_argument(
         "--model",
@@ -769,7 +783,7 @@ def main(argv: list[str] | None = None) -> int:
     sqlmesh = ensure_sqlmesh(catalog["sha"], catalog["repo"])
     tasks = select_tasks(catalog, task_ids=args.tasks)
     repeats = 1 if args.smoke else args.repeats
-    arms = ("baseline", "codeparse")
+    arms = selected_arms(args.arm)
 
     reload_sqlmesh(sqlmesh)
 

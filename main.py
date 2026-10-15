@@ -126,7 +126,7 @@ async def _print_tools() -> None:
             _body(
                 await client.call_tool(
                     "search_symbols",
-                    {"query": "format_model", "include_tests": True},
+                    {"query": "dialect transpilation", "include_tests": False},
                 )
             ),
         )

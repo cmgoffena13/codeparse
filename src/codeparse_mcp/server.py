@@ -112,7 +112,7 @@ def get_file_overview(file_path: str, ctx: Context) -> str:
 def search_symbols(
     query: str,
     ctx: Context,
-    limit: int = 20,
+    limit: int = 10,
     include_tests: bool = False,
 ) -> str:
     """
@@ -120,7 +120,7 @@ def search_symbols(
     grouped by file. Results are ordered #1, #2, #3 by relevance.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
-    Narrow with one distinctive word; extra space-separated words must all match.
+    Narrow with one distinctive word; Widen with extra space-separated words (OR).
     Example input queries: ``loader``, ``dialect format``
     """
     return _processor(ctx).run_query(
