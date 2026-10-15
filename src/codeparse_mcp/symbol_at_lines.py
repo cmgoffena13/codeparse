@@ -1,6 +1,6 @@
 """Resolve a file line range to the symbol that covers it."""
 
-from src.codeparse_mcp.format_utils import bullet, lines_range
+from src.codeparse_mcp.format_utils import bullet, line_span
 from src.codeparse_mcp.paths import normalize_repo_file_path
 from src.codeparse_mcp.symbol_context import get_symbol_context
 from src.db import CodeDB
@@ -27,7 +27,8 @@ def get_symbol_at_lines(
     line_end: int | None = None,
 ) -> str:
     """
-    Return ``get_symbol`` output for the tightest symbol containing the range.
+    Return ``get_symbol`` output for the tightest symbol containing the range,
+    with ``Symbol:`` in place of ``File:``.
 
     ``line_end`` defaults to ``line_start``. A class and a method both cover a
     line inside the method; the method is returned because its span is smaller.
@@ -67,13 +68,16 @@ def _chosen_rows(rows, line_start: int, end: int):
 def _format_hits(db: CodeDB, chosen) -> str:
     text = ""
     if len(chosen) == 1:
-        text = get_symbol_context(db, str(chosen[0]["qualified_name"]))
+        name = str(chosen[0]["qualified_name"])
+        body = get_symbol_context(db, name)
+        rest = body.split("\n", 1)[1]
+        text = f"Symbol: {name}\n{rest}"
     else:
         lines = ["Multiple symbols found:"]
         for row in chosen:
-            span = lines_range(int(row["line_start"]), int(row["line_end"]))
+            span = line_span(int(row["line_start"]), int(row["line_end"]))
             name = row["qualified_name"]
-            lines.append(bullet(f"{name} — lines {span}"))
+            lines.append(bullet(f"{name} — {span}"))
         text = "\n".join(lines) + "\n"
     return text
 

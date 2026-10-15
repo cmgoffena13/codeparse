@@ -29,29 +29,32 @@ def _index(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def _with_symbol_header(body: str, qualified_name: str) -> str:
+    rest = body.split("\n", 1)[1]
+    return f"Symbol: {qualified_name}\n{rest}"
+
+
 def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        assert get_symbol_at_lines(db, "pkg/target.py", 1) == get_symbol_context(
-            db, "pkg.target.helper"
+        assert get_symbol_at_lines(db, "pkg/target.py", 1) == _with_symbol_header(
+            get_symbol_context(db, "pkg.target.helper"), "pkg.target.helper"
         )
-        assert get_symbol_at_lines(db, "pkg/target.py", 7) == get_symbol_context(
-            db, "pkg.target.Worker.run"
+        assert get_symbol_at_lines(db, "pkg/target.py", 7) == _with_symbol_header(
+            get_symbol_context(db, "pkg.target.Worker.run"), "pkg.target.Worker.run"
         )
-        assert get_symbol_at_lines(db, "pkg/target.py", 6, 7) == get_symbol_context(
-            db, "pkg.target.Worker.run"
+        assert get_symbol_at_lines(db, "pkg/target.py", 6, 7) == _with_symbol_header(
+            get_symbol_context(db, "pkg.target.Worker.run"), "pkg.target.Worker.run"
         )
-        assert get_symbol_at_lines(db, "pkg/target.py", 5, 7) == get_symbol_context(
-            db, "pkg.target.Worker"
+        assert get_symbol_at_lines(db, "pkg/target.py", 5, 7) == _with_symbol_header(
+            get_symbol_context(db, "pkg.target.Worker"), "pkg.target.Worker"
         )
-        assert get_symbol_at_lines(db, "pkg/target.py", 2, 3) == get_symbol_context(
-            db, "pkg.target.helper"
+        assert get_symbol_at_lines(db, "pkg/target.py", 2, 3) == _with_symbol_header(
+            get_symbol_context(db, "pkg.target.helper"), "pkg.target.helper"
         )
         assert get_symbol_at_lines(db, "pkg/target.py", 2, 5) == (
-            "Multiple symbols found:\n"
-            "  • pkg.target.helper — lines 1-2\n"
-            "  • pkg.target.Worker — lines 5-7\n"
+            "Multiple symbols found:\n  • pkg.target.helper — L1-2\n  • pkg.target.Worker — L5-7\n"
         )
         assert "No symbol" in get_symbol_at_lines(db, "pkg/target.py", 4)
     finally:
