@@ -130,8 +130,8 @@ def test_client_tools_read_the_workspace(
             importers = _text(
                 await mcp_client.call_tool("find_importers", {"file_path": "pkg/base.py"})
             )
-            assert "pkg/child.py" in importers
-            assert "pkg/user.py" in importers
+            assert "├── child.py" in importers
+            assert "└── user.py" in importers
             assert "tests/test_child.py" not in importers
 
     asyncio.run(run())
