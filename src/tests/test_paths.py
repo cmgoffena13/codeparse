@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.codeparse_mcp.find_importers import find_importers
+from src.codeparse_mcp.list_importers import list_importers
 from src.codeparse_mcp.paths import normalize_repo_file_path
 from src.db import CodeDB
 from src.processor import CodeProcessor
@@ -38,7 +38,7 @@ def test_normalize_rejects_empty(tmp_path: Path) -> None:
         normalize_repo_file_path("  ", tmp_path)
 
 
-def test_find_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_list_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -46,11 +46,11 @@ def test_find_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.Mon
     (pkg / "target.py").write_text("def helper() -> int:\n    return 1\n", encoding="utf-8")
     (pkg / "a.py").write_text("from pkg.target import helper\n", encoding="utf-8")
     (pkg / "b.py").write_text("from pkg.target import helper\n", encoding="utf-8")
-    monkeypatch.setattr("src.codeparse_mcp.find_importers._MAX_IMPORTER_FILES", 1)
+    monkeypatch.setattr("src.codeparse_mcp.list_importers._MAX_IMPORTER_FILES", 1)
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        out = find_importers(db, "pkg/target.py", include_tests=False)
+        out = list_importers(db, "pkg/target.py", include_tests=False)
         assert out.startswith("Showing 1 of 2 files\n")
         assert "└── pkg/\n    └── a.py\n" in out
         assert "b.py" not in out
@@ -58,7 +58,7 @@ def test_find_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.Mon
         db.close()
 
 
-def test_find_importers_includes_relative_import(tmp_path: Path) -> None:
+def test_list_importers_includes_relative_import(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -68,13 +68,13 @@ def test_find_importers_includes_relative_import(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        out = find_importers(db, "pkg/sib.py", include_tests=False)
+        out = list_importers(db, "pkg/sib.py", include_tests=False)
         assert "└── pkg/\n    └── caller.py\n" in out
     finally:
         db.close()
 
 
-def test_find_importers_accepts_absolute_path(tmp_path: Path) -> None:
+def test_list_importers_accepts_absolute_path(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -85,7 +85,7 @@ def test_find_importers_accepts_absolute_path(tmp_path: Path) -> None:
     CodeProcessor(db, tmp_path).process()
     try:
         abs_target = str((tmp_path / "pkg" / "target.py").resolve())
-        out = find_importers(db, abs_target, include_tests=False)
+        out = list_importers(db, abs_target, include_tests=False)
         assert out.startswith("File Count: 1\n")
         assert "└── pkg/\n    └── importer.py\n" in out
         assert "Importers of" not in out

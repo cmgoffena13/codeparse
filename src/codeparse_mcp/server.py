@@ -8,8 +8,8 @@ from fastmcp import Context, FastMCP
 
 from src.codeparse_mcp.directory_tree import get_directory_tree as run_directory_tree
 from src.codeparse_mcp.file_overview import get_file_overview as run_file_overview
-from src.codeparse_mcp.find_importers import find_importers as run_find_importers
-from src.codeparse_mcp.find_subclasses import find_subclasses as run_find_subclasses
+from src.codeparse_mcp.list_importers import list_importers as run_list_importers
+from src.codeparse_mcp.list_subclasses import list_subclasses as run_list_subclasses
 from src.codeparse_mcp.project_overview import (
     get_project_overview as run_project_overview,
 )
@@ -180,26 +180,26 @@ def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool
 
 
 @mcp.tool()
-def find_subclasses(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
+def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return classes that directly inherit from a given class, grouped by file.
     Excludes test files by default; set ``include_tests`` to include them.
     """
     name = qualified_name.strip()
     return _processor(ctx).run_query(
-        lambda db: run_find_subclasses(db, name, include_tests=include_tests)
+        lambda db: run_list_subclasses(db, name, include_tests=include_tests)
     )
 
 
 @mcp.tool()
-def find_importers(file_path: str, ctx: Context, include_tests: bool = False) -> str:
+def list_importers(file_path: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return a directory tree of files that import a given module file.
     Excludes test files by default; set ``include_tests`` to include them.
     """
     path = file_path.strip()
     return _processor(ctx).run_query(
-        lambda db: run_find_importers(db, path, include_tests=include_tests)
+        lambda db: run_list_importers(db, path, include_tests=include_tests)
     )
 
 

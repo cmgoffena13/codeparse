@@ -40,7 +40,7 @@ The information that is provided to you will determine the tool you should use.
 ### ``grep``
  - Use when the clue is specific text in file contents.
  - Use `-n` to get the line number and then use ``get_symbol_at_lines`` to get the symbol.
- - Use ``find_importers`` to find which files depend on a module; DO NOT grep for this.
+ - Use ``list_importers`` to find which files depend on a module; DO NOT grep for this.
  - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
 
 ### ``search_symbols``

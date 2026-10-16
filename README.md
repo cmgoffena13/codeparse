@@ -28,8 +28,8 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `get_symbol_at_lines` | Return the symbol that covers a line range in a file. |
 | `get_symbol_references` | Return the call, access, and type-annotation sites for one symbol. |
 | `search_symbols` | Search symbol names, signatures, docstrings, and decorators. |
-| `find_subclasses` | Return the classes that directly inherit from a class. |
-| `find_importers` | Return the files that import a module. |
+| `list_subclasses` | Return the classes that directly inherit from a class. |
+| `list_importers` | Return the files that import a module. |
 
 ## Benchmark Evaluation (in-progress)
 

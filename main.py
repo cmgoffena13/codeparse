@@ -178,19 +178,19 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "FIND IMPORTERS",
+            "LIST IMPORTERS",
             _body(
                 await client.call_tool(
-                    "find_importers",
+                    "list_importers",
                     {"file_path": "sqlmesh/core/dialect.py", "include_tests": True},
                 )
             ),
         )
         _print_section(
-            "FIND SUBCLASSES",
+            "LIST SUBCLASSES",
             _body(
                 await client.call_tool(
-                    "find_subclasses",
+                    "list_subclasses",
                     {"qualified_name": "sqlmesh.core.snapshot.evaluator.EvaluationStrategy"},
                 )
             ),

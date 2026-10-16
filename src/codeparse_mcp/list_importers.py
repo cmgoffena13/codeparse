@@ -19,7 +19,7 @@ ORDER BY f.path
 """
 
 
-def find_importers(db: CodeDB, file_path: str, *, include_tests: bool) -> str:
+def list_importers(db: CodeDB, file_path: str, *, include_tests: bool) -> str:
     """
     List files that import the module at ``file_path`` as a directory tree.
 

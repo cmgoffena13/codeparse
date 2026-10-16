@@ -14,8 +14,8 @@ from src.codeparse_mcp.skill import DESCRIPTION, SKILL_INSTRUCTIONS
 
 _PROJECT = Path(__file__).resolve().parent / "test_project"
 _TOOLS = {
-    "find_importers",
-    "find_subclasses",
+    "list_importers",
+    "list_subclasses",
     "get_directory_tree",
     "get_file_overview",
     "get_project_overview",
@@ -122,13 +122,13 @@ def test_client_tools_read_the_workspace(
             assert "tests/test_child.py" in with_tests
 
             subclasses = _text(
-                await mcp_client.call_tool("find_subclasses", {"qualified_name": "pkg.base.Parent"})
+                await mcp_client.call_tool("list_subclasses", {"qualified_name": "pkg.base.Parent"})
             )
             assert "pkg.child.Child" in subclasses
             assert "TestChild" not in subclasses
 
             importers = _text(
-                await mcp_client.call_tool("find_importers", {"file_path": "pkg/base.py"})
+                await mcp_client.call_tool("list_importers", {"file_path": "pkg/base.py"})
             )
             assert "├── child.py" in importers
             assert "└── user.py" in importers

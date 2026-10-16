@@ -1,10 +1,10 @@
-"""Tests for find_subclasses MCP query."""
+"""Tests for list_subclasses MCP query."""
 
 from pathlib import Path
 
 import pytest
 
-from src.codeparse_mcp.find_subclasses import find_subclasses
+from src.codeparse_mcp.list_subclasses import list_subclasses
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -41,10 +41,10 @@ def indexed_hierarchy(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_find_subclasses_lists_direct_children(indexed_hierarchy: Path) -> None:
+def test_list_subclasses_lists_direct_children(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
-        out = find_subclasses(db, "pkg.base.Parent", include_tests=False)
+        out = list_subclasses(db, "pkg.base.Parent", include_tests=False)
         assert "Subclasses of" not in out
         assert "Legend:" not in out
         assert "pkg/base.py" in out
@@ -58,37 +58,37 @@ def test_find_subclasses_lists_direct_children(indexed_hierarchy: Path) -> None:
         db.close()
 
 
-def test_find_subclasses_include_tests(indexed_hierarchy: Path) -> None:
+def test_list_subclasses_include_tests(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
-        out = find_subclasses(db, "pkg.base.Parent", include_tests=True)
+        out = list_subclasses(db, "pkg.base.Parent", include_tests=True)
         assert "tests/test_parent.py" in out
         assert "  • tests.test_parent.TestChild" in out
     finally:
         db.close()
 
 
-def test_find_subclasses_none(indexed_hierarchy: Path) -> None:
+def test_list_subclasses_none(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
-        out = find_subclasses(db, "pkg.base.Alone", include_tests=False)
+        out = list_subclasses(db, "pkg.base.Alone", include_tests=False)
         assert out == "No subclasses of pkg.base.Alone found."
     finally:
         db.close()
 
 
-def test_find_subclasses_missing_symbol(indexed_hierarchy: Path) -> None:
+def test_list_subclasses_missing_symbol(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
-        out = find_subclasses(db, "pkg.base.Missing", include_tests=False)
+        out = list_subclasses(db, "pkg.base.Missing", include_tests=False)
         assert out == "No subclasses of pkg.base.Missing found."
     finally:
         db.close()
 
 
-def test_find_subclasses_empty_input(indexed_hierarchy: Path) -> None:
+def test_list_subclasses_empty_input(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
-        assert "non-empty qualified_name" in find_subclasses(db, "  ", include_tests=False)
+        assert "non-empty qualified_name" in list_subclasses(db, "  ", include_tests=False)
     finally:
         db.close()
