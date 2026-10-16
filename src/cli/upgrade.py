@@ -57,7 +57,7 @@ def asset_name() -> str:
 
 def upgrade() -> int:
     if not is_compiled():
-        print("codeparse is running from source; upgrade with git instead.", file=sys.stderr)
+        print("codeparse is running from source; update with git instead.", file=sys.stderr)
         return 1
 
     exe = binary_path()
@@ -79,7 +79,7 @@ def upgrade() -> int:
         print(f"No release asset named {name} in {tag}", file=sys.stderr)
         return 1
 
-    print(f"Upgrading codeparse {current} -> {tag.removeprefix('v')}...")
+    print(f"Updating codeparse {current} -> {tag.removeprefix('v')}...")
     member = "codeparse.exe" if platform.system() == "Windows" else "codeparse"
     with zipfile.ZipFile(io.BytesIO(_get(asset["browser_download_url"]))) as archive:
         binary = archive.read(member)
@@ -96,7 +96,7 @@ def upgrade() -> int:
     with contextlib.suppress(OSError):
         old.unlink()
 
-    print(f"Upgraded codeparse to {tag.removeprefix('v')}")
+    print(f"Updated codeparse to {tag.removeprefix('v')}")
     subprocess.run([str(exe), "sync"], check=False)  # noqa: S603
     if _minor_changed(current, tag):
         from src.db import index_workspace_paths

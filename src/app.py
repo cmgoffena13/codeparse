@@ -89,7 +89,7 @@ def main() -> int:
         ok = uninstall_mcp()
         remove_skill()
         return 0 if ok else 1
-    if args.command == "upgrade":
+    if args.command == "update":
         from src.cli.upgrade import upgrade
 
         return upgrade()

@@ -27,7 +27,7 @@ def _setup(
     exe = tmp_path / "bin" / "codeparse"
     exe.parent.mkdir()
     exe.write_bytes(b"old")
-    monkeypatch.setattr(sys, "argv", [str(exe), "upgrade"])
+    monkeypatch.setattr(sys, "argv", [str(exe), "update"])
     monkeypatch.setattr(upgrade_mod, "is_compiled", lambda: True)
     monkeypatch.setattr(upgrade_mod, "get_version", lambda: "0.1.19")
     monkeypatch.setattr(upgrade_mod.platform, "system", lambda: "Darwin")
@@ -62,7 +62,7 @@ def test_upgrade_replaces_binary_and_syncs_skill(
     assert not (exe.parent / "codeparse.old").exists()
     assert not (exe.parent / "codeparse.new").exists()
     assert synced == [[str(exe.resolve()), "sync"]]
-    assert "Upgrading codeparse 0.1.19 -> 0.2.0" in capsys.readouterr().out
+    assert "Updating codeparse 0.1.19 -> 0.2.0" in capsys.readouterr().out
 
 
 def test_upgrade_minor_reloads_each_linked_index(
@@ -210,7 +210,7 @@ def test_get_reads_response(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cli_upgrade_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.app import main
 
-    monkeypatch.setattr(sys, "argv", ["codeparse", "upgrade"])
+    monkeypatch.setattr(sys, "argv", ["codeparse", "update"])
     monkeypatch.setattr(upgrade_mod, "upgrade", lambda: 7)
     assert main() == 7
 

@@ -30,7 +30,7 @@ def make_parser() -> argparse.ArgumentParser:
         help="Remove the codeparse MCP server and skill",
     )
     subparsers.add_parser(
-        "upgrade",
+        "update",
         help="Replace this binary with the latest release and update the skill",
     )
 
