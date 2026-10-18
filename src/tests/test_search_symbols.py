@@ -70,6 +70,19 @@ def test_search_symbols_include_tests(tmp_path: Path, python_fixtures_dir: Path)
         db.close()
 
 
+def test_search_symbols_splits_dots_into_terms(tmp_path: Path, python_fixtures_dir: Path) -> None:
+    root = _index(tmp_path, python_fixtures_dir)
+    db = CodeDB(root)
+    try:
+        out = search_symbols(db, "render.dialect", limit=20, include_tests=False)
+        names = [line.split("•", 1)[1].strip() for line in out.splitlines() if "•" in line]
+        assert names[0] == "pkg.prod.render_query"
+        assert "pkg.prod.render_tree" in names
+        assert "pkg.prod.dialect_name" in names
+    finally:
+        db.close()
+
+
 def test_search_symbols_ranks_multi_word_matches_first(
     tmp_path: Path, python_fixtures_dir: Path
 ) -> None:

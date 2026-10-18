@@ -47,12 +47,12 @@ def search_symbols(
     Search symbols via ``symbols_fts`` (qualified_name, signature,
     docstring, modifiers).
 
-    Query is space-separated phrases/terms, OR'd with prefix matching. Returns
+    Query words are OR'd with prefix matching. Dots and hyphens split into words. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),
     each with rank ``#n``. By default
     skips ``is_test`` files; pass ``include_tests=True`` to include them.
     """
-    stripped = query.strip().replace("-", " ")
+    stripped = query.strip().replace("-", " ").replace(".", " ")
     if not stripped:
         return "No search text given; pass a non-empty query."
 
