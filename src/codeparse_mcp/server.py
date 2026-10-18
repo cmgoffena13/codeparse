@@ -154,9 +154,8 @@ def get_symbol_at_lines(
     line_end: int | None = None,
 ) -> str:
     """
-    Same output as ``get_symbol`` for the tightest symbol containing the range
-    (a method, not its class). A range inside no single symbol returns each symbol
-    and its line span.
+    Same output as ``get_symbol`` for the tightest symbol that contains the whole range.
+    A range inside no single symbol returns each symbol and its line span.
 
     ``line_end`` defaults to ``line_start`` if not provided.
     """
