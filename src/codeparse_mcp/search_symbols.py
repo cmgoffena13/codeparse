@@ -23,14 +23,18 @@ LIMIT ?
 """
 
 
+_DROPPED_WORDS = frozenset({"def", "class", "async"})
+
+
 def build_fts_query(user_input: str) -> str:
     """Turn free text into an OR of prefix terms (e.g. ``auth login`` → ``auth* OR login*``).
 
     Tokens are always OR'd. Do not treat ``AND``/``OR``/``NOT`` in the input as
-    FTS operators — they become ordinary terms. ``bm25`` ranks a symbol that
-    matches more of the terms above a symbol that matches fewer.
+    FTS operators — they become ordinary terms. ``def``, ``class``, and ``async``
+    are dropped. ``bm25`` ranks a symbol that matches more of the terms above a
+    symbol that matches fewer.
     """
-    terms = user_input.split()
+    terms = [term for term in user_input.split() if term.lower() not in _DROPPED_WORDS]
     if not terms:
         return ""
     return " OR ".join(f"{term}*" for term in terms)
@@ -46,7 +50,8 @@ def search_symbols(
     """
     Search symbols via ``symbols_fts`` (name, signature, docstring, modifiers).
 
-    Query words are OR'd with prefix matching. Dots and hyphens split into words. Returns
+    Query words are OR'd with prefix matching. Dots and hyphens split into words.
+    ``def``, ``class``, and ``async`` are dropped. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),
     each with rank ``#n``. By default
     skips ``is_test`` files; pass ``include_tests=True`` to include them.

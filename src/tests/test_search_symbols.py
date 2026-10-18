@@ -3,7 +3,7 @@
 import shutil
 from pathlib import Path
 
-from src.codeparse_mcp.search_symbols import search_symbols
+from src.codeparse_mcp.search_symbols import build_fts_query, search_symbols
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -15,6 +15,13 @@ def _index(tmp_path: Path, python_fixtures_dir: Path) -> Path:
     CodeProcessor(db, root).process()
     db.close()
     return root
+
+
+def test_build_fts_query_drops_definition_words() -> None:
+    assert build_fts_query("def plan") == "plan*"
+    assert build_fts_query("class Plan") == "Plan*"
+    assert build_fts_query("async def load") == "load*"
+    assert build_fts_query("def") == ""
 
 
 def test_search_symbols_excludes_is_test_by_default(

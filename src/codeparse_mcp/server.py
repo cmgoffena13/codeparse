@@ -170,7 +170,7 @@ def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool
     and the symbol they happen in. A site with no enclosing symbol shows its line number.
 
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Excludes test files by default; set ``include_tests`` to include them.
+    Excludes test references by default; set ``include_tests`` to include them.
     """
     name = qualified_name.strip()
     return _processor(ctx).run_query(
