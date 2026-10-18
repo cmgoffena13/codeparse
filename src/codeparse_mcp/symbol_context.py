@@ -12,10 +12,12 @@ WHERE s.qualified_name = ?
 """
 
 _REF_KIND_COUNTS_SQL = """
-SELECT ref_kind, COUNT(*) AS n
-FROM symbol_references
-WHERE ref_symbol_qualified_name = ?
-GROUP BY ref_kind
+SELECT f.is_test, sr.ref_kind, COUNT(*) AS n
+FROM symbol_references AS sr
+INNER JOIN files AS f
+    ON f.id = sr.source_file_id
+WHERE sr.ref_symbol_qualified_name = ?
+GROUP BY f.is_test, sr.ref_kind
 """
 
 _REF_KIND_LABELS: tuple[tuple[str, str], ...] = (
@@ -31,23 +33,31 @@ def _definition_gutter_width(line_start: int, line_count: int) -> int:
     return len(str(line_start + line_count - 1))
 
 
-def _reference_totals(db: CodeDB, qualified_name: str) -> tuple[int, list[str]]:
-    counts = {
-        row["ref_kind"]: int(row["n"])
-        for row in db.connection.execute(_REF_KIND_COUNTS_SQL, (qualified_name,))
-    }
-    total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
-    lines = [
+def _kind_count_lines(counts: dict[str, int]) -> list[str]:
+    return [
         f"{label}: {count}"
         for kind, label in _REF_KIND_LABELS
         if (count := counts.get(kind, 0)) > 0
     ]
-    return total, lines
+
+
+def _reference_sections(db: CodeDB, qualified_name: str) -> list[str]:
+    production: dict[str, int] = {}
+    tests: dict[str, int] = {}
+    for row in db.connection.execute(_REF_KIND_COUNTS_SQL, (qualified_name,)):
+        bucket = tests if row["is_test"] else production
+        bucket[row["ref_kind"]] = int(row["n"])
+    lines: list[str] = []
+    for title, counts in (("References", production), ("Test References", tests)):
+        total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
+        lines.extend(["", f"## {title} ({total})", ""])
+        lines.extend(_kind_count_lines(counts))
+    return lines
 
 
 def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
     """
-    Return symbol metadata, reference totals, and source for the symbol span.
+    Return symbol metadata, production and test reference totals, and source for the symbol span.
 
     ``qualified_name`` must equal ``symbols.qualified_name`` (module-prefixed for
     Python). Bare names do not match. Use ``get_symbol_references`` for the
@@ -88,8 +98,6 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
         "",
     ]
     lines.extend(body_lines)
-    ref_total, ref_lines = _reference_totals(db, key)
-    lines.extend(["", f"## References ({ref_total})", ""])
-    lines.extend(ref_lines)
+    lines.extend(_reference_sections(db, key))
 
     return "\n".join(lines) + "\n"

@@ -48,8 +48,11 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "Legend:" not in out
         assert "Kind:" not in out
         assert "Lines:" not in out
-        assert "## References (4)" in out
-        assert "Calls: 4" in out
+        assert "## References (3)" in out
+        assert "Calls: 3" in out
+        assert "## Test References (1)" in out
+        assert "Calls: 1" in out
+        assert out.index("## References") < out.index("## Test References")
         assert "Access:" not in out
         assert "Type Annotations:" not in out
         assert "Parent:" not in out
