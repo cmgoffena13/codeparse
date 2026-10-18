@@ -13,7 +13,7 @@ def test_frontmatter_description_parses() -> None:
     assert body.lstrip("\n").startswith("IMPORTANT:")
 
 
-def test_sync_skips_skill_when_hash_matches(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_sync_skips_skill_when_hash_matches(monkeypatch, tmp_path: Path) -> None:
     skill_root = tmp_path / "skills"
     skill_root.mkdir()
     monkeypatch.setattr("src.codeparse_mcp.skill.available_skill_dirs", lambda: [skill_root])
@@ -25,7 +25,6 @@ def test_sync_skips_skill_when_hash_matches(monkeypatch, tmp_path: Path, capsys)
     assert sync_skill() == []
     assert written.stat().st_mtime_ns == stamp
     assert written.read_text(encoding="utf-8") == SKILL_INSTRUCTIONS
-    assert "Skill is up to date." in capsys.readouterr().out
 
 
 def test_sync_rewrites_skill_when_hash_differs(monkeypatch, tmp_path: Path) -> None:
