@@ -2,6 +2,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import xxhash
 import yaml
 
 DESCRIPTION = (
@@ -133,16 +134,24 @@ def available_skill_dirs() -> list[Path]:
 def sync_skill() -> list[Path]:
     """Write the codeparse skill into FastMCP vendor skill directories that exist."""
     written: list[Path] = []
-    for target in available_skill_dirs():
-        skill_dir = target / "codeparse"
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        (skill_dir / "SKILL.md").write_text(SKILL_INSTRUCTIONS, encoding="utf-8")
-        written.append(skill_dir)
-    if not written:
+    targets = available_skill_dirs()
+    if not targets:
         print("No skill directories found.")
-        return written
-    for path in written:
-        print(f"Synced skill → {path}")
+    else:
+        skill_bytes = SKILL_INSTRUCTIONS.encode("utf-8")
+        current_hash = xxhash.xxh128(skill_bytes).hexdigest()
+        for target in targets:
+            skill_dir = target / "codeparse"
+            skill_path = skill_dir / "SKILL.md"
+            existing = skill_path.read_bytes() if skill_path.is_file() else b""
+            if xxhash.xxh128(existing).hexdigest() == current_hash:
+                continue
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_path.write_bytes(skill_bytes)
+            written.append(skill_dir)
+        if written:
+            for path in written:
+                print(f"Synced skill → {path}")
     return written
 
 
