@@ -134,16 +134,19 @@ def search_symbols(
 
 
 @mcp.tool()
-def get_symbol(qualified_name: str, ctx: Context) -> str:
+def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return the symbol definition with line numbers and aggregated reference counts,
-    split into references and test references (calls, accesses, type annotations).
+    Return the symbol definition with line numbers and aggregated reference counts
+    (calls, accesses, type annotations).
 
+    Excludes test references by default; set ``include_tests`` to include them.
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Use ``get_symbol_references`` for detailed call, access, and type-annotation sites.
     """
     name = qualified_name.strip()
-    return _processor(ctx).run_query(lambda db: run_symbol_context(db, name))
+    return _processor(ctx).run_query(
+        lambda db: run_symbol_context(db, name, include_tests=include_tests)
+    )
 
 
 @mcp.tool()
@@ -152,15 +155,19 @@ def get_symbol_at_lines(
     line_start: int,
     ctx: Context,
     line_end: int | None = None,
+    include_tests: bool = False,
 ) -> str:
     """
     Same output as ``get_symbol`` for the tightest symbol that contains the whole range.
     A range inside no single symbol returns each symbol and its line span.
 
     ``line_end`` defaults to ``line_start`` if not provided.
+    Excludes test references by default; set ``include_tests`` to include them.
     """
     path = file_path.strip()
-    return _processor(ctx).run_query(lambda db: run_symbol_at_lines(db, path, line_start, line_end))
+    return _processor(ctx).run_query(
+        lambda db: run_symbol_at_lines(db, path, line_start, line_end, include_tests=include_tests)
+    )
 
 
 @mcp.tool()

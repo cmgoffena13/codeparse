@@ -43,16 +43,18 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        out = get_symbol_context(db, "pkg.target.helper")
+        out = get_symbol_context(db, "pkg.target.helper", include_tests=False)
         assert "## Code Definition" not in out
         assert "Legend:" not in out
         assert "Kind:" not in out
         assert "Lines:" not in out
         assert "## References (3)" in out
         assert "Calls: 3" in out
-        assert "## Test References (1)" in out
-        assert "Calls: 1" in out
-        assert out.index("## References") < out.index("## Test References")
+        assert "Test References" not in out
+        with_tests = get_symbol_context(db, "pkg.target.helper", include_tests=True)
+        assert "## Test References (1)" in with_tests
+        assert "Calls: 1" in with_tests
+        assert with_tests.index("## References") < with_tests.index("## Test References")
         assert "Access:" not in out
         assert "Type Annotations:" not in out
         assert "Parent:" not in out
@@ -63,7 +65,7 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "tests/test_target.py" not in out
         assert "## Calls" not in out
 
-        method = get_symbol_context(db, "pkg.target.Worker.run")
+        method = get_symbol_context(db, "pkg.target.Worker.run", include_tests=False)
         assert "Parent:" not in method
         assert "Language:" not in method
         assert "Kind:" not in method

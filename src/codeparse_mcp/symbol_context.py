@@ -41,23 +41,28 @@ def _kind_count_lines(counts: dict[str, int]) -> list[str]:
     ]
 
 
-def _reference_sections(db: CodeDB, qualified_name: str) -> list[str]:
+def _reference_sections(db: CodeDB, qualified_name: str, *, include_tests: bool) -> list[str]:
     production: dict[str, int] = {}
     tests: dict[str, int] = {}
     for row in db.connection.execute(_REF_KIND_COUNTS_SQL, (qualified_name,)):
         bucket = tests if row["is_test"] else production
         bucket[row["ref_kind"]] = int(row["n"])
+    sections = [("References", production)]
+    if include_tests:
+        sections.append(("Test References", tests))
     lines: list[str] = []
-    for title, counts in (("References", production), ("Test References", tests)):
+    for title, counts in sections:
         total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
         lines.extend(["", f"## {title} ({total})", ""])
         lines.extend(_kind_count_lines(counts))
     return lines
 
 
-def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
+def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     """
-    Return symbol metadata, production and test reference totals, and source for the symbol span.
+    Return symbol metadata, reference totals, and source for the symbol span.
+
+    Test references are omitted unless ``include_tests`` is true.
 
     ``qualified_name`` must equal ``symbols.qualified_name`` (module-prefixed for
     Python). Bare names do not match. Use ``get_symbol_references`` for the
@@ -98,6 +103,6 @@ def get_symbol_context(db: CodeDB, qualified_name: str) -> str:
         "",
     ]
     lines.extend(body_lines)
-    lines.extend(_reference_sections(db, key))
+    lines.extend(_reference_sections(db, key, include_tests=include_tests))
 
     return "\n".join(lines) + "\n"

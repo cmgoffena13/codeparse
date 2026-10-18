@@ -25,12 +25,15 @@ def get_symbol_at_lines(
     file_path: str,
     line_start: int,
     line_end: int | None,
+    *,
+    include_tests: bool,
 ) -> str:
     """
     Return ``get_symbol`` output for the tightest symbol containing the range,
     with ``Symbol:`` in place of ``File:``.
 
-    ``line_end`` defaults to ``line_start``. A class and a method both cover a
+    ``line_end`` defaults to ``line_start``. Test references are omitted unless
+    ``include_tests`` is true. A class and a method both cover a
     line inside the method; the method is returned because its span is smaller.
     A range that crosses two symbols, and sits inside neither, lists each
     qualified name and its line span.
@@ -52,7 +55,9 @@ def get_symbol_at_lines(
         if not rows:
             result = "No symbol found."
         else:
-            result = _format_hits(db, _chosen_rows(rows, line_start, end))
+            result = _format_hits(
+                db, _chosen_rows(rows, line_start, end), include_tests=include_tests
+            )
     return result
 
 
@@ -65,11 +70,11 @@ def _chosen_rows(rows, line_start: int, end: int):
     return chosen
 
 
-def _format_hits(db: CodeDB, chosen) -> str:
+def _format_hits(db: CodeDB, chosen, *, include_tests: bool) -> str:
     text = ""
     if len(chosen) == 1:
         name = str(chosen[0]["qualified_name"])
-        body = get_symbol_context(db, name)
+        body = get_symbol_context(db, name, include_tests=include_tests)
         rest = body.split("\n", 1)[1]
         text = f"Symbol: {name}\n{rest}"
     else:
