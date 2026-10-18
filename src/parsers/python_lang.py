@@ -37,6 +37,8 @@ class PythonParser(ParserBase):
         self._func_param_annos: dict[str, dict[str, str]] = {}
         self._ref_root_module: dict[str, str] = {}
         self._import_qn: dict[str, str] = {}
+        self._name_types: dict[str, str] = {}
+        self._var_qns: dict[str, str] = {}
         self._module_qn: str = ""
         self._is_package: bool = False
 
@@ -54,6 +56,8 @@ class PythonParser(ParserBase):
         self._func_param_annos = {}
         self._ref_root_module = {}
         self._import_qn = {}
+        self._name_types = {}
+        self._var_qns = {}
         self.symbols = []
         self.imports = []
         self.symbol_references = []
@@ -105,6 +109,13 @@ class PythonParser(ParserBase):
         if not sep and target_name and self._module_qn:
             return f"{self._module_qn}.{target_name}"
         return target_name
+
+    def _resolve_annotation_qn(self, type_name: str) -> str:
+        root = type_name.split(".", 1)[0]
+        resolved = type_name
+        if root not in self.builtin_names:
+            resolved = self._resolve_ref_qn(type_name)
+        return resolved
 
     def _base_source_name(self, node: Node) -> str | None:
         """Leftmost name of a base, peeling ``Generic[T]`` down to ``Generic``."""
@@ -506,8 +517,10 @@ class PythonParser(ParserBase):
             return node.text.decode("utf-8")
         if node.type == "subscript":
             value = node.child_by_field_name("value")
-            if value is None or not self._is_optional_type_value(value):
+            if value is None:
                 return None
+            if not self._is_optional_type_value(value):
+                return self._annotation_type_name(value)
             for child in node.named_children:
                 if child == value:
                     continue
@@ -524,7 +537,7 @@ class PythonParser(ParserBase):
                 return None
             head = node.named_children[0]
             if not self._is_optional_type_value(head):
-                return None
+                return self._annotation_type_name(head)
             type_param = node.named_children[1]
             if type_param.type != "type_parameter":
                 return None
@@ -604,6 +617,12 @@ class PythonParser(ParserBase):
             scope_path = self._qualify(name)
             parent_id = None
 
+        if target.type == "identifier" and name:
+            self._var_qns[name] = scope_path
+            anno = self._annotation_type_name(node.child_by_field_name("type"))
+            if anno:
+                self._name_types[name] = anno
+
         signature = self._normalize_signature_bytes(
             file_bytes, node.start_byte, node.end_byte, tail_rstrip=False
         )
@@ -669,6 +688,8 @@ class PythonParser(ParserBase):
             self._extract_reference(node, "call", file_id)
         elif node.type == "attribute":
             self._extract_reference(node, "access", file_id)
+        elif node.type == "identifier":
+            self._extract_identifier_reference(node, file_id)
         else:
             type_node = node.child_by_field_name("type")
             if type_node is not None:
@@ -937,6 +958,123 @@ class PythonParser(ParserBase):
                 )
                 self._register_import_ref_binding(import_path, imported_symbol, alias, import_type)
 
+    def _extract_identifier_reference(self, node: Node, file_id: int) -> None:
+        name = node.text.decode("utf-8") if node.text is not None else ""
+        qualified = None
+        if name and not self._identifier_is_skipped(node):
+            qualified = self._var_qns.get(name)
+            if qualified is None:
+                qualified = self._import_qn.get(name)
+        if qualified is not None:
+            source_line = node.start_point.row + 1
+            source_column = node.start_point.column
+            self._record_symbol_reference(
+                file_id,
+                name,
+                qualified,
+                source_line,
+                source_column,
+                "access",
+                name,
+                (qualified, "access", source_line, source_column),
+            )
+
+    def _identifier_is_skipped(self, node: Node) -> bool:
+        parent = node.parent
+        skipped = parent is not None and self._parent_skips_identifier(parent, node)
+        if not skipped:
+            skipped = (
+                self._node_is_under(node, ("import_statement", "import_from_statement"))
+                or self._node_is_in_type(node)
+                or self._node_is_class_base(node)
+            )
+        return skipped
+
+    def _parent_skips_identifier(self, parent: Node, node: Node) -> bool:
+        left = parent.child_by_field_name("left")
+        name = parent.child_by_field_name("name")
+        attribute = parent.child_by_field_name("attribute")
+        function = parent.child_by_field_name("function")
+        alias = parent.child_by_field_name("alias")
+        binding_left = (
+            parent.type
+            in (
+                "assignment",
+                "annotated_assignment",
+                "augmented_assignment",
+                "for_statement",
+                "for_in_clause",
+            )
+            and left == node
+        )
+        definition_name = (
+            parent.type
+            in (
+                "function_definition",
+                "async_function_definition",
+                "class_definition",
+                "typed_parameter",
+                "typed_default_parameter",
+                "default_parameter",
+                "named_expression",
+            )
+            and name == node
+        )
+        pattern_name = parent.type in (
+            "parameters",
+            "list_splat_pattern",
+            "dictionary_splat_pattern",
+        )
+        return (
+            binding_left
+            or definition_name
+            or pattern_name
+            or (parent.type == "attribute" and attribute == node)
+            or (parent.type == "keyword_argument" and name == node)
+            or (parent.type == "call" and function == node)
+            or (parent.type == "as_pattern" and alias == node)
+            or parent.type in ("global_statement", "nonlocal_statement")
+        )
+
+    def _node_is_under(self, node: Node, types: tuple[str, ...]) -> bool:
+        found = False
+        parent = node.parent
+        while parent is not None and not found:
+            if parent.type in types:
+                found = True
+            parent = parent.parent
+        return found
+
+    def _node_is_class_base(self, node: Node) -> bool:
+        found = False
+        parent = node.parent
+        while parent is not None and not found:
+            if parent.type == "class_definition":
+                bases = parent.child_by_field_name("superclasses")
+                if (
+                    bases is not None
+                    and bases.start_byte <= node.start_byte
+                    and bases.end_byte >= node.end_byte
+                ):
+                    found = True
+            parent = parent.parent
+        return found
+
+    def _node_is_in_type(self, node: Node) -> bool:
+        found = False
+        parent = node.parent
+        while parent is not None and not found:
+            for field_name in ("type", "return_type"):
+                field = parent.child_by_field_name(field_name)
+                if (
+                    field is not None
+                    and field.start_byte <= node.start_byte
+                    and field.end_byte >= node.end_byte
+                ):
+                    found = True
+            parent = parent.parent
+        return found
+
     def _extract_reference(self, node: Node, ref_kind: str, file_id: int) -> None:
         """Extract Reference (Call, Access, Type)."""
 
@@ -1005,6 +1143,8 @@ class PythonParser(ParserBase):
 
         # Resolved qualified_name for self./cls. when parent class is on the stack.
         resolved_qualified = None
+        receiver_root = ""
+        linked_variable = False
         if target_name.startswith(("self.", "cls.")):
             suffix = target_name.split(".", 1)[1]
             first_seg, _, rest_after_first = suffix.partition(".")
@@ -1014,7 +1154,7 @@ class PythonParser(ParserBase):
                 class_qn = entry.qualified_name
                 ctor_map = self._class_param_annos.get(class_qn)
                 if ctor_map and first_seg in ctor_map:
-                    type_qn = self._resolve_ref_qn(ctor_map[first_seg])
+                    type_qn = self._resolve_annotation_qn(ctor_map[first_seg])
                     resolved_qualified = (
                         f"{type_qn}.{rest_after_first}" if rest_after_first else type_qn
                     )
@@ -1026,15 +1166,22 @@ class PythonParser(ParserBase):
                     resolved_qualified = f"{self.stack[-1].qualified_name}.{suffix}"
         else:
             root, sep, rest = target_name.partition(".")
+            receiver_root = root
             if sep:
+                type_name = None
                 for entry in reversed(self.stack):
                     if entry.kind not in ("function", "method"):
                         continue
                     param_map = self._func_param_annos.get(entry.qualified_name)
                     if param_map and root in param_map:
-                        type_qn = self._resolve_ref_qn(param_map[root])
-                        resolved_qualified = f"{type_qn}.{rest}" if rest else type_qn
+                        type_name = param_map[root]
                     break
+                if type_name is None:
+                    type_name = self._name_types.get(root)
+                    linked_variable = type_name is not None and root in self._var_qns
+                if type_name:
+                    type_qn = self._resolve_annotation_qn(type_name)
+                    resolved_qualified = f"{type_qn}.{rest}" if rest else type_qn
 
         if resolved_qualified is not None:
             # class_qn / stack paths and param-rewritten QNs are already module-prefixed.
@@ -1044,16 +1191,19 @@ class PythonParser(ParserBase):
 
         source_line = node.start_point.row + 1
         source_column = node.start_point.column
-        key = (ref_symbol_qualified_name, ref_kind, source_line, source_column)
         context = node.text.decode("utf-8") if node.text is not None else ""
-        self._record_symbol_reference(
-            file_id,
-            target_name,
-            ref_symbol_qualified_name,
-            source_line,
-            source_column,
-            ref_kind,
-            context,
-            key,
-        )
+        rows = [(target_name, ref_symbol_qualified_name, ref_kind, context)]
+        if ref_kind == "call" and linked_variable:
+            rows.append((receiver_root, self._var_qns[receiver_root], "access", receiver_root))
+        for name, qualified, kind, row_context in rows:
+            self._record_symbol_reference(
+                file_id,
+                name,
+                qualified,
+                source_line,
+                source_column,
+                kind,
+                row_context,
+                (qualified, kind, source_line, source_column),
+            )
         return

@@ -194,6 +194,74 @@ def test_param_receiver_call_resolves_via_annotation(python_parser, fixture_byte
     )
 
 
+def test_builtin_method_call_also_references_the_variable(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("builtin_method_variable.py")
+    symbols, _, references = python_parser.parse(70, file_bytes, module_qn="pkg.mod")
+    assert_symbol_references_invariants(references)
+    by_qn = index_symbols(symbols)
+
+    calls = [
+        r for r in references if r["ref_kind"] == "call" and r["ref_symbol_name"] == "ITEMS.get"
+    ]
+    assert len(calls) == 1
+    assert calls[0]["ref_symbol_qualified_name"] == "dict.get"
+    assert calls[0]["source_symbol_id"] == by_qn["pkg.mod.Box.run"]["id"]
+
+    accesses = [
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_qualified_name"] == "pkg.mod.ITEMS"
+    ]
+    assert len(accesses) == 1
+    assert accesses[0]["ref_symbol_name"] == "ITEMS"
+    assert accesses[0]["source_line"] == calls[0]["source_line"]
+    assert accesses[0]["source_symbol_id"] == calls[0]["source_symbol_id"]
+
+
+def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
+    source = b"ITEMS = {}\n\ndef run():\n    return ITEMS.get('a')\n"
+    _, _, references = python_parser.parse(71, source, module_qn="pkg.mod")
+    calls = [r for r in references if r["ref_kind"] == "call"]
+    assert len(calls) == 1
+    assert calls[0]["ref_symbol_name"] == "ITEMS.get"
+    assert calls[0]["ref_symbol_qualified_name"] == "ITEMS.get"
+    accesses = [
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_qualified_name"] == "pkg.mod.ITEMS"
+    ]
+    assert len(accesses) == 1
+    assert accesses[0]["ref_symbol_name"] == "ITEMS"
+
+
+def test_bare_variable_uses_are_accesses(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("variable_bare_uses.py")
+    symbols, _, references = python_parser.parse(72, file_bytes, module_qn="pkg.mod")
+    assert_symbol_references_invariants(references)
+    by_qn = index_symbols(symbols)
+    assert not any(r["source_line"] == 3 for r in references)
+
+    items = [
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_qualified_name"] == "pkg.mod.ITEMS"
+    ]
+    assert len(items) == 4
+    assert {r["source_line"] for r in items} == {7, 9, 11, 12}
+    assert {r["ref_symbol_name"] for r in items} == {"ITEMS"}
+    assert {r["source_symbol_id"] for r in items} == {by_qn["pkg.mod.run"]["id"]}
+
+    imported = [
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_qualified_name"] == "pkg.data.ITEMS"
+    ]
+    assert len(imported) == 2
+    assert {r["source_line"] for r in imported} == {16, 17}
+    assert {r["ref_symbol_name"] for r in imported} == {"BOX"}
+    assert {r["source_symbol_id"] for r in imported} == {by_qn["pkg.mod.imported"]["id"]}
+
+
 def test_source_symbol_id_is_the_enclosing_container(python_parser):
     source = (
         b"def helper():\n"
