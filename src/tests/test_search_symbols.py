@@ -70,6 +70,38 @@ def test_search_symbols_include_tests(tmp_path: Path, python_fixtures_dir: Path)
         db.close()
 
 
+def _rank(out: str, qualified_name: str) -> int:
+    line = next(item for item in out.splitlines() if item.endswith(qualified_name))
+    return int(line.split()[0].removeprefix("#"))
+
+
+def test_search_ranks_local_name_above_qualified_path(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / ".gitignore").write_text("#\n", encoding="utf-8")
+    for package in ("pkg", "pkg/plan", "pkg/cli"):
+        path = root.joinpath(*package.split("/"))
+        path.mkdir(parents=True)
+        (path / "__init__.py").write_text("", encoding="utf-8")
+    (root / "pkg/plan/model.py").write_text(
+        "class Plan:\n    plan_id: str\n",
+        encoding="utf-8",
+    )
+    (root / "pkg/cli/main.py").write_text(
+        "def plan() -> None:\n    return None\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(root)
+    CodeProcessor(db, root).process()
+    db.close()
+    db = CodeDB(root)
+    try:
+        out = search_symbols(db, "plan", limit=10, include_tests=False)
+        assert _rank(out, "pkg.cli.main.plan") < _rank(out, "pkg.plan.model.Plan.plan_id")
+    finally:
+        db.close()
+
+
 def test_search_symbols_splits_dots_into_terms(tmp_path: Path, python_fixtures_dir: Path) -> None:
     root = _index(tmp_path, python_fixtures_dir)
     db = CodeDB(root)

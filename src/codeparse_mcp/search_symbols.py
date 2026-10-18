@@ -44,8 +44,7 @@ def search_symbols(
     include_tests: bool,
 ) -> str:
     """
-    Search symbols via ``symbols_fts`` (qualified_name, signature,
-    docstring, modifiers).
+    Search symbols via ``symbols_fts`` (name, signature, docstring, modifiers).
 
     Query words are OR'd with prefix matching. Dots and hyphens split into words. Returns
     hits grouped by file (files in BM25 order of first hit; symbols by line),
