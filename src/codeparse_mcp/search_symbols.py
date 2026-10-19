@@ -10,7 +10,7 @@ SELECT
     s.line_start,
     s.line_end,
     f.path AS path,
-    bm25(symbols_fts, 10.0, 2.0, 2.0, 6.0, 0.5) AS rank
+    bm25(symbols_fts, 10.0, 2.0) AS rank
 FROM symbols_fts
 INNER JOIN symbols AS s
     ON s.id = symbols_fts.rowid
@@ -35,11 +35,7 @@ def _fts_term(token: str) -> str:
 
 def _word_clause(word: str) -> str:
     parts = [part for part in word.split(".") if part]
-    clause = (
-        f"name: {_fts_term(word)} OR parent: {_fts_term(word)} OR "
-        f"signature: {_fts_term(word)}* OR docstring: {_fts_term(word)}* OR "
-        f"modifiers: {_fts_term(word)}*"
-    )
+    clause = f"name: {_fts_term(word)}"
     if len(parts) >= 2:
         clause = f"parent: {_fts_term(parts[-2])} AND name: {_fts_term(parts[-1])}"
     return clause
@@ -48,8 +44,8 @@ def _word_clause(word: str) -> str:
 def build_fts_query(user_input: str) -> str:
     """Turn free text into an OR of per-word column clauses.
 
-    A word searches ``name`` and ``parent`` as exact tokens and ``signature``,
-    ``docstring``, and ``modifiers`` as prefixes. A dotted word is
+    A word searches ``name`` as an exact token. ``parent`` is used only for a
+    dotted word:
     ``parent: Context AND name: plan``. ``def``, ``class``, and ``async`` are
     dropped. ``bm25`` weights ``name`` above the other columns.
     """
@@ -72,9 +68,10 @@ def search_symbols(
     include_tests: bool,
 ) -> str:
     """
-    Search symbols via ``symbols_fts`` (name, parent, signature, docstring, modifiers).
+    Search symbols via ``symbols_fts`` (name, parent).
 
-    Each word is its own OR clause. A dotted word requires that parent and name.
+    Each word is its own OR clause. ``parent`` is queried only when the word
+    contains a dot. A dotted word requires that parent and name.
     ``def``, ``class``, and ``async`` are dropped. Hyphens split into words.
     Returns hits grouped by file (files in BM25 order
     of first hit; symbols by line), each with rank ``#n``. By default skips

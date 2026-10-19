@@ -119,9 +119,6 @@ CREATE INDEX IF NOT EXISTS imports_imported_file_id_index ON imports (imported_f
 CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(
     name,
     parent,
-    signature,
-    modifiers,
-    docstring,
     content='symbols',
     content_rowid='id'
 );

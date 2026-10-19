@@ -116,7 +116,7 @@ def search_symbols(
     include_tests: bool = False,
 ) -> str:
     """
-    Results are grouped by file and ordered #1, #2, #3... by relevance.
+    FTS symbol names. Results are grouped by file and ordered #1, #2, #3... by relevance.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
     Narrow with one distinctive word; Widen with extra space-separated words (OR).

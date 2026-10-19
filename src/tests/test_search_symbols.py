@@ -18,10 +18,7 @@ def _index(tmp_path: Path, python_fixtures_dir: Path) -> Path:
 
 
 def _clause(word: str) -> str:
-    return (
-        f"name: {word} OR parent: {word} OR signature: {word}* "
-        f"OR docstring: {word}* OR modifiers: {word}*"
-    )
+    return f"name: {word}"
 
 
 def test_build_fts_query_ors_each_word() -> None:
@@ -57,21 +54,45 @@ def test_search_symbols_excludes_is_test_by_default(
         db.close()
 
 
-def test_search_symbols_matches_decorator_modifiers(
-    tmp_path: Path, python_fixtures_dir: Path
-) -> None:
+def test_search_ignores_decorators(tmp_path: Path, python_fixtures_dir: Path) -> None:
     root = _index(tmp_path, python_fixtures_dir)
     db = CodeDB(root)
     try:
-        rows = db.connection.execute(
-            """
-            SELECT s.qualified_name
-            FROM symbols_fts
-            INNER JOIN symbols AS s ON s.id = symbols_fts.rowid
-            WHERE symbols_fts MATCH 'modifiers : traced*'
-            """
-        ).fetchall()
-        assert [row["qualified_name"] for row in rows] == ["pkg.prod.load_rows"]
+        out = search_symbols(db, "traced", limit=20, include_tests=False)
+        assert "pkg.prod.traced" in out
+        assert "pkg.prod.load_rows" not in out
+    finally:
+        db.close()
+
+
+def test_search_ignores_decorator_arguments(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / ".gitignore").write_text("#\n", encoding="utf-8")
+    pkg = root / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text(
+        "def cli_command(name):\n"
+        "    return lambda fn: fn\n"
+        "\n"
+        '@cli_command("plan")\n'
+        "def run() -> None:\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(root)
+    CodeProcessor(db, root).process()
+    db.close()
+    db = CodeDB(root)
+    try:
+        stored = db.connection.execute(
+            "SELECT modifiers FROM symbols WHERE qualified_name = 'pkg.mod.run'"
+        ).fetchone()["modifiers"]
+        assert "plan" in stored
+        out = search_symbols(db, "plan", limit=20, include_tests=False)
+        assert "pkg.mod.run" not in out
+        assert "pkg.mod.cli_command" not in out
     finally:
         db.close()
 
@@ -152,7 +173,7 @@ def test_search_symbols_dot_is_parent_and_name(tmp_path: Path) -> None:
         db.close()
 
 
-def test_search_name_outranks_a_long_docstring(tmp_path: Path) -> None:
+def test_search_ignores_docstring(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir()
     (root / ".gitignore").write_text("#\n", encoding="utf-8")
@@ -174,7 +195,8 @@ def test_search_name_outranks_a_long_docstring(tmp_path: Path) -> None:
     db = CodeDB(root)
     try:
         out = search_symbols(db, "def plan", limit=10, include_tests=False)
-        assert _rank(out, "pkg.mod.plan") < _rank(out, "pkg.mod.other")
+        assert "pkg.mod.plan" in out
+        assert "pkg.mod.other" not in out
     finally:
         db.close()
 
@@ -187,7 +209,7 @@ def test_search_symbols_ranks_multi_word_matches_first(
     try:
         out = search_symbols(db, "render dialect", limit=20, include_tests=False)
         names = [line.split("•", 1)[1].strip() for line in out.splitlines() if "•" in line]
-        assert names[0] == "pkg.prod.render_query"
+        assert "pkg.prod.render_query" in names
         assert "pkg.prod.render_tree" in names
         assert "pkg.prod.dialect_name" in names
     finally:
