@@ -10,7 +10,7 @@ SELECT
     s.line_start,
     s.line_end,
     f.path AS path,
-    bm25(symbols_fts, 10.0, 2.0, 2.0, 1.0, 0.5) AS rank
+    bm25(symbols_fts, 10.0, 2.0, 2.0, 6.0, 0.5) AS rank
 FROM symbols_fts
 INNER JOIN symbols AS s
     ON s.id = symbols_fts.rowid
