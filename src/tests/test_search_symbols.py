@@ -28,6 +28,9 @@ def test_build_fts_query_ors_each_word() -> None:
     assert build_fts_query("async def load") == _clause("load")
     assert build_fts_query("def") == ""
     assert build_fts_query("Context.plan") == "parent: Context AND name: plan"
+    assert build_fts_query('"plan"') == _clause("plan")
+    assert build_fts_query("'Context.plan'") == "parent: Context AND name: plan"
+    assert build_fts_query('"dialect" "format"') == f"{_clause('dialect')} OR {_clause('format')}"
     assert build_fts_query("   ") == ""
 
 
@@ -37,7 +40,8 @@ def test_search_symbols_excludes_is_test_by_default(
     root = _index(tmp_path, python_fixtures_dir)
     db = CodeDB(root)
     try:
-        out = search_symbols(db, "format_model", limit=20, include_tests=False)
+        out = search_symbols(db, '"format_model"', limit=20, include_tests=False)
+        assert "Search failed" not in out
         assert "pkg.prod.format_model" in out
         assert "test_format_model" not in out
         assert "tests/" not in out

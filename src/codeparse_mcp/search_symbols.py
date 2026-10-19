@@ -26,6 +26,14 @@ LIMIT ?
 _DROPPED_WORDS = frozenset({"def", "class", "async"})
 
 
+def _strip_quotes(text: str) -> str:
+    value = text.strip()
+    quote = value[:1]
+    if len(value) >= 2 and value[-1] == quote and quote in "\"'" and quote not in value[1:-1]:
+        value = value[1:-1].strip()
+    return value
+
+
 def _fts_term(token: str) -> str:
     term = f'"{token.replace(chr(34), chr(34) * 2)}"'
     if token.isidentifier():
@@ -51,7 +59,7 @@ def build_fts_query(user_input: str) -> str:
     """
     clauses = [
         _word_clause(word)
-        for word in user_input.split()
+        for word in (_strip_quotes(part) for part in _strip_quotes(user_input).split())
         if word and word.lower() not in _DROPPED_WORDS
     ]
     query = ""
