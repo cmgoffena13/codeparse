@@ -17,11 +17,22 @@ def _index(tmp_path: Path, python_fixtures_dir: Path) -> Path:
     return root
 
 
-def test_build_fts_query_drops_definition_words() -> None:
-    assert build_fts_query("def plan") == "plan*"
-    assert build_fts_query("class Plan") == "Plan*"
-    assert build_fts_query("async def load") == "load*"
-    assert build_fts_query("def") == ""
+def _clause(word: str) -> str:
+    return (
+        f"name: {word} OR parent: {word} OR signature: {word}* "
+        f"OR docstring: {word}* OR modifiers: {word}*"
+    )
+
+
+def test_build_fts_query_ors_each_word() -> None:
+    assert build_fts_query("plan") == _clause("plan")
+    assert build_fts_query("def plan") == f"{_clause('def')} OR {_clause('plan')}"
+    assert build_fts_query("class Plan") == f"{_clause('class')} OR {_clause('Plan')}"
+    assert build_fts_query("async def load") == (
+        f"{_clause('async')} OR {_clause('def')} OR {_clause('load')}"
+    )
+    assert build_fts_query("Context.plan") == "parent: Context AND name: plan"
+    assert build_fts_query("   ") == ""
 
 
 def test_search_symbols_excludes_is_test_by_default(
@@ -82,7 +93,7 @@ def _rank(out: str, qualified_name: str) -> int:
     return int(line.split()[0].removeprefix("#"))
 
 
-def test_search_ranks_local_name_above_qualified_path(tmp_path: Path) -> None:
+def test_search_dotted_field_requires_parent_and_name(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir()
     (root / ".gitignore").write_text("#\n", encoding="utf-8")
@@ -103,21 +114,68 @@ def test_search_ranks_local_name_above_qualified_path(tmp_path: Path) -> None:
     db.close()
     db = CodeDB(root)
     try:
-        out = search_symbols(db, "plan", limit=10, include_tests=False)
-        assert _rank(out, "pkg.cli.main.plan") < _rank(out, "pkg.plan.model.Plan.plan_id")
+        out = search_symbols(db, "Plan.plan_id", limit=10, include_tests=False)
+        names = [line.split("•", 1)[1].strip() for line in out.splitlines() if "•" in line]
+        assert names == ["pkg.plan.model.Plan.plan_id"]
     finally:
         db.close()
 
 
-def test_search_symbols_splits_dots_into_terms(tmp_path: Path, python_fixtures_dir: Path) -> None:
-    root = _index(tmp_path, python_fixtures_dir)
+def test_search_symbols_dot_is_parent_and_name(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / ".gitignore").write_text("#\n", encoding="utf-8")
+    pkg = root / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text(
+        "class Context:\n"
+        "    def plan(self) -> None:\n"
+        "        return None\n"
+        "\n"
+        "class Other:\n"
+        "    def plan(self) -> None:\n"
+        "        return None\n"
+        "\n"
+        "def plan() -> None:\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(root)
+    CodeProcessor(db, root).process()
+    db.close()
     db = CodeDB(root)
     try:
-        out = search_symbols(db, "render.dialect", limit=20, include_tests=False)
+        out = search_symbols(db, "Context.plan", limit=10, include_tests=False)
         names = [line.split("•", 1)[1].strip() for line in out.splitlines() if "•" in line]
-        assert names[0] == "pkg.prod.render_query"
-        assert "pkg.prod.render_tree" in names
-        assert "pkg.prod.dialect_name" in names
+        assert names == ["pkg.mod.Context.plan"]
+    finally:
+        db.close()
+
+
+def test_search_name_outranks_a_long_docstring(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / ".gitignore").write_text("#\n", encoding="utf-8")
+    pkg = root / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text(
+        "def plan() -> None:\n"
+        "    return None\n"
+        "\n"
+        "def other() -> None:\n"
+        '    """' + ("plan " * 80) + '"""\n'
+        "    return None\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(root)
+    CodeProcessor(db, root).process()
+    db.close()
+    db = CodeDB(root)
+    try:
+        out = search_symbols(db, "def plan", limit=10, include_tests=False)
+        assert _rank(out, "pkg.mod.plan") < _rank(out, "pkg.mod.other")
     finally:
         db.close()
 

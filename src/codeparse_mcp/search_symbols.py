@@ -10,7 +10,7 @@ SELECT
     s.line_start,
     s.line_end,
     f.path AS path,
-    bm25(symbols_fts, 10.0, 5.0, 5.0, 5.0) AS rank
+    bm25(symbols_fts, 10.0, 2.0, 2.0, 1.0, 0.5) AS rank
 FROM symbols_fts
 INNER JOIN symbols AS s
     ON s.id = symbols_fts.rowid
@@ -23,21 +23,38 @@ LIMIT ?
 """
 
 
-_DROPPED_WORDS = frozenset({"def", "class", "async"})
+def _fts_term(token: str) -> str:
+    term = f'"{token.replace(chr(34), chr(34) * 2)}"'
+    if token.isidentifier():
+        term = token
+    return term
+
+
+def _word_clause(word: str) -> str:
+    parts = [part for part in word.split(".") if part]
+    clause = (
+        f"name: {_fts_term(word)} OR parent: {_fts_term(word)} OR "
+        f"signature: {_fts_term(word)}* OR docstring: {_fts_term(word)}* OR "
+        f"modifiers: {_fts_term(word)}*"
+    )
+    if len(parts) >= 2:
+        clause = f"parent: {_fts_term(parts[-2])} AND name: {_fts_term(parts[-1])}"
+    return clause
 
 
 def build_fts_query(user_input: str) -> str:
-    """Turn free text into an OR of prefix terms (e.g. ``auth login`` → ``auth* OR login*``).
+    """Turn free text into an OR of per-word column clauses.
 
-    Tokens are always OR'd. Do not treat ``AND``/``OR``/``NOT`` in the input as
-    FTS operators — they become ordinary terms. ``def``, ``class``, and ``async``
-    are dropped. ``bm25`` ranks a symbol that matches more of the terms above a
-    symbol that matches fewer.
+    A word searches ``name`` and ``parent`` as exact tokens and ``signature``,
+    ``docstring``, and ``modifiers`` as prefixes. A dotted word is
+    ``parent: Context AND name: plan``. ``bm25`` weights ``name`` above the
+    other columns.
     """
-    terms = [term for term in user_input.split() if term.lower() not in _DROPPED_WORDS]
-    if not terms:
-        return ""
-    return " OR ".join(f"{term}*" for term in terms)
+    clauses = [_word_clause(word) for word in user_input.split() if word]
+    query = ""
+    if clauses:
+        query = " OR ".join(clauses)
+    return query
 
 
 def search_symbols(
@@ -48,15 +65,14 @@ def search_symbols(
     include_tests: bool,
 ) -> str:
     """
-    Search symbols via ``symbols_fts`` (name, signature, docstring, modifiers).
+    Search symbols via ``symbols_fts`` (name, parent, signature, docstring, modifiers).
 
-    Query words are OR'd with prefix matching. Dots and hyphens split into words.
-    ``def``, ``class``, and ``async`` are dropped. Returns
-    hits grouped by file (files in BM25 order of first hit; symbols by line),
-    each with rank ``#n``. By default
-    skips ``is_test`` files; pass ``include_tests=True`` to include them.
+    Each word is its own OR clause. A dotted word requires that parent and name.
+    Hyphens split into words. Returns hits grouped by file (files in BM25 order
+    of first hit; symbols by line), each with rank ``#n``. By default skips
+    ``is_test`` files; pass ``include_tests=True`` to include them.
     """
-    stripped = query.strip().replace("-", " ").replace(".", " ")
+    stripped = query.strip().replace("-", " ")
     if not stripped:
         return "No search text given; pass a non-empty query."
 

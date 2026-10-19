@@ -300,10 +300,10 @@ class CodeDB:
             self.connection.executemany(
                 """
                 INSERT OR REPLACE INTO symbols
-                (id, file_id, parent_id, name, qualified_name, kind, line_start,
+                (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
                  line_end, line_count, signature, docstring, modifiers, language,
                  is_test)
-                VALUES (:id, :file_id, :parent_id, :name, :qualified_name, :kind,
+                VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
                         :line_start, :line_end, :line_count, :signature,
                         :docstring, :modifiers, :language, :is_test)
                 """,
@@ -329,17 +329,18 @@ class CodeDB:
                 (
                     s["id"],
                     s["name"],
-                    s["docstring"],
+                    s["parent"],
                     s["signature"],
                     s["modifiers"],
+                    s["docstring"],
                 )
                 for s in symbols
             ]
             self.connection.executemany(
                 """
                 INSERT OR REPLACE INTO symbols_fts
-                (rowid, name, docstring, signature, modifiers)
-                VALUES (?, ?, ?, ?, ?)
+                (rowid, name, parent, signature, modifiers, docstring)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 fts_symbols,
             )

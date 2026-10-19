@@ -6,3 +6,4 @@ class StackFrame(NamedTuple):
     qualified_name: str
     kind: str
     is_test: bool
+    name: str

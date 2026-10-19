@@ -196,6 +196,7 @@ class PythonParser(ParserBase):
             "id": symbol_id,
             "file_id": file_id,
             "parent_id": self.stack[-1].symbol_id if self.stack else None,
+            "parent": self.stack[-1].name if self.stack else None,
             "name": name,
             "qualified_name": qualified_name,
             "kind": kind,
@@ -226,6 +227,7 @@ class PythonParser(ParserBase):
             "id": symbol_id,
             "file_id": file_id,
             "parent_id": parent_id,
+            "parent": self.stack[-1].name if self.stack else None,
             "name": name,
             "qualified_name": qualified_name,
             "kind": "variable",
@@ -462,7 +464,7 @@ class PythonParser(ParserBase):
                         and annos
                     ):
                         self._class_param_annos[self.stack[-1].qualified_name] = annos
-                self.stack.append(StackFrame(symbol_id, scope_path, kind, is_test))
+                self.stack.append(StackFrame(symbol_id, scope_path, kind, is_test, name or ""))
                 pushed_stack = True
             # Return annotations sit on the header. Record them after the push so
             # source_symbol_id is this function, not its parent.

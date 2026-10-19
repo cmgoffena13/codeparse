@@ -45,7 +45,8 @@ CREATE TABLE IF NOT EXISTS symbols (
     id              INTEGER NOT NULL PRIMARY KEY,
     file_id         INTEGER NOT NULL REFERENCES files(id),
     parent_id       INTEGER REFERENCES symbols(id), 
-    name            TEXT NOT NULL,                  
+    name            TEXT NOT NULL,
+    parent          TEXT,
     qualified_name  TEXT NOT NULL,                        
     kind            TEXT NOT NULL,                  
     line_start      INTEGER NOT NULL,                
@@ -117,9 +118,10 @@ CREATE INDEX IF NOT EXISTS imports_imported_file_id_index ON imports (imported_f
 /* NOTE: Full Text Search "Tables" for symbols */
 CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(
     name,
-    docstring,
+    parent,
     signature,
     modifiers,
+    docstring,
     content='symbols',
     content_rowid='id'
 );
