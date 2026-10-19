@@ -26,11 +26,10 @@ def _clause(word: str) -> str:
 
 def test_build_fts_query_ors_each_word() -> None:
     assert build_fts_query("plan") == _clause("plan")
-    assert build_fts_query("def plan") == f"{_clause('def')} OR {_clause('plan')}"
-    assert build_fts_query("class Plan") == f"{_clause('class')} OR {_clause('Plan')}"
-    assert build_fts_query("async def load") == (
-        f"{_clause('async')} OR {_clause('def')} OR {_clause('load')}"
-    )
+    assert build_fts_query("def plan") == _clause("plan")
+    assert build_fts_query("class Plan") == _clause("Plan")
+    assert build_fts_query("async def load") == _clause("load")
+    assert build_fts_query("def") == ""
     assert build_fts_query("Context.plan") == "parent: Context AND name: plan"
     assert build_fts_query("   ") == ""
 

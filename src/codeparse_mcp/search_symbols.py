@@ -23,6 +23,9 @@ LIMIT ?
 """
 
 
+_DROPPED_WORDS = frozenset({"def", "class", "async"})
+
+
 def _fts_term(token: str) -> str:
     term = f'"{token.replace(chr(34), chr(34) * 2)}"'
     if token.isidentifier():
@@ -47,10 +50,14 @@ def build_fts_query(user_input: str) -> str:
 
     A word searches ``name`` and ``parent`` as exact tokens and ``signature``,
     ``docstring``, and ``modifiers`` as prefixes. A dotted word is
-    ``parent: Context AND name: plan``. ``bm25`` weights ``name`` above the
-    other columns.
+    ``parent: Context AND name: plan``. ``def``, ``class``, and ``async`` are
+    dropped. ``bm25`` weights ``name`` above the other columns.
     """
-    clauses = [_word_clause(word) for word in user_input.split() if word]
+    clauses = [
+        _word_clause(word)
+        for word in user_input.split()
+        if word and word.lower() not in _DROPPED_WORDS
+    ]
     query = ""
     if clauses:
         query = " OR ".join(clauses)
@@ -68,7 +75,8 @@ def search_symbols(
     Search symbols via ``symbols_fts`` (name, parent, signature, docstring, modifiers).
 
     Each word is its own OR clause. A dotted word requires that parent and name.
-    Hyphens split into words. Returns hits grouped by file (files in BM25 order
+    ``def``, ``class``, and ``async`` are dropped. Hyphens split into words.
+    Returns hits grouped by file (files in BM25 order
     of first hit; symbols by line), each with rank ``#n``. By default skips
     ``is_test`` files; pass ``include_tests=True`` to include them.
     """
