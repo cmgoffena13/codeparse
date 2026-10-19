@@ -116,12 +116,11 @@ def search_symbols(
     include_tests: bool = False,
 ) -> str:
     """
-    Full-text search across symbol names, signatures, docstrings, and modifiers,
-    grouped by file. Results are ordered #1, #2, #3 by relevance.
+    Results are grouped by file and ordered #1, #2, #3... by relevance.
 
     Excludes test file symbols by default; set ``include_tests`` to include them.
     Narrow with one distinctive word; Widen with extra space-separated words (OR).
-    Example input queries: ``loader``, ``dialect format``
+    Example input queries: ``loader``, ``dialect format``, ``Context.plan``
     """
     return _processor(ctx).run_query(
         lambda db: run_symbol_search(
