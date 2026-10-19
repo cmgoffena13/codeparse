@@ -17,6 +17,8 @@ IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` instead of \
 ``read`` to get file / symbol information. NEVER use ``read`` on a Python file.
 
 The information that is provided to you will determine the tool you should use.
+Only ``include_tests`` when making changes to the codebase. 
+DO NOT ``include_tests`` when investigating unless explicitly asked.
 
 ## You are given the file name.
 1. Use ``get_file_overview`` to get a summary of the symbols in the file.
