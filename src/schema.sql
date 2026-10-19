@@ -1,6 +1,6 @@
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
-PRAGMA foreign_keys=ON;
+-- PRAGMA foreign_keys=ON;
 
 CREATE TABLE IF NOT EXISTS watermarks (
     id                  INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
@@ -37,15 +37,15 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE UNIQUE INDEX IF NOT EXISTS files_normalized_path_index ON files (normalized_path);
 
 CREATE TABLE IF NOT EXISTS entry_points (
-    id              INTEGER NOT NULL PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
+    id              INTEGER NOT NULL PRIMARY KEY REFERENCES files(id),
     has_main_guard  BOOLEAN NOT NULL,
     is_named_entry  BOOLEAN NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS symbols (
     id              INTEGER NOT NULL PRIMARY KEY,
-    file_id         INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    parent_id       INTEGER REFERENCES symbols(id) ON DELETE CASCADE, 
+    file_id         INTEGER NOT NULL REFERENCES files(id),
+    parent_id       INTEGER REFERENCES symbols(id), 
     name            TEXT NOT NULL,
     parent          TEXT,
     qualified_name  TEXT NOT NULL,                        
@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS symbols_file_id_index ON symbols (file_id);
 CREATE UNIQUE INDEX IF NOT EXISTS symbols_qualified_name_index ON symbols (qualified_name);
 
 CREATE TABLE IF NOT EXISTS symbol_bases (
-    symbol_id               INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+    symbol_id               INTEGER NOT NULL REFERENCES symbols(id),
     base_qualified_name     TEXT NOT NULL,
     PRIMARY KEY (symbol_id, base_qualified_name)
 );
@@ -84,12 +84,12 @@ CREATE TABLE IF NOT EXISTS symbol_references_staging (
 
 CREATE TABLE IF NOT EXISTS symbol_references (
     id                          INTEGER NOT NULL PRIMARY KEY,
-    ref_symbol_id               INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE, 
-    ref_symbol_file_id          INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    ref_symbol_id               INTEGER NOT NULL REFERENCES symbols(id), 
+    ref_symbol_file_id          INTEGER NOT NULL REFERENCES files(id),
     ref_symbol_name             TEXT NOT NULL,       
     ref_symbol_qualified_name   TEXT NOT NULL,
-    source_file_id              INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    source_symbol_id            INTEGER REFERENCES symbols(id) ON DELETE SET NULL,
+    source_file_id              INTEGER NOT NULL REFERENCES files(id),
+    source_symbol_id            INTEGER REFERENCES symbols(id),
     source_line                 INTEGER NOT NULL,
     source_column               INTEGER NOT NULL,
     ref_kind                    TEXT NOT NULL,                  
@@ -100,7 +100,7 @@ CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_qualified_name_index ON 
 
 CREATE TABLE IF NOT EXISTS imports (
     id                    INTEGER NOT NULL PRIMARY KEY,
-    file_id               INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    file_id               INTEGER NOT NULL REFERENCES files(id),
     import_path           TEXT NOT NULL,                           
     imported_symbol       TEXT NOT NULL DEFAULT '',                           
     alias                 TEXT,                           
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS imports (
     import_type           TEXT NOT NULL, 
     import_scope          TEXT NOT NULL, 
     signature             TEXT NOT NULL, 
-    imported_file_id      INTEGER REFERENCES files(id) ON DELETE CASCADE,
+    imported_file_id      INTEGER REFERENCES files(id),
     watermark             INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 CREATE INDEX IF NOT EXISTS imports_file_id_index ON imports (file_id);
@@ -134,17 +134,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS session_stats_session_id_index ON session_stat
 
 CREATE TABLE IF NOT EXISTS session_stats_files (
     id                  INTEGER NOT NULL PRIMARY KEY,
-    session_id          TEXT NOT NULL REFERENCES session_stats(id) ON DELETE CASCADE,
-    file_id             INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
-    current_file_tokens INTEGER NOT NULL,
-    tool_call_count     INTEGER NOT NULL,
-    output_tokens       INTEGER NOT NULL
+    session_id          TEXT NOT NULL REFERENCES session_stats(id),
+    file_id             INTEGER NOT NULL REFERENCES files(id),
+    current_file_tokens     INTEGER NOT NULL,
+    tool_call_count         INTEGER NOT NULL,
+    output_tokens           INTEGER NOT NULL,
+    total_if_read_tokens    INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS session_stats_files_session_id_file_id_index ON session_stats_files (session_id, file_id);
 
 CREATE TABLE IF NOT EXISTS session_stats_tool_outputs (
     id                          INTEGER NOT NULL PRIMARY KEY,
-    session_file_id             INTEGER NOT NULL REFERENCES session_stats_files(id) ON DELETE CASCADE,
+    session_file_id             INTEGER NOT NULL REFERENCES session_stats_files(id),
     tool                        TEXT NOT NULL,
     tool_symbol_qualified_name  TEXT,
     output_tokens               INTEGER NOT NULL,

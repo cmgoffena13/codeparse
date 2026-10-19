@@ -52,7 +52,7 @@ def test_index_root_links_the_database_back_to_the_workspace(tmp_path: Path) -> 
     assert index_workspace_paths() == [(db_file, workspace.resolve())]
 
 
-def test_delete_files_removes_session_stats_for_that_file(tmp_path: Path) -> None:
+def test_delete_files_leaves_session_stats_for_that_file(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     db.connection.execute(
         """
@@ -67,10 +67,11 @@ def test_delete_files_removes_session_stats_for_that_file(tmp_path: Path) -> Non
     db.connection.execute(
         """
         INSERT INTO session_stats_files (
-            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens
+            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens,
+            total_if_read_tokens
         )
-        VALUES (100, 1, 10, 4, 1, 2),
-               (101, 1, 11, 8, 1, 3)
+        VALUES (100, 1, 10, 4, 1, 2, 4),
+               (101, 1, 11, 8, 1, 3, 8)
         """
     )
     db.connection.execute(
@@ -94,13 +95,13 @@ def test_delete_files_removes_session_stats_for_that_file(tmp_path: Path) -> Non
     }
     assert [
         row["file_id"] for row in db.connection.execute("SELECT file_id FROM session_stats_files")
-    ] == [11]
+    ] == [10, 11]
     assert [
         row["tool_symbol_qualified_name"]
         for row in db.connection.execute(
             "SELECT tool_symbol_qualified_name FROM session_stats_tool_outputs"
         )
-    ] == ["pkg.keep.keep"]
+    ] == ["pkg.drop.drop", "pkg.keep.keep"]
     assert [
         row["session_id"] for row in db.connection.execute("SELECT session_id FROM session_stats")
     ] == ["window-a"]

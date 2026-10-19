@@ -37,13 +37,15 @@ INSERT INTO session_stats_files (
     file_id,
     current_file_tokens,
     tool_call_count,
-    output_tokens
+    output_tokens,
+    total_if_read_tokens
 )
-VALUES (?, ?, ?, 1, ?)
+VALUES (?, ?, ?, 1, ?, ?)
 ON CONFLICT(session_id, file_id) DO UPDATE SET
     current_file_tokens = excluded.current_file_tokens,
     tool_call_count = session_stats_files.tool_call_count + 1,
-    output_tokens = session_stats_files.output_tokens + excluded.output_tokens
+    output_tokens = session_stats_files.output_tokens + excluded.output_tokens,
+    total_if_read_tokens = session_stats_files.total_if_read_tokens + excluded.total_if_read_tokens
 RETURNING id
 """
 
@@ -69,6 +71,7 @@ SELECT
     sf.current_file_tokens,
     sf.tool_call_count,
     sf.output_tokens,
+    sf.total_if_read_tokens,
     o.tool,
     o.tool_symbol_qualified_name,
     o.output_tokens AS call_output_tokens,
@@ -97,6 +100,7 @@ class FileToolStats(BaseModel):
     current_file_tokens: int
     tool_call_count: int
     output_tokens: int
+    total_if_read_tokens: int
     outputs: list[ToolOutput]
 
 
@@ -122,6 +126,7 @@ def load_session_files(root: Path) -> list[FileToolStats]:
                     current_file_tokens=int(row["current_file_tokens"]),
                     tool_call_count=int(row["tool_call_count"]),
                     output_tokens=int(row["output_tokens"]),
+                    total_if_read_tokens=int(row["total_if_read_tokens"]),
                     outputs=[],
                 )
                 grouped[key] = stats
@@ -374,7 +379,13 @@ def _write_tool_call(
         if session_row is not None:
             file_stats = connection.execute(
                 _UPSERT_FILE_SQL,
-                (int(session_row["id"]), int(file_row["id"]), file_tokens, output_tokens),
+                (
+                    int(session_row["id"]),
+                    int(file_row["id"]),
+                    file_tokens,
+                    output_tokens,
+                    file_tokens,
+                ),
             ).fetchone()
         if file_stats is not None:
             connection.execute(

@@ -220,9 +220,10 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
     db.connection.execute(
         """
         INSERT INTO session_stats_files (
-            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens
+            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens,
+            total_if_read_tokens
         )
-        VALUES (1, 1, ?, 4, 1, 2)
+        VALUES (1, 1, ?, 4, 1, 2, 4)
         """,
         (file_id,),
     )
@@ -242,15 +243,15 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
     paths = {row["path"] for row in db.connection.execute("SELECT path FROM files")}
     assert "run.py" not in paths
     assert "keep.py" in paths
-    assert db.connection.execute("SELECT COUNT(*) AS c FROM entry_points").fetchone()["c"] == 0
+    assert db.connection.execute("SELECT COUNT(*) AS c FROM entry_points").fetchone()["c"] == 1
     assert (
-        db.connection.execute("SELECT COUNT(*) AS c FROM session_stats_files").fetchone()["c"] == 0
+        db.connection.execute("SELECT COUNT(*) AS c FROM session_stats_files").fetchone()["c"] == 1
     )
     assert (
         db.connection.execute(
             "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'run.run'"
         ).fetchone()["c"]
-        == 0
+        == 1
     )
     assert (
         db.connection.execute(
@@ -268,7 +269,7 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
         db.connection.execute(
             "SELECT COUNT(*) AS c FROM symbols_fts WHERE name = 'run'"
         ).fetchone()["c"]
-        == 0
+        == 1
     )
     assert (
         db.connection.execute(

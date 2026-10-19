@@ -95,6 +95,7 @@ def test_record_groups_calls_by_file(tmp_path: Path) -> None:
     assert target.current_file_tokens == 10
     assert target.tool_call_count == 2
     assert target.output_tokens == len("overview") // 4 + len("symbol-body") // 4
+    assert target.total_if_read_tokens == 20
     assert [
         (item.tool, item.tool_symbol_qualified_name, item.output_tokens, item.file_tokens)
         for item in target.outputs
@@ -104,6 +105,7 @@ def test_record_groups_calls_by_file(tmp_path: Path) -> None:
     ]
     assert files["pkg/other.py"].tool_call_count == 1
     assert files["pkg/other.py"].output_tokens == len("other") // 4
+    assert files["pkg/other.py"].total_if_read_tokens == 2
 
 
 def test_record_keeps_each_call_file_size(tmp_path: Path) -> None:
@@ -116,6 +118,7 @@ def test_record_keeps_each_call_file_size(tmp_path: Path) -> None:
     assert target.current_file_tokens == 25 // 4
     assert [item.file_tokens for item in target.outputs] == [10 // 4, 25 // 4]
     assert target.output_tokens == len("first") // 4 + len("second") // 4
+    assert target.total_if_read_tokens == 10 // 4 + 25 // 4
 
 
 def test_record_separates_connections_in_one_workspace(tmp_path: Path) -> None:
@@ -158,9 +161,10 @@ def test_record_deletes_sessions_older_than_a_week(tmp_path: Path) -> None:
         cursor = db.connection.execute(
             """
             INSERT INTO session_stats_files (
-                session_id, file_id, current_file_tokens, tool_call_count, output_tokens
+                session_id, file_id, current_file_tokens, tool_call_count, output_tokens,
+                total_if_read_tokens
             )
-            VALUES (?, ?, 4, 1, 2)
+            VALUES (?, ?, 4, 1, 2, 4)
             """,
             (session_row_id, file_id),
         )
