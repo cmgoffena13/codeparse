@@ -135,6 +135,10 @@ class CodeDB:
                     parameters,
                 )
                 self.connection.execute(
+                    f"DELETE FROM entry_points WHERE id IN ({placeholders})",  # noqa: S608
+                    parameters,
+                )
+                self.connection.execute(
                     f"DELETE FROM files WHERE id IN ({placeholders})",  # noqa: S608
                     parameters,
                 )

@@ -225,6 +225,15 @@ class CodeProcessor:
             }
         )
 
+    def cleanup_deleted_file_symbols(self) -> None:
+        for file_meta in self.files_snapshot.values():
+            if file_meta["seen"]:
+                continue
+            symbols = self.db.get_symbols_snapshot(int(file_meta["id"]))
+            for symbol in symbols.values():
+                symbol["seen"] = False
+            self.db.delete_symbols(symbols)
+
     def _process_files(self, file_names: list[str], directory_path: Path, full: bool) -> None:
         for file_name in file_names:
             self._process_file(file_name, directory_path, full)
@@ -288,6 +297,7 @@ class CodeProcessor:
             self._process_directories(directory_names, directory_path)
             self._process_files(file_names, directory_path, full)
 
+        self.cleanup_deleted_file_symbols()
         self.db.delete_files(self.files_snapshot)
         self.db.delete_directories(self.directories_snapshot)
         self.directories_snapshot = {
