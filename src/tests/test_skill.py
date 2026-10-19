@@ -53,3 +53,4 @@ def test_server_exposes_skill_resource() -> None:
     uris = {str(resource.uri) for resource in resources}
     assert "skill://codeparse/SKILL.md" in uris
     assert "skill://codeparse/_manifest" in uris
+    assert "stats://codeparse/sessions" in uris

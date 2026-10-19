@@ -8,6 +8,7 @@ from fastmcp.client.client import CallToolResult
 
 from src.codeparse_mcp.session_stats import (
     FileToolStats,
+    format_session_stats_report,
     load_session_files,
     record_tool_call,
 )
@@ -106,6 +107,68 @@ def test_record_groups_calls_by_file(tmp_path: Path) -> None:
     assert files["pkg/other.py"].tool_call_count == 1
     assert files["pkg/other.py"].output_tokens == len("other") // 4
     assert files["pkg/other.py"].total_if_read_tokens == 2
+
+
+def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
+    _index_target(tmp_path)
+    start_a = int(time.time()) - 120
+    start_b = int(time.time()) - 60
+    db = CodeDB(tmp_path)
+    db.connection.execute(
+        "INSERT INTO session_stats (session_id, session_start_time) VALUES (?, ?), (?, ?)",
+        ("window-b", start_b, "window-a", start_a),
+    )
+    db.connection.commit()
+    db.close()
+    _record(
+        tmp_path,
+        "window-a",
+        "pkg/target.py",
+        "get_file_overview",
+        "",
+        "overview",
+        40,
+    )
+    _record(
+        tmp_path,
+        "window-a",
+        "pkg/target.py",
+        "get_symbol",
+        "pkg.target.helper",
+        "symbol-body",
+        40,
+    )
+    _record(
+        tmp_path,
+        "window-b",
+        "pkg/other.py",
+        "get_symbol",
+        "pkg.other.other",
+        "other",
+        8,
+    )
+
+    report = format_session_stats_report(tmp_path)
+    started_a = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_a))
+    started_b = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_b))
+    assert (
+        f"window-a - {started_a}\n"
+        "| file | tool_calls | tokens_saved |\n"
+        "| --- | --- | --- |\n"
+        "| pkg/target.py | 2 | 16 |\n"
+    ) in report
+    assert (
+        f"window-b - {started_b}\n"
+        "| file | tool_calls | tokens_saved |\n"
+        "| --- | --- | --- |\n"
+        "| pkg/other.py | 1 | 1 |\n"
+    ) in report
+    assert report.index("window-b") < report.index("window-a")
+
+
+def test_format_session_stats_report_empty(tmp_path: Path) -> None:
+    _index_target(tmp_path)
+    assert format_session_stats_report(tmp_path) == "No session stats recorded.\n"
 
 
 def test_record_keeps_each_call_file_size(tmp_path: Path) -> None:

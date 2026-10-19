@@ -86,6 +86,22 @@ LEFT JOIN session_stats_tool_outputs AS o
 ORDER BY sf.id, o.id
 """
 
+_REPORT_SQL = """
+SELECT
+    s.session_id,
+    s.session_start_time,
+    f.path AS path,
+    sf.tool_call_count,
+    sf.output_tokens,
+    sf.total_if_read_tokens
+FROM session_stats_files AS sf
+INNER JOIN session_stats AS s
+    ON s.id = sf.session_id
+INNER JOIN files AS f
+    ON f.id = sf.file_id
+ORDER BY s.session_start_time DESC, s.session_id, f.path
+"""
+
 
 class ToolOutput(BaseModel):
     tool: str
@@ -140,6 +156,36 @@ def load_session_files(root: Path) -> list[FileToolStats]:
                     )
                 )
     return list(grouped.values())
+
+
+def format_session_stats_report(root: Path) -> str:
+    lines: list[str] = []
+    connection = _connect(root)
+    rows: list[sqlite3.Row] = []
+    if connection is not None:
+        try:
+            rows = list(connection.execute(_REPORT_SQL).fetchall())
+        finally:
+            connection.close()
+    if not rows:
+        lines.append("No session stats recorded.")
+    current_session = ""
+    for row in rows:
+        session_id = str(row["session_id"])
+        if session_id != current_session:
+            if lines:
+                lines.append("")
+            current_session = session_id
+            started = time.strftime(
+                "%Y-%m-%d %H:%M:%S",
+                time.localtime(int(row["session_start_time"])),
+            )
+            lines.append(f"{session_id} - {started}")
+            lines.append("| file | tool_calls | tokens_saved |")
+            lines.append("| --- | --- | --- |")
+        saved = int(row["total_if_read_tokens"]) - int(row["output_tokens"])
+        lines.append(f"| {row['path']} | {int(row['tool_call_count'])} | {saved} |")
+    return "\n".join(lines) + "\n"
 
 
 def record_tool_call(

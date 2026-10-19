@@ -199,6 +199,13 @@ async def _print_tools() -> None:
             "PROJECT OVERVIEW",
             _body(await client.call_tool("get_project_overview")),
         )
+        report = "No session stats recorded.\n"
+        for _ in range(50):
+            report = _resource_text(await client.read_resource("stats://codeparse/sessions"))
+            if report != "No session stats recorded.\n":
+                break
+            await asyncio.sleep(0.05)
+        _print_section("SESSION STATS", report)
 
 
 def main() -> None:
