@@ -45,7 +45,7 @@ The information that is provided to you will determine the tool you should use.
  - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
 
 ### ``search_symbols``
- - Use when the clue references symbols.
+ - Use when the clue a reference to a symbol.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
 """
 
