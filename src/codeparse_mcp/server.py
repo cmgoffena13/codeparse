@@ -14,6 +14,7 @@ from src.codeparse_mcp.project_overview import (
     get_project_overview as run_project_overview,
 )
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
+from src.codeparse_mcp.session_stats import SessionStatsMiddleware
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill, skill_manifest
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_symbol_at_lines
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
@@ -53,6 +54,7 @@ async def _lifespan(_app: FastMCP) -> AsyncGenerator[dict[str, Any], None]:
 
 
 mcp = FastMCP("codeparse", instructions=_INSTRUCTIONS, lifespan=_lifespan)
+mcp.add_middleware(SessionStatsMiddleware())
 _SKILL_PATH = materialize_skill(get_code_parse_config_dir())
 
 

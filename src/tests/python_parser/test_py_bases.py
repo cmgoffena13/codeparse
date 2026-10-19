@@ -40,6 +40,12 @@ def test_base_only_change_rewrites_symbol_bases(python_parser, tmp_db) -> None:
     first = b"class Parent:\n    pass\n\nclass Other:\n    pass\n\nclass Child(Parent):\n    pass\n"
     second = b"class Parent:\n    pass\n\nclass Other:\n    pass\n\nclass Child(Other):\n    pass\n"
     symbols, imports, refs = python_parser.parse(1, first, module_qn="pkg.mod")
+    tmp_db.connection.execute(
+        """
+        INSERT INTO files (id, name, path, normalized_path, content_hash)
+        VALUES (1, 'mod.py', 'pkg/mod.py', 'pkg.mod', 'hash')
+        """
+    )
     tmp_db.bulk_insert(
         {
             "directories": [],

@@ -11,6 +11,13 @@ def _parse_with_shared_db(file_id: int, first: bytes, second: bytes):
     with tempfile.TemporaryDirectory() as d:
         db = CodeDB(Path(d))
 
+        db.connection.execute(
+            """
+            INSERT INTO files (id, name, path, normalized_path, content_hash)
+            VALUES (?, 'mod.py', 'mod.py', 'mod', 'hash')
+            """,
+            (file_id,),
+        )
         assigner = GlobalIDAssigner(db)
         parser = ParserFactory.get_parser("python", assigner, db)
 

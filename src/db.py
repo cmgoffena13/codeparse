@@ -122,9 +122,22 @@ class CodeDB:
         }
 
     def delete_files(self, files: dict[Path, dict[str, Any]]) -> None:
-        file_ids = [file["id"] for file in files.values() if not file["seen"]]
-        self.delete_ids("entry_points", file_ids)
-        self.delete_ids("files", file_ids)
+        file_ids = [int(file["id"]) for file in files.values() if not file["seen"]]
+        if file_ids:
+            placeholders = ",".join("?" for _ in file_ids)
+            parameters = tuple(file_ids)
+            with self.connection:
+                self.connection.execute(
+                    f"""
+                    DELETE FROM symbols_fts
+                    WHERE rowid IN (SELECT id FROM symbols WHERE file_id IN ({placeholders}))
+                    """,  # noqa: S608
+                    parameters,
+                )
+                self.connection.execute(
+                    f"DELETE FROM files WHERE id IN ({placeholders})",  # noqa: S608
+                    parameters,
+                )
 
     def get_symbols_snapshot(self, file_id: int) -> dict[tuple[str, str], dict[str, Any]]:
         # NOTE: combine symbol_bases and symbols into a single query

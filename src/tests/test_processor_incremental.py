@@ -198,6 +198,87 @@ def test_extensionless_broken_symlink_is_not_a_skipped_source(tmp_path: Path) ->
     assert "customers" not in names
 
 
+def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    script = tmp_path / "run.py"
+    script.write_text(
+        "def run() -> None:\n    pass\n\nif __name__ == '__main__':\n    run()\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "keep.py").write_text(
+        "from run import run\n\ndef keep() -> None:\n    run()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    processor = CodeProcessor(db, tmp_path)
+    processor.process()
+    file_row = db.connection.execute("SELECT id FROM files WHERE path = 'run.py'").fetchone()
+    file_id = int(file_row["id"])
+    db.connection.execute(
+        "INSERT INTO session_stats (id, session_id, session_start_time) VALUES (1, 'window-a', 1)"
+    )
+    db.connection.execute(
+        """
+        INSERT INTO session_stats_files (
+            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens
+        )
+        VALUES (1, 1, ?, 4, 1, 2)
+        """,
+        (file_id,),
+    )
+    db.connection.execute(
+        """
+        INSERT INTO session_stats_tool_outputs (
+            session_file_id, tool, tool_symbol_qualified_name, output_tokens, file_tokens
+        )
+        VALUES (1, 'get_symbol', 'run.run', 2, 4)
+        """
+    )
+    db.connection.commit()
+
+    script.unlink()
+    processor.process()
+
+    paths = {row["path"] for row in db.connection.execute("SELECT path FROM files")}
+    assert "run.py" not in paths
+    assert "keep.py" in paths
+    assert db.connection.execute("SELECT COUNT(*) AS c FROM entry_points").fetchone()["c"] == 0
+    assert (
+        db.connection.execute("SELECT COUNT(*) AS c FROM session_stats_files").fetchone()["c"] == 0
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'run.run'"
+        ).fetchone()["c"]
+        == 0
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'keep.keep'"
+        ).fetchone()["c"]
+        == 1
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM imports WHERE import_path = 'run'"
+        ).fetchone()["c"]
+        == 0
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols_fts WHERE name = 'run'"
+        ).fetchone()["c"]
+        == 0
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols_fts WHERE name = 'keep'"
+        ).fetchone()["c"]
+        == 1
+    )
+    db.close()
+
+
 def test_concurrent_run_query_does_not_raise(tmp_path: Path) -> None:
     """MCP may run tools in parallel; shared SQLite must be serialized."""
     _write_nested_fixture(tmp_path)
