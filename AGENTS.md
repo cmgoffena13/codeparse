@@ -12,6 +12,9 @@
  - NEVER add `from __future__ import annotations` to a file.
  - DO NOT use `global` ever.
 
+## SQL Standards
+ - NEVER alias a column name as the exact same name.
+
 ## Testing Standards
  - Scan before test creation to determine if a new test needs written or a test can be modified.
  - Write tests in `pytest` format (functions, not classes). Ex. `def test_retry`
