@@ -139,6 +139,10 @@ class CodeDB:
                     parameters,
                 )
                 self.connection.execute(
+                    f"DELETE FROM imports WHERE file_id IN ({placeholders})",  # noqa: S608
+                    parameters,
+                )
+                self.connection.execute(
                     f"DELETE FROM files WHERE id IN ({placeholders})",  # noqa: S608
                     parameters,
                 )

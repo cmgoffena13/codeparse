@@ -229,7 +229,12 @@ class CodeProcessor:
         for file_meta in self.files_snapshot.values():
             if file_meta["seen"]:
                 continue
-            symbols = self.db.get_symbols_snapshot(int(file_meta["id"]))
+            file_id = int(file_meta["id"])
+            references = self.db.get_symbol_references_snapshot(file_id)
+            for reference in references.values():
+                reference["seen"] = False
+            self.db.delete_symbol_references(references)
+            symbols = self.db.get_symbols_snapshot(file_id)
             for symbol in symbols.values():
                 symbol["seen"] = False
             self.db.delete_symbols(symbols)
