@@ -234,6 +234,21 @@ def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
     assert accesses[0]["ref_symbol_name"] == "ITEMS"
 
 
+def test_variable_comparison_is_access(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("variable_comparison.py")
+    symbols, _, references = python_parser.parse(73, file_bytes, module_qn="pkg.check")
+    assert_symbol_references_invariants(references)
+    by_qn = index_symbols(symbols)
+    accesses = [
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_qualified_name"] == "pkg.flags.BACKFILL"
+    ]
+    assert {r["source_line"] for r in accesses} == {5, 7, 9}
+    assert {r["ref_symbol_name"] for r in accesses} == {"BACKFILL"}
+    assert {r["source_symbol_id"] for r in accesses} == {by_qn["pkg.check.run"]["id"]}
+
+
 def test_bare_variable_uses_are_accesses(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("variable_bare_uses.py")
     symbols, _, references = python_parser.parse(72, file_bytes, module_qn="pkg.mod")

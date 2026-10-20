@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from src.codeparse_mcp.symbol_references import get_symbol_references
 from src.db import CodeDB
 from src.processor import CodeProcessor
 from src.utils import db_path_for_index_root
@@ -155,6 +156,23 @@ def test_cross_file_import_call_joins_after_resolve(tmp_path: Path) -> None:
     ).fetchone()
     assert row is not None
     assert row["qualified_name"] == "lib.target"
+
+
+def test_imported_variable_comparison_is_an_access(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "flags.py").write_text('BACKFILL = "false"\n', encoding="utf-8")
+    (tmp_path / "check.py").write_text(
+        "from flags import BACKFILL\n\ndef run():\n    if BACKFILL == 'true':\n        return 1\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+
+    out = get_symbol_references(db, "flags.BACKFILL", include_tests=False)
+    assert "## Access" in out
+    assert "check.py" in out
+    assert "check.run" in out
+    db.close()
 
 
 def test_same_line_duplicate_calls_index_without_integrity_error(
