@@ -5,6 +5,20 @@ install:
 	uv run -- prek install
 	cp .env.example .env
 
+clean:
+	rm -rf dist/
+	rm -rf __pycache__/
+	rm -rf .ruff_cache/
+	rm -rf .pytest_cache/
+	rm -f .coverage
+
+reset: clean
+	uv venv --clear
+	$(MAKE) install
+
+upgrade:
+	uv sync --upgrade --all-extras
+
 run:
 	uv run -- python main.py
 
@@ -24,9 +38,6 @@ test:
 
 test-cov:
 	uv run -- pytest --cov=src --cov-report=term-missing
-
-upgrade:
-	uv sync --upgrade --all-extras
 
 # Usage:
 #   make eval-smoke
