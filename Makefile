@@ -11,6 +11,9 @@ clean:
 	rm -rf .ruff_cache/
 	rm -rf .pytest_cache/
 	rm -f .coverage
+	rm -rf .codeparse/
+	rm -rf eval/cache/
+	rm -rf eval/results/
 
 reset: clean
 	uv venv --clear
