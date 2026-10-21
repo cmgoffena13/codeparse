@@ -2,6 +2,7 @@ from tree_sitter import Parser
 
 from src.assigner import GlobalIDAssigner
 from src.db import CodeDB
+from src.parsers.parser_utils import StackFrame
 
 
 class ParserBase:
@@ -10,7 +11,7 @@ class ParserBase:
         self.db = db
         self.parser = parser
         self.symbols_snapshot = {}
-        self.stack: list[tuple[int, str, str]] = []
+        self.stack: list[StackFrame] = []
         self.symbols: list[dict] = []
         self.imports: list[dict] = []
         self.symbol_references_staging: list[dict] = []
