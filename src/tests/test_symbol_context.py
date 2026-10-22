@@ -96,9 +96,71 @@ def test_symbol_context_marks_inherited_file(tmp_path: Path) -> None:
     try:
         inherited = get_symbol_context(db, "child.Context.plan", include_tests=False)
         defined = get_symbol_context(db, "base.GenericContext.plan", include_tests=False)
-        assert "File: base.py (inherited)" in inherited
+        assert "File: base.py\n" in inherited
+        assert "File: base.py (inherited)" not in inherited
+        assert "Symbol: base.GenericContext.plan (inherited)" in inherited
+        assert "Symbol: child.Context.plan" not in inherited
+        assert inherited.index("File: base.py") < inherited.index(
+            "Symbol: base.GenericContext.plan (inherited)"
+        )
+        assert inherited.index("Symbol: base.GenericContext.plan (inherited)") < inherited.index(
+            "def plan("
+        )
         assert "File: base.py (inherited)" not in defined
+        assert "Symbol:" not in defined
         assert "File: base.py\n" in defined
+    finally:
+        db.close()
+
+
+def test_symbol_context_lists_inherited_members_before_references(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "base.py").write_text(
+        "class GenericContext:\n"
+        "    flag = True\n"
+        "\n"
+        "    def plan(self):\n"
+        "        return 1\n"
+        "\n"
+        "    @property\n"
+        "    def size(self):\n"
+        "        return 0\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "child.py").write_text(
+        "from base import GenericContext\n"
+        "\n"
+        "\n"
+        "class Context(GenericContext):\n"
+        "    def apply(self):\n"
+        "        return self.plan()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    try:
+        out = get_symbol_context(db, "child.Context", include_tests=False)
+        assert "## Inherits (3)" in out
+        assert "Methods (1)" in out
+        assert "## Methods" not in out
+        assert "  • base.GenericContext.plan" in out
+        assert "Vars (1)" in out
+        assert "## Vars" not in out
+        assert "  • base.GenericContext.flag" in out
+        assert "Properties (1)" in out
+        assert "## Properties" not in out
+        assert "  • base.GenericContext.size" in out
+        assert "  • child.Context.apply" not in out
+        assert "  • child.Context.plan" not in out
+        assert "Methods (0)" not in out
+        assert out.index("## Inherits (3)") < out.index("Methods (1)")
+        assert out.index("## Inherits (3)") < out.index("## References")
+        assert "## Inherits" not in get_symbol_context(
+            db, "base.GenericContext", include_tests=False
+        )
+        assert "## Inherits" not in get_symbol_context(
+            db, "child.Context.plan", include_tests=False
+        )
     finally:
         db.close()
 

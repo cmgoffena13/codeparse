@@ -97,7 +97,7 @@ def test_symbol_at_lines_marks_inherited_when_multiple_hits(tmp_path: Path) -> N
         assert shown == (
             "Multiple symbols found:\n"
             "  • base.GenericContext.plan — L2-3\n"
-            "  • child.Context.plan — L2-3 (inherited)\n"
+            "  • child.Context.plan — L2-3 (inherits)\n"
         )
     finally:
         db.close()

@@ -75,15 +75,16 @@ def _format_hits(db: CodeDB, chosen, *, include_tests: bool) -> str:
     text = ""
     if len(chosen) == 1:
         name = str(chosen[0]["qualified_name"])
+        inherited = bool(chosen[0]["is_inherited"])
         body = get_symbol_context(db, name, include_tests=include_tests)
         rest = body.split("\n", 1)[1]
-        text = f"Symbol: {name}\n{rest}"
+        text = rest if inherited else f"Symbol: {name}\n{rest}"
     else:
         lines = ["Multiple symbols found:"]
         for row in chosen:
             span = line_span(int(row["line_start"]), int(row["line_end"]))
             name = row["qualified_name"]
-            suffix = " (inherited)" if row["is_inherited"] else ""
+            suffix = " (inherits)" if row["is_inherited"] else ""
             lines.append(bullet(f"{name} — {span}{suffix}"))
         text = "\n".join(lines) + "\n"
     return text

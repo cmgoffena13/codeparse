@@ -1,14 +1,19 @@
+from src.codeparse_mcp.format_utils import bullet
 from src.db import CodeDB
 
 _SYMBOL_ROW_SQL = """
 SELECT
+    s.id AS symbol_id,
     s.line_start,
     s.line_end,
     s.is_inherited,
-    f.path AS file_path
+    f.path AS file_path,
+    sb.base_qualified_name || '.' || s.name AS defining_qualified_name
 FROM symbols AS s
 INNER JOIN files AS f
     ON f.id = s.file_id
+LEFT JOIN symbol_bases AS sb
+    ON sb.symbol_id = s.parent_id
 WHERE s.qualified_name = ?
 """
 
@@ -21,10 +26,28 @@ WHERE sr.ref_symbol_qualified_name = ?
 GROUP BY f.is_test, sr.ref_kind
 """
 
+_INHERITED_MEMBERS_SQL = """
+SELECT
+    inherited.kind AS member_kind,
+    sb.base_qualified_name || '.' || inherited.name AS member_qualified_name
+FROM symbols AS inherited
+INNER JOIN symbol_bases AS sb
+    ON sb.symbol_id = inherited.parent_id
+WHERE inherited.parent_id = ?
+    AND inherited.is_inherited = 1
+ORDER BY member_qualified_name
+"""
+
 _REF_KIND_LABELS: tuple[tuple[str, str], ...] = (
     ("call", "Calls"),
     ("access", "Access"),
     ("type_annotation", "Type Annotations"),
+)
+
+_INHERITED_KIND_LABELS: tuple[tuple[str, str], ...] = (
+    ("method", "Methods"),
+    ("variable", "Vars"),
+    ("property", "Properties"),
 )
 
 
@@ -40,6 +63,28 @@ def _kind_count_lines(counts: dict[str, int]) -> list[str]:
         for kind, label in _REF_KIND_LABELS
         if (count := counts.get(kind, 0)) > 0
     ]
+
+
+def _inherited_member_sections(db: CodeDB, symbol_id: int) -> list[str]:
+    by_kind: dict[str, list[str]] = {}
+    seen: set[str] = set()
+    for row in db.connection.execute(_INHERITED_MEMBERS_SQL, (symbol_id,)):
+        leaf = row["member_qualified_name"].rsplit(".", 1)[-1]
+        if leaf in seen:
+            continue
+        seen.add(leaf)
+        by_kind.setdefault(row["member_kind"], []).append(row["member_qualified_name"])
+    total = sum(len(names) for names in by_kind.values())
+    lines: list[str] = []
+    if total:
+        lines.extend(["", f"## Inherits ({total})"])
+        for kind, title in _INHERITED_KIND_LABELS:
+            names = by_kind.get(kind, [])
+            if not names:
+                continue
+            lines.extend(["", f"{title} ({len(names)})", ""])
+            lines.extend(bullet(name) for name in names)
+    return lines
 
 
 def _reference_sections(db: CodeDB, qualified_name: str, *, include_tests: bool) -> list[str]:
@@ -99,12 +144,13 @@ def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) 
     except OSError as e:
         body_lines.append(f"    (could not read source file: {e})")
 
-    file_line = f"File: {path} (inherited)" if row["is_inherited"] else f"File: {path}"
-    lines: list[str] = [
-        file_line,
-        "",
-    ]
+    lines: list[str] = [f"File: {path}"]
+    if row["is_inherited"]:
+        shown = row["defining_qualified_name"] or key
+        lines.append(f"Symbol: {shown} (inherited)")
+    lines.append("")
     lines.extend(body_lines)
+    lines.extend(_inherited_member_sections(db, int(row["symbol_id"])))
     lines.extend(_reference_sections(db, key, include_tests=include_tests))
 
     return "\n".join(lines) + "\n"

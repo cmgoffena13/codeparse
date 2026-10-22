@@ -161,8 +161,8 @@ def search_symbols(
 @mcp.tool()
 def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return the symbol definition with line numbers and aggregated reference counts
-    (calls, accesses, type annotations).
+    Return the symbol definition with line numbers, inherited members,
+    and aggregated reference counts (calls, accesses, type annotations).
 
     Excludes test references by default; set ``include_tests`` to include them.
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.

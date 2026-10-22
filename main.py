@@ -139,7 +139,7 @@ async def _print_tools() -> None:
             _body(
                 await client.call_tool(
                     "get_symbol",
-                    {"qualified_name": "sqlmesh.RuntimeEnv.is_terminal"},
+                    {"qualified_name": "sqlmesh.core.context.Context"},
                 )
             ),
         )
@@ -175,8 +175,8 @@ async def _print_tools() -> None:
                 await client.call_tool(
                     "get_symbol_references",
                     {
-                        "qualified_name": ("sqlmesh.RuntimeEnv.is_terminal"),
-                        "include_tests": True,
+                        "qualified_name": ("sqlmesh.core.context.Context"),
+                        "include_tests": False,
                     },
                 )
             ),

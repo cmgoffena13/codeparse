@@ -61,7 +61,9 @@ CREATE TABLE IF NOT EXISTS symbols (
     is_inherited    BOOLEAN NOT NULL DEFAULT FALSE         
 );
 CREATE INDEX IF NOT EXISTS symbols_file_id_index ON symbols (file_id);
+CREATE INDEX IF NOT EXISTS symbols_parent_id_index ON symbols (parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS symbols_qualified_name_index ON symbols (qualified_name);
+
 
 CREATE TABLE IF NOT EXISTS symbol_bases (
     symbol_id               INTEGER NOT NULL REFERENCES symbols(id),
