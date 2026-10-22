@@ -67,8 +67,8 @@ VALUES (?, ?, ?, ?, ?)
 
 _LOAD_SQL = """
 SELECT
-    s.session_id AS session_id,
-    f.path AS path,
+    s.session_id,
+    f.path,
     sf.current_file_tokens,
     sf.tool_call_count,
     sf.output_tokens,
@@ -91,7 +91,7 @@ _REPORT_SQL = """
 SELECT
     s.session_id,
     s.session_start_time,
-    f.path AS path,
+    f.path,
     sf.tool_call_count,
     sf.output_tokens,
     sf.total_if_read_tokens

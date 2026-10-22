@@ -8,7 +8,7 @@ _TREE_SQL = """
 SELECT
     'directory' AS row_type,
     id,
-    parent_id AS parent_id,
+    parent_id,
     name,
     NULL AS line_count,
     NULL AS symbol_count
@@ -31,7 +31,7 @@ _SUBTREE_SQL = """
 SELECT
     'directory' AS row_type,
     id,
-    parent_id AS parent_id,
+    parent_id,
     name,
     NULL AS line_count,
     NULL AS symbol_count

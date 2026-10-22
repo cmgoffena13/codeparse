@@ -9,7 +9,7 @@ SELECT
     s.qualified_name,
     s.line_start,
     s.line_end,
-    f.path AS path,
+    f.path,
     bm25(symbols_fts, 10.0, 2.0) AS rank
 FROM symbols_fts
 INNER JOIN symbols AS s
