@@ -7,7 +7,7 @@ import yaml
 
 DESCRIPTION = (
     "Use when navigating a Python codebase: mapping repo structure, finding "
-    "entry points, locating symbols, or understanding how files and symbols "
+    "entry points, locating symbols, tracing inheritance, or understanding how files and symbols "
     "depend on each other."
 )
 
