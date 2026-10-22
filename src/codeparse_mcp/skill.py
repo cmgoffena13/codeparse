@@ -13,15 +13,15 @@ DESCRIPTION = (
 )
 
 _SKILL_BODY = """\
-IMPORTANT: ALWAYS USE ``get_file_overview`` / ``get_symbol`` instead of \
-``read`` to get file / symbol information. NEVER use ``read`` on a Python file.
+IMPORTANT: ALWAYS USE ``get_file_symbols`` / ``get_symbol`` instead of \
+``read`` to get symbol information. NEVER use ``read`` on a Python file.
 
 The information that is provided to you will determine the tool you should use.
 Only ``include_tests`` when making changes to the codebase. 
 DO NOT ``include_tests`` when investigating unless explicitly asked.
 
 ## You are given the file name.
-1. Use ``get_file_overview`` to get a summary of the symbols in the file.
+1. Use ``get_file_symbols`` to get a summary of the symbols in the file.
 2. Use ``get_symbol`` to get the symbol definition.
 
 ## You are given the file name and symbol's qualified name.
@@ -32,7 +32,7 @@ DO NOT ``include_tests`` when investigating unless explicitly asked.
 
 ## You are NOT given the file name or symbol's qualified name. 
 1. Investigate the codebase using ``get_project_overview`` and keywords. 
-2. Use ``get_file_overview`` to get a summary of the symbols in the file.
+2. Use ``get_file_symbols`` to get a summary of the symbols in the file.
 3. Use ``get_symbol`` to get the code definition of the symbol.
 
 ## How to investigate the codebase using keywords
@@ -44,6 +44,7 @@ DO NOT ``include_tests`` when investigating unless explicitly asked.
  - Use when the clue is specific text in file contents.
  - Use `-n` to get the line number and then use ``get_symbol_at_lines`` to get the symbol.
  - Use ``list_importers`` to find which files depend on a module; DO NOT grep for this.
+ - Use ``get_file_imports`` to list a file's import statements; DO NOT grep for this.
  - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
 
 ### ``search_symbols``

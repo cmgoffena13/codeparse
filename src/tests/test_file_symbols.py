@@ -1,8 +1,6 @@
-"""Tests for get_file_overview MCP query."""
-
 from pathlib import Path
 
-from src.codeparse_mcp.file_overview import get_file_overview
+from src.codeparse_mcp.file_symbols import get_file_symbols
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -35,17 +33,18 @@ def _index(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_file_overview_includes_import_and_symbol_line_numbers(tmp_path: Path) -> None:
+def test_file_symbols_omits_imports(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        out = get_file_overview(db, "pkg/mod.py")
-        assert "Legend:" not in out
-        assert "Language:" not in out
-        assert out.index("File:") < out.index("Total Lines:")
-        # Padded gutters (file has 13 lines → width 2).
-        assert "L1   from pkg.other import helper" in out
-        assert "L8   from pkg.late import late_thing" in out
+        out = get_file_symbols(db, "pkg/mod.py")
+        assert "## Imports" not in out
+        assert "## Symbols" not in out
+        assert "from pkg.other import helper" not in out
+        assert "from pkg.late import late_thing" not in out
+        assert "File:" not in out
+        assert out.index("Total Lines:") < out.index("Total Symbols:")
+        assert "Total Symbols: 2" in out
         assert "L4-5  function  pkg.mod.early" in out
         assert "L11-12  function  pkg.mod.late" in out
         assert "Sig:" not in out
@@ -55,7 +54,17 @@ def test_file_overview_includes_import_and_symbol_line_numbers(tmp_path: Path) -
         db.close()
 
 
-def test_file_overview_labels_property_methods(tmp_path: Path) -> None:
+def test_file_symbols_reports_missing_file(tmp_path: Path) -> None:
+    root = _index(tmp_path)
+    db = CodeDB(root)
+    try:
+        assert get_file_symbols(db, "pkg/missing.py") == "No file matches 'pkg/missing.py'."
+        assert get_file_symbols(db, "") == "file_path is empty"
+    finally:
+        db.close()
+
+
+def test_file_symbols_labels_property_methods(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
     (tmp_path / "mod.py").write_text(
         "class Box:\n"
@@ -70,7 +79,7 @@ def test_file_overview_labels_property_methods(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         CodeProcessor(db, tmp_path).process()
-        out = get_file_overview(db, "mod.py")
+        out = get_file_symbols(db, "mod.py")
         assert "property  mod.Box.size" in out
         assert "method  mod.Box.grow" in out
     finally:

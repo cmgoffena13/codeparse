@@ -114,11 +114,15 @@ async def _print_tools() -> None:
             _body(await client.call_tool("get_directory_tree", {"path": "sqlmesh/core/"})),
         )
         _print_section(
-            "FILE OVERVIEW",
+            "FILE SYMBOLS",
             _body(
-                await client.call_tool(
-                    "get_file_overview", {"file_path": "sqlmesh/core/dialect.py"}
-                )
+                await client.call_tool("get_file_symbols", {"file_path": "sqlmesh/core/dialect.py"})
+            ),
+        )
+        _print_section(
+            "FILE IMPORTS",
+            _body(
+                await client.call_tool("get_file_imports", {"file_path": "sqlmesh/core/dialect.py"})
             ),
         )
         _print_section(

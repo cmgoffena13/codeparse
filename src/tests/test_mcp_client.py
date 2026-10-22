@@ -17,7 +17,8 @@ _TOOLS = {
     "list_importers",
     "list_subclasses",
     "get_directory_tree",
-    "get_file_overview",
+    "get_file_imports",
+    "get_file_symbols",
     "get_project_overview",
     "get_symbol",
     "get_symbol_at_lines",
@@ -87,11 +88,18 @@ def test_client_tools_read_the_workspace(
             assert "child.py" in tree
             assert "tests/test_child.py" not in tree
 
-            file_overview = _text(
-                await mcp_client.call_tool("get_file_overview", {"file_path": "pkg/child.py"})
+            file_symbols = _text(
+                await mcp_client.call_tool("get_file_symbols", {"file_path": "pkg/child.py"})
             )
-            assert "pkg.child.Child" in file_overview
-            assert "from pkg.base import Parent" in file_overview
+            assert "pkg.child.Child" in file_symbols
+            assert "from pkg.base import Parent" not in file_symbols
+            assert "## Imports" not in file_symbols
+
+            file_imports = _text(
+                await mcp_client.call_tool("get_file_imports", {"file_path": "pkg/child.py"})
+            )
+            assert "from pkg.base import Parent" in file_imports
+            assert "pkg.child.Child" not in file_imports
 
             found = _text(
                 await mcp_client.call_tool("search_symbols", {"query": "Child", "limit": 5})

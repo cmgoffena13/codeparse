@@ -86,7 +86,7 @@ def test_list_importers_accepts_absolute_path(tmp_path: Path) -> None:
     try:
         abs_target = str((tmp_path / "pkg" / "target.py").resolve())
         out = list_importers(db, abs_target, include_tests=False)
-        assert out.startswith("File Count: 1\n")
+        assert out.startswith("Total Files: 1\n")
         assert "└── pkg/\n    └── importer.py\n" in out
         assert "Importers of" not in out
         assert "Showing" not in out

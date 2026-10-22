@@ -11,7 +11,8 @@ from pydantic import BaseModel
 from src.codeparse_mcp.paths import normalize_repo_file_path
 from src.utils import db_path_for_index_root
 
-_TRACKED_TOOLS = frozenset({"get_symbol", "get_symbol_at_lines", "get_file_overview"})
+_FILE_TOOLS = frozenset({"get_file_symbols", "get_file_imports"})
+_TRACKED_TOOLS = frozenset({"get_symbol", "get_symbol_at_lines"}) | _FILE_TOOLS
 
 _SYMBOL_FILE_SQL = """
 SELECT f.path
@@ -328,7 +329,7 @@ def _record(
 
 def _symbol_name(tool: str, qualified_name: str, output: str) -> str:
     name = qualified_name
-    if tool == "get_file_overview":
+    if tool in _FILE_TOOLS:
         name = ""
     elif tool == "get_symbol_at_lines":
         first = output.split("\n", 1)[0]

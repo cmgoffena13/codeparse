@@ -7,7 +7,8 @@ from typing import Any
 from fastmcp import Context, FastMCP
 
 from src.codeparse_mcp.directory_tree import get_directory_tree as run_directory_tree
-from src.codeparse_mcp.file_overview import get_file_overview as run_file_overview
+from src.codeparse_mcp.file_imports import get_file_imports as run_file_imports
+from src.codeparse_mcp.file_symbols import get_file_symbols as run_file_symbols
 from src.codeparse_mcp.list_importers import list_importers as run_list_importers
 from src.codeparse_mcp.list_subclasses import list_subclasses as run_list_subclasses
 from src.codeparse_mcp.project_overview import (
@@ -114,13 +115,23 @@ def get_directory_tree(ctx: Context, path: str | None = None) -> str:
 
 
 @mcp.tool()
-def get_file_overview(file_path: str, ctx: Context) -> str:
+def get_file_symbols(file_path: str, ctx: Context) -> str:
     """
-    Return imports and a nested symbol tree for one file with line numbers.
+    Return a nested symbol tree for one file with line numbers.
     Follow up with ``get_symbol`` for symbol definitions.
     """
     path = file_path.strip()
-    return _processor(ctx).run_query(lambda db: run_file_overview(db, path))
+    return _processor(ctx).run_query(lambda db: run_file_symbols(db, path))
+
+
+@mcp.tool()
+def get_file_imports(file_path: str, ctx: Context) -> str:
+    """
+    Return the import statements for one file with line numbers.
+    Use ``list_importers`` to find files that import this module.
+    """
+    path = file_path.strip()
+    return _processor(ctx).run_query(lambda db: run_file_imports(db, path))
 
 
 @mcp.tool()

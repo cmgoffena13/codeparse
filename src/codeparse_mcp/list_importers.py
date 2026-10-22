@@ -52,7 +52,7 @@ def _format_importers(paths: list[str]) -> str:
     total = len(paths)
     shown = paths[:_MAX_IMPORTER_FILES]
     lines_out = _tree_lines(_tree(shown), "")
-    header = f"File Count: {total}"
+    header = f"Total Files: {total}"
     if total > _MAX_IMPORTER_FILES:
         header = f"Showing {len(shown)} of {total} files"
     lines_out.insert(0, header)

@@ -70,7 +70,7 @@ def _wait_file(root: Path, file_path: str, calls: int) -> FileToolStats | None:
 def test_record_groups_calls_by_file(tmp_path: Path) -> None:
     _index_target(tmp_path)
 
-    _record(tmp_path, "window-a", "pkg/target.py", "get_file_overview", "", "overview", 40)
+    _record(tmp_path, "window-a", "pkg/target.py", "get_file_symbols", "", "overview", 40)
     _record(
         tmp_path,
         "window-a",
@@ -101,7 +101,7 @@ def test_record_groups_calls_by_file(tmp_path: Path) -> None:
         (item.tool, item.tool_symbol_qualified_name, item.output_tokens, item.file_tokens)
         for item in target.outputs
     ] == [
-        ("get_file_overview", None, len("overview") // 4, 10),
+        ("get_file_symbols", None, len("overview") // 4, 10),
         ("get_symbol", "pkg.target.helper", len("symbol-body") // 4, 10),
     ]
     assert files["pkg/other.py"].tool_call_count == 1
@@ -124,7 +124,7 @@ def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
         tmp_path,
         "window-a",
         "pkg/target.py",
-        "get_file_overview",
+        "get_file_symbols",
         "",
         "overview",
         40,
@@ -271,14 +271,14 @@ def test_schedule_records_after_the_caller_continues(tmp_path: Path) -> None:
     source = (tmp_path / "pkg" / "target.py").read_text(encoding="utf-8")
 
     schedule_symbol_record(tmp_path, "window-a", "pkg.target.helper", "symbol")
-    schedule_file_record(tmp_path, "window-a", "get_file_overview", "pkg/target.py", "overview")
+    schedule_file_record(tmp_path, "window-a", "get_file_symbols", "pkg/target.py", "overview")
 
     recorded = _wait_file(tmp_path, "pkg/target.py", 2)
     assert recorded is not None
     assert recorded.session_id == "window-a"
     assert recorded.current_file_tokens == len(source) // 4
     assert recorded.output_tokens == len("symbol") // 4 + len("overview") // 4
-    assert {item.tool for item in recorded.outputs} == {"get_symbol", "get_file_overview"}
+    assert {item.tool for item in recorded.outputs} == {"get_symbol", "get_file_symbols"}
     assert {item.tool_symbol_qualified_name for item in recorded.outputs} == {
         None,
         "pkg.target.helper",
@@ -305,7 +305,7 @@ def test_client_writes_tool_sizes_to_the_workspace_database(
     async def run() -> None:
         async with mcp_client:
             overview = _text(
-                await mcp_client.call_tool("get_file_overview", {"file_path": "pkg/child.py"})
+                await mcp_client.call_tool("get_file_symbols", {"file_path": "pkg/child.py"})
             )
             symbol = _text(
                 await mcp_client.call_tool("get_symbol", {"qualified_name": "pkg.child.Child"})
@@ -327,7 +327,7 @@ def test_client_writes_tool_sizes_to_the_workspace_database(
             len(overview) // 4 + len(symbol) // 4 + len(at_lines) // 4
         )
         assert {(call.tool, call.tool_symbol_qualified_name) for call in outputs} == {
-            ("get_file_overview", None),
+            ("get_file_symbols", None),
             ("get_symbol", "pkg.child.Child"),
             ("get_symbol_at_lines", "pkg.child.Child"),
         }
