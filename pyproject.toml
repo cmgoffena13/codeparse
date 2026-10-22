@@ -4,26 +4,26 @@ version = "0.9.3"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "certifi>=2026.7.22",
-    "fastmcp>=4.1.0",
-    "nuitka[onefile]>=4.0.8",
+    "certifi>=2026.10.19",
+    "fastmcp>=4.1.3",
+    "nuitka[onefile]>=4.3.1",
     "pathspec>=1.1.1",
     "tree-sitter>=0.26.0",
     "tree-sitter-python>=0.25.0",
-    "xxhash>=4.0.1",
+    "xxhash>=4.0.2",
 ]
 
 [dependency-groups]
 dev = [
-    "prek>=0.5.4",
+    "prek>=0.5.7",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
-    "ruff>=0.16.9",
-    "ty>=0.0.84",
-    "cursor-sdk>=1.0.32",
-    "claude-agent-sdk>=0.1.59",
-    "python-dotenv>=1.2.3",
+    "ruff>=0.17.2",
+    "ty>=0.0.91",
+    "cursor-sdk>=1.0.40",
+    "claude-agent-sdk>=0.2.173",
+    "python-dotenv>=1.2.4",
 ]
 
 [tool.pytest.ini_options]
