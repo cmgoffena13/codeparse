@@ -21,6 +21,7 @@
  - Write tests in `pytest` format (functions, not classes). Ex. `def test_retry`
  - Always put test fixtures in `conftest.py`
  - Always put test/synthetic data within its own file in the `fixtures` directory for reuse among tests.
+ - Always cover new functionality by creating integration tests. 
 
 ## Validation
  - `make ready` must pass after every change.
