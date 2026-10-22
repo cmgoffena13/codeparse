@@ -15,6 +15,7 @@ class ParserBase:
         self.symbols: list[dict] = []
         self.imports: list[dict] = []
         self.symbol_references_staging: list[dict] = []
+        self.catalog: dict = {"by_qn": {}, "subclasses": {}}
 
     def parse(
         self,

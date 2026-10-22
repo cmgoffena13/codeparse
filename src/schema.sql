@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS symbols (
     docstring       TEXT,                            
     modifiers       TEXT,                           
     language        TEXT NOT NULL,
-    is_test         BOOLEAN NOT NULL DEFAULT FALSE               
+    is_test         BOOLEAN NOT NULL DEFAULT FALSE,
+    is_inherited    BOOLEAN NOT NULL DEFAULT FALSE         
 );
 CREATE INDEX IF NOT EXISTS symbols_file_id_index ON symbols (file_id);
 CREATE UNIQUE INDEX IF NOT EXISTS symbols_qualified_name_index ON symbols (qualified_name);

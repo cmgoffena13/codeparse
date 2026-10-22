@@ -58,6 +58,7 @@ class CodeProcessor:
 
         self.directories_snapshot = self.db.get_directories_snapshot()
         self.files_snapshot = self.db.get_files_snapshot()
+        self.symbol_catalog: dict = {"by_qn": {}, "subclasses": {}}
 
     def _process_directories(self, directory_names: list[str], directory_path: Path) -> None:
         for directory_name in directory_names:
@@ -182,6 +183,7 @@ class CodeProcessor:
             parser = ParserFactory.get_parser(
                 FILE_EXTENSION_MAPPING[file_extension], self.assigner, self.db
             )
+            parser.catalog = self.symbol_catalog
             module_qn = (
                 self._normalize_path(file_relative_path, language=lang) if lang == "python" else ""
             )
@@ -238,6 +240,11 @@ class CodeProcessor:
             for symbol in symbols.values():
                 symbol["seen"] = False
             self.db.delete_symbols(symbols)
+            for qualified_name, cataloged in list(self.symbol_catalog["by_qn"].items()):
+                if cataloged.get("file_id") == file_id:
+                    self.symbol_catalog["by_qn"].pop(qualified_name, None)
+                    for children in self.symbol_catalog["subclasses"].values():
+                        children.pop(qualified_name, None)
 
     def _process_files(self, file_names: list[str], directory_path: Path, full: bool) -> None:
         for file_name in file_names:

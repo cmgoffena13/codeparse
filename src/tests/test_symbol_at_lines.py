@@ -73,3 +73,31 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
         assert "No symbol" in get_symbol_at_lines(db, "pkg/target.py", 4, None, include_tests=False)
     finally:
         db.close()
+
+
+def test_symbol_at_lines_marks_inherited_when_multiple_hits(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "base.py").write_text(
+        "class GenericContext:\n    def plan(self):\n        return 1\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "child.py").write_text(
+        "from base import GenericContext\n"
+        "\n"
+        "\n"
+        "class Context(GenericContext):\n"
+        "    def apply(self):\n"
+        "        return self.plan()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    try:
+        shown = get_symbol_at_lines(db, "base.py", 2, 3, include_tests=False)
+        assert shown == (
+            "Multiple symbols found:\n"
+            "  • base.GenericContext.plan — L2-3\n"
+            "  • child.Context.plan — L2-3 (inherited)\n"
+        )
+    finally:
+        db.close()

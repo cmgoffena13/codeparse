@@ -10,6 +10,8 @@ from src.db import CodeDB
 from src.parsers.base import ParserBase
 from src.parsers.parser_utils import StackFrame
 
+_INHERIT_KINDS = frozenset({"method", "property", "variable"})
+
 
 class PythonParser(ParserBase):
     def __init__(
@@ -41,6 +43,8 @@ class PythonParser(ParserBase):
         self._var_qns: dict[str, str] = {}
         self._module_qn: str = ""
         self._is_package: bool = False
+        self._file_id = 0
+        self.catalog: dict = {"by_qn": {}, "subclasses": {}}
 
     def parse(
         self,
@@ -52,6 +56,7 @@ class PythonParser(ParserBase):
         self.stack = []
         self._module_qn = module_qn
         self._is_package = is_package
+        self._file_id = file_id
         self._class_param_annos = {}
         self._func_param_annos = {}
         self._ref_root_module = {}
@@ -67,11 +72,263 @@ class PythonParser(ParserBase):
         self.symbols_references_snapshot = self.db.get_symbol_references_snapshot(file_id)
         self.imports_snapshot = self.db.get_imports_snapshot(file_id)
         self._walk(root_node, file_id, file_bytes)
+        self._link_inherited_members()
 
         self.db.delete_symbol_references(self.symbols_references_snapshot)
         self.db.delete_symbols(self.symbols_snapshot)
         self.db.delete_imports(self.imports_snapshot)
         return self.symbols, self.imports, self.symbol_references
+
+    def _catalog_register_class(self, cls: dict) -> None:
+        qualified_name = cls["qualified_name"]
+        for children in self.catalog["subclasses"].values():
+            children.pop(qualified_name, None)
+        for base_qn in cls["bases"]:
+            bucket = self.catalog["subclasses"].setdefault(base_qn, {})
+            bucket[qualified_name] = {
+                "id": cls["id"],
+                "name": cls["name"],
+                "qualified_name": qualified_name,
+            }
+
+    def _catalog_put(self, symbol: dict, *, overwrite: bool = True) -> None:
+        qualified_name = symbol["qualified_name"]
+        skip = (not overwrite) and qualified_name in self.catalog["by_qn"]
+        if not skip:
+            self.catalog["by_qn"][qualified_name] = {
+                "id": symbol["id"],
+                "file_id": symbol["file_id"],
+                "parent_id": symbol.get("parent_id"),
+                "parent": symbol.get("parent"),
+                "name": symbol["name"],
+                "qualified_name": qualified_name,
+                "kind": symbol["kind"],
+                "line_start": symbol["line_start"],
+                "line_end": symbol["line_end"],
+                "line_count": symbol.get(
+                    "line_count", symbol["line_end"] - symbol["line_start"] + 1
+                ),
+                "signature": symbol.get("signature") or "",
+                "docstring": symbol.get("docstring"),
+                "modifiers": symbol.get("modifiers"),
+                "language": symbol.get("language") or "python",
+                "is_test": symbol.get("is_test") or False,
+                "is_inherited": bool(symbol.get("is_inherited")),
+                "base_qualified_names": list(
+                    symbol.get("base_qualified_names") or symbol.get("bases") or ()
+                ),
+            }
+        if symbol["kind"] == "class":
+            stored = self.catalog["by_qn"][qualified_name]
+            self._catalog_register_class(
+                {
+                    "id": stored["id"],
+                    "name": stored["name"],
+                    "qualified_name": qualified_name,
+                    "bases": list(stored.get("base_qualified_names") or symbol.get("bases") or ()),
+                }
+            )
+
+    def _catalog_drop(self, qualified_name: str) -> None:
+        self.catalog["by_qn"].pop(qualified_name, None)
+        for children in self.catalog["subclasses"].values():
+            children.pop(qualified_name, None)
+
+    def _symbol_from_snapshot(self, qualified_name: str, kind: str, entry: dict) -> dict:
+        leaf = qualified_name.rsplit(".", 1)[-1]
+        parent_qn = qualified_name.rsplit(".", 1)[0] if "." in qualified_name else ""
+        parent = self.catalog["by_qn"].get(parent_qn)
+        parent_is_class = parent is not None and parent["kind"] == "class"
+        return {
+            "id": entry["id"],
+            "file_id": self._file_id,
+            "parent_id": parent["id"] if parent_is_class else None,
+            "parent": parent["name"] if parent_is_class else None,
+            "name": leaf,
+            "qualified_name": qualified_name,
+            "kind": kind,
+            "line_start": entry["line_start"],
+            "line_end": entry["line_end"],
+            "line_count": entry["line_end"] - entry["line_start"] + 1,
+            "signature": "",
+            "docstring": None,
+            "modifiers": None,
+            "language": "python",
+            "base_qualified_names": list(entry.get("base_qualified_names") or ()),
+            "is_test": False,
+        }
+
+    def _ingest_snapshot_into_catalog(self) -> None:
+        classes: list[tuple[str, str, dict]] = []
+        others: list[tuple[str, str, dict]] = []
+        for (qualified_name, kind), entry in self.symbols_snapshot.items():
+            if kind == "class":
+                classes.append((qualified_name, kind, entry))
+            else:
+                others.append((qualified_name, kind, entry))
+        for qualified_name, kind, entry in classes + others:
+            self._catalog_put(
+                self._symbol_from_snapshot(qualified_name, kind, entry),
+                overwrite=False,
+            )
+
+    def _classes_seen(self) -> list[dict]:
+        by_id: dict[int, dict] = {}
+        for (qualified_name, kind), entry in self.symbols_snapshot.items():
+            if kind == "class" and entry["seen"]:
+                by_id[entry["id"]] = {
+                    "id": entry["id"],
+                    "name": qualified_name.rsplit(".", 1)[-1],
+                    "qualified_name": qualified_name,
+                    "bases": list(entry.get("base_qualified_names") or ()),
+                }
+        for symbol in self.symbols:
+            if symbol["kind"] == "class":
+                by_id[symbol["id"]] = {
+                    "id": symbol["id"],
+                    "name": symbol["name"],
+                    "qualified_name": symbol["qualified_name"],
+                    "bases": list(symbol.get("base_qualified_names") or ()),
+                }
+        return list(by_id.values())
+
+    def _member_from_symbol(self, symbol: dict) -> dict:
+        return {
+            "file_id": symbol["file_id"],
+            "name": symbol["name"],
+            "kind": symbol["kind"],
+            "line_start": symbol["line_start"],
+            "line_end": symbol["line_end"],
+            "line_count": symbol.get("line_count", symbol["line_end"] - symbol["line_start"] + 1),
+            "signature": symbol.get("signature") or "",
+            "docstring": symbol.get("docstring"),
+            "modifiers": symbol.get("modifiers"),
+            "language": symbol.get("language") or "python",
+            "is_test": symbol.get("is_test") or False,
+        }
+
+    def _members_of_class(self, class_qn: str) -> list[dict]:
+        owner = next(
+            (
+                symbol
+                for symbol in self.symbols
+                if symbol["kind"] == "class" and symbol["qualified_name"] == class_qn
+            ),
+            self.catalog["by_qn"].get(class_qn),
+        )
+        by_name: dict[str, dict] = {}
+        if owner is not None and owner.get("kind", "class") == "class":
+            owner_id = owner["id"]
+            prefix = f"{class_qn}."
+            for symbol in self.catalog["by_qn"].values():
+                if symbol.get("parent_id") == owner_id and symbol["kind"] in _INHERIT_KINDS:
+                    by_name[symbol["name"]] = self._member_from_symbol(symbol)
+            for (qualified_name, kind), entry in self.symbols_snapshot.items():
+                leaf = qualified_name[len(prefix) :]
+                if (
+                    kind in _INHERIT_KINDS
+                    and qualified_name.startswith(prefix)
+                    and "." not in leaf
+                    and not entry["seen"]
+                ):
+                    by_name.pop(leaf, None)
+            for symbol in self.symbols:
+                if symbol["parent_id"] == owner_id and symbol["kind"] in _INHERIT_KINDS:
+                    by_name[symbol["name"]] = self._member_from_symbol(symbol)
+        return list(by_name.values())
+
+    def _owned_names(self, class_id: int) -> set[str]:
+        names = {symbol["name"] for symbol in self.symbols if symbol["parent_id"] == class_id}
+        names.update(
+            symbol["name"]
+            for symbol in self.catalog["by_qn"].values()
+            if symbol.get("parent_id") == class_id and symbol["kind"] in _INHERIT_KINDS
+        )
+        return names
+
+    def _keep_inherited_snapshot(self, qualified_name: str, kind: str) -> None:
+        key = (qualified_name, kind)
+        if key in self.symbols_snapshot:
+            self.symbols_snapshot[key]["seen"] = True
+
+    def _keep_foreign_inherited_copies(self) -> None:
+        local_qns = {cls["qualified_name"] for cls in self._classes_seen()}
+        local_leaves = {
+            member["name"]
+            for cls in self._classes_seen()
+            for member in self._members_of_class(cls["qualified_name"])
+        }
+        for (qualified_name, kind), entry in self.symbols_snapshot.items():
+            if kind not in _INHERIT_KINDS or "." not in qualified_name:
+                continue
+            parent_qn, leaf = qualified_name.rsplit(".", 1)
+            if parent_qn not in local_qns and leaf in local_leaves:
+                entry["seen"] = True
+
+    def _inherited_member_symbol(self, cls: dict, member: dict) -> dict:
+        qualified_name = f"{cls['qualified_name']}.{member['name']}"
+        key = (qualified_name, member["kind"])
+        snapshot = self.symbols_snapshot.get(key)
+        cataloged = self.catalog["by_qn"].get(qualified_name)
+        symbol_id = (
+            snapshot["id"]
+            if snapshot is not None
+            else cataloged["id"]
+            if cataloged is not None
+            else self.assigner.reserve("symbols", 1)[0]
+        )
+        self._keep_inherited_snapshot(qualified_name, member["kind"])
+        return {
+            "id": symbol_id,
+            "file_id": member["file_id"],
+            "parent_id": cls["id"],
+            "parent": cls["name"],
+            "name": member["name"],
+            "qualified_name": qualified_name,
+            "kind": member["kind"],
+            "line_start": member["line_start"],
+            "line_end": member["line_end"],
+            "line_count": member["line_count"],
+            "signature": member["signature"],
+            "docstring": member["docstring"],
+            "modifiers": member["modifiers"],
+            "language": member["language"],
+            "base_qualified_names": [],
+            "is_test": member["is_test"],
+            "is_inherited": True,
+        }
+
+    def _link_inherited_members(self) -> None:
+        self._ingest_snapshot_into_catalog()
+        classes = self._classes_seen()
+        for cls in classes:
+            self._catalog_register_class(cls)
+            owned = self._owned_names(cls["id"])
+            for base_qn in cls["bases"]:
+                for member in self._members_of_class(base_qn):
+                    inherited_qn = f"{cls['qualified_name']}.{member['name']}"
+                    if member["name"] in owned:
+                        self._keep_inherited_snapshot(inherited_qn, member["kind"])
+                        continue
+                    owned.add(member["name"])
+                    self.symbols.append(self._inherited_member_symbol(cls, member))
+        for cls in classes:
+            children = self.catalog["subclasses"].get(cls["qualified_name"], {})
+            for child in list(children.values()):
+                owned = self._owned_names(child["id"])
+                for member in self._members_of_class(cls["qualified_name"]):
+                    inherited_qn = f"{child['qualified_name']}.{member['name']}"
+                    if member["name"] in owned:
+                        self._keep_inherited_snapshot(inherited_qn, member["kind"])
+                        continue
+                    owned.add(member["name"])
+                    self.symbols.append(self._inherited_member_symbol(child, member))
+        self._keep_foreign_inherited_copies()
+        for (qualified_name, _kind), entry in self.symbols_snapshot.items():
+            if not entry["seen"]:
+                self._catalog_drop(qualified_name)
+        for symbol in self.symbols:
+            self._catalog_put(symbol)
 
     def _qualify(self, name: str) -> str:
         if self.stack:
@@ -209,6 +466,7 @@ class PythonParser(ParserBase):
             "language": "python",
             "base_qualified_names": base_qualified_names,
             "is_test": is_test,
+            "is_inherited": False,
         }
 
     def _variable_symbol_dict(
@@ -240,6 +498,7 @@ class PythonParser(ParserBase):
             "language": "python",
             "base_qualified_names": [],
             "is_test": is_test,
+            "is_inherited": False,
         }
 
     def _record_import(

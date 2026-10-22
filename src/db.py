@@ -323,10 +323,10 @@ class CodeDB:
                 INSERT OR REPLACE INTO symbols
                 (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
                  line_end, line_count, signature, docstring, modifiers, language,
-                 is_test)
+                 is_test, is_inherited)
                 VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
                         :line_start, :line_end, :line_count, :signature,
-                        :docstring, :modifiers, :language, :is_test)
+                        :docstring, :modifiers, :language, :is_test, :is_inherited)
                 """,
                 symbols,
             )

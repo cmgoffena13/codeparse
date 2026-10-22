@@ -76,6 +76,33 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         db.close()
 
 
+def test_symbol_context_marks_inherited_file(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "base.py").write_text(
+        "class GenericContext:\n    def plan(self):\n        return 1\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "child.py").write_text(
+        "from base import GenericContext\n"
+        "\n"
+        "\n"
+        "class Context(GenericContext):\n"
+        "    def apply(self):\n"
+        "        return self.plan()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    try:
+        inherited = get_symbol_context(db, "child.Context.plan", include_tests=False)
+        defined = get_symbol_context(db, "base.GenericContext.plan", include_tests=False)
+        assert "File: base.py (inherited)" in inherited
+        assert "File: base.py (inherited)" not in defined
+        assert "File: base.py\n" in defined
+    finally:
+        db.close()
+
+
 def test_symbol_references_lists_calls_with_counts(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)

@@ -9,7 +9,8 @@ _SYMBOL_AT_LINES_SQL = """
 SELECT
     s.qualified_name,
     s.line_start,
-    s.line_end
+    s.line_end,
+    s.is_inherited
 FROM symbols AS s
 INNER JOIN files AS f
     ON f.id = s.file_id
@@ -82,7 +83,8 @@ def _format_hits(db: CodeDB, chosen, *, include_tests: bool) -> str:
         for row in chosen:
             span = line_span(int(row["line_start"]), int(row["line_end"]))
             name = row["qualified_name"]
-            lines.append(bullet(f"{name} — {span}"))
+            suffix = " (inherited)" if row["is_inherited"] else ""
+            lines.append(bullet(f"{name} — {span}{suffix}"))
         text = "\n".join(lines) + "\n"
     return text
 

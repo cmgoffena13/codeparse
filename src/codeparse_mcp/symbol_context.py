@@ -4,6 +4,7 @@ _SYMBOL_ROW_SQL = """
 SELECT
     s.line_start,
     s.line_end,
+    s.is_inherited,
     f.path AS file_path
 FROM symbols AS s
 INNER JOIN files AS f
@@ -98,8 +99,9 @@ def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) 
     except OSError as e:
         body_lines.append(f"    (could not read source file: {e})")
 
+    file_line = f"File: {path} (inherited)" if row["is_inherited"] else f"File: {path}"
     lines: list[str] = [
-        f"File: {path}",
+        file_line,
         "",
     ]
     lines.extend(body_lines)
