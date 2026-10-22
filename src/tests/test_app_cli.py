@@ -19,6 +19,7 @@ def test_bare_codeparse_prints_help(
     assert "usage:" in out
     assert "mcp" in out
     assert "reload" in out
+    assert "sync" not in out
 
 
 def test_version_flag_prints_and_exits_zero(
@@ -265,34 +266,6 @@ def test_install_mcp_cli_exits_one_when_nothing_written(
     monkeypatch.setattr(sys, "argv", ["codeparse", "install"])
     monkeypatch.setattr("src.cli.install_mcp.install_mcp", list)
     assert main() == 1
-
-
-def test_sync_writes_only_existing_skill_dirs(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    (tmp_path / ".cursor" / "skills").mkdir(parents=True)
-    monkeypatch.setattr(sys, "argv", ["codeparse", "sync"])
-    assert main() == 0
-    out = capsys.readouterr().out
-    cursor_skill = tmp_path / ".cursor" / "skills" / "codeparse" / "SKILL.md"
-    assert cursor_skill.is_file()
-    assert not (tmp_path / ".claude").exists()
-    assert str(cursor_skill.parent) in out
-    assert "get_symbol" in cursor_skill.read_text(encoding="utf-8")
-
-
-def test_sync_with_no_skill_dirs_prints_message(
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(sys, "argv", ["codeparse", "sync"])
-    assert main() == 0
-    assert "No skill directories found." in capsys.readouterr().out
 
 
 def test_reload_recreates_the_index(

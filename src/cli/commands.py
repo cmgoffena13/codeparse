@@ -18,10 +18,6 @@ def make_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser(
-        "sync",
-        help="Update the codeparse skill in existing skill directories",
-    )
-    subparsers.add_parser(
         "install",
         help="Register codeparse in installed MCP clients and write the skill",
     )

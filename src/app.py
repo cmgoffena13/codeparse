@@ -59,11 +59,6 @@ def main() -> int:
     if args.version:
         print(f"codeparse version: {get_version()}")
         return 0
-    if args.command == "sync":
-        from src.codeparse_mcp.skill import sync_skill
-
-        sync_skill()
-        return 0
     if args.command == "reload":
         root = _require_indexable_root(args.cwd)
         if root is None:

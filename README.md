@@ -32,6 +32,16 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `list_subclasses` | Return the classes that directly inherit from a class. |
 | `list_importers` | Return the files that import a module. |
 
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `install` | Register the MCP server in installed clients and write the skill. |
+| `uninstall` | Remove the MCP server and skill. |
+| `update` | Replace the binary with the latest release and update the skill. |
+| `mcp` | Start the MCP server. |
+| `reload` | Drop the index and reprocess the workspace ad-hoc |
+
 ## Benchmark Evaluation (in-progress)
 
 Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server. The average amount of tokens is calculated at the end for comparison.

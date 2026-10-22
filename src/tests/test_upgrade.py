@@ -43,17 +43,19 @@ def _setup(
         return _zip("codeparse", b"new")
 
     monkeypatch.setattr(upgrade_mod, "_get", fake_get)
-    synced: list[list[str]] = []
+    commands: list[list[str]] = []
     monkeypatch.setattr(
-        upgrade_mod.subprocess, "run", lambda command, **_kwargs: synced.append(command)
+        upgrade_mod.subprocess, "run", lambda command, **_kwargs: commands.append(command)
     )
-    return exe, synced
+    return exe, commands
 
 
 def test_upgrade_replaces_binary_and_syncs_skill(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"])
+    exe, commands = _setup(
+        monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"]
+    )
     (exe.parent / "codeparse.old").write_bytes(b"stale")
 
     assert upgrade_mod.upgrade() == 0
@@ -61,7 +63,7 @@ def test_upgrade_replaces_binary_and_syncs_skill(
     assert exe.stat().st_mode & 0o111
     assert not (exe.parent / "codeparse.old").exists()
     assert not (exe.parent / "codeparse.new").exists()
-    assert synced == [[str(exe.resolve()), "sync"]]
+    assert commands == [[str(exe.resolve()), "sync"]]
     assert "Updating codeparse 0.1.19 -> 0.2.0" in capsys.readouterr().out
 
 
@@ -70,13 +72,15 @@ def test_upgrade_minor_reloads_each_linked_index(
 ) -> None:
     from src.db import CodeDB
 
-    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"])
+    exe, commands = _setup(
+        monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"]
+    )
     workspace = tmp_path / "proj"
     workspace.mkdir()
     CodeDB(workspace).close()
 
     assert upgrade_mod.upgrade() == 0
-    assert synced == [
+    assert commands == [
         [str(exe.resolve()), "sync"],
         [str(exe.resolve()), "reload", "--cwd", str(workspace.resolve())],
     ]
@@ -87,7 +91,9 @@ def test_upgrade_minor_removes_index_when_workspace_is_gone(
 ) -> None:
     from src.db import CodeDB
 
-    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"])
+    exe, commands = _setup(
+        monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"]
+    )
     workspace = tmp_path / "proj"
     workspace.mkdir()
     db = CodeDB(workspace)
@@ -96,7 +102,7 @@ def test_upgrade_minor_removes_index_when_workspace_is_gone(
     workspace.rmdir()
 
     assert upgrade_mod.upgrade() == 0
-    assert synced == [[str(exe.resolve()), "sync"]]
+    assert commands == [[str(exe.resolve()), "sync"]]
     assert not db_file.exists()
 
 
@@ -105,22 +111,24 @@ def test_upgrade_patch_does_not_reload_indexes(
 ) -> None:
     from src.db import CodeDB
 
-    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.1.20", assets=["codeparse-macos-arm64.zip"])
+    exe, commands = _setup(
+        monkeypatch, tmp_path, tag="v0.1.20", assets=["codeparse-macos-arm64.zip"]
+    )
     workspace = tmp_path / "proj"
     workspace.mkdir()
     CodeDB(workspace).close()
 
     assert upgrade_mod.upgrade() == 0
-    assert synced == [[str(exe.resolve()), "sync"]]
+    assert commands == [[str(exe.resolve()), "sync"]]
 
 
 def test_upgrade_up_to_date_compares_without_v_prefix(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.1.19", assets=[])
+    exe, commands = _setup(monkeypatch, tmp_path, tag="v0.1.19", assets=[])
     assert upgrade_mod.upgrade() == 0
     assert exe.read_bytes() == b"old"
-    assert synced == []
+    assert commands == []
     assert "up to date (0.1.19)" in capsys.readouterr().out
 
 
@@ -166,7 +174,9 @@ def test_asset_name_matches_release_workflow(
 def test_upgrade_restores_old_binary_when_swap_fails(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    exe, synced = _setup(monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"])
+    exe, commands = _setup(
+        monkeypatch, tmp_path, tag="v0.2.0", assets=["codeparse-macos-arm64.zip"]
+    )
     real_replace = Path.replace
 
     def flaky_replace(self: Path, target: Path) -> Path:
@@ -178,7 +188,7 @@ def test_upgrade_restores_old_binary_when_swap_fails(
     with pytest.raises(PermissionError):
         upgrade_mod.upgrade()
     assert exe.read_bytes() == b"old"
-    assert synced == []
+    assert commands == []
 
 
 def test_get_refuses_non_https() -> None:
