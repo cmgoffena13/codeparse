@@ -206,6 +206,131 @@ def test_base_gains_member_on_incremental(tmp_path: Path) -> None:
         db.close()
 
 
+def test_base_dropping_member_drops_inherited_copy(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "base.py").write_text(
+        "class GenericContext:\n"
+        "    def plan(self):\n"
+        "        return 1\n"
+        "\n"
+        "    def reset(self):\n"
+        "        return 0\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "child.py").write_text(
+        "from base import GenericContext\n"
+        "\n"
+        "\n"
+        "class Context(GenericContext):\n"
+        "    def apply(self):\n"
+        "        return self.plan()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    processor = CodeProcessor(db, tmp_path)
+    try:
+        processor.process(full=True)
+        (tmp_path / "base.py").write_text(
+            "class GenericContext:\n    def reset(self):\n        return 0\n",
+            encoding="utf-8",
+        )
+        processor.process()
+        leftover = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'child.Context.plan'"
+        ).fetchone()
+        defined = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'base.GenericContext.plan'"
+        ).fetchone()
+        kept = db.connection.execute(
+            "SELECT kind FROM symbols WHERE qualified_name = 'child.Context.reset'"
+        ).fetchone()
+        apply = db.connection.execute(
+            "SELECT kind FROM symbols WHERE qualified_name = 'child.Context.apply'"
+        ).fetchone()
+        assert leftover is None
+        assert defined is None
+        assert kept is not None
+        assert kept["kind"] == "method"
+        assert apply is not None
+    finally:
+        db.close()
+
+
+def test_deleting_child_file_drops_inherited_copies(tmp_path: Path) -> None:
+    root = _index(tmp_path)
+    db = CodeDB(root)
+    processor = CodeProcessor(db, root)
+    try:
+        (root / "child.py").unlink()
+        processor.process()
+        leftover = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'child.Context.plan'"
+        ).fetchone()
+        defined = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'base.GenericContext.plan'"
+        ).fetchone()
+        assert leftover is None
+        assert defined is not None
+    finally:
+        db.close()
+
+
+def test_removing_subclass_drops_inherited_copies(tmp_path: Path) -> None:
+    root = _index(tmp_path)
+    db = CodeDB(root)
+    processor = CodeProcessor(db, root)
+    try:
+        (root / "child.py").write_text(
+            "from base import GenericContext\n",
+            encoding="utf-8",
+        )
+        processor.process()
+        leftover = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'child.Context.plan'"
+        ).fetchone()
+        defined = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'base.GenericContext.plan'"
+        ).fetchone()
+        assert leftover is None
+        assert defined is not None
+    finally:
+        db.close()
+
+
+def test_same_file_removed_subclass_drops_inherited_copies(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "mod.py").write_text(
+        "class GenericContext:\n"
+        "    def plan(self):\n"
+        "        return 1\n"
+        "\n"
+        "\n"
+        "class Context(GenericContext):\n"
+        "    def apply(self):\n"
+        "        return self.plan()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    processor = CodeProcessor(db, tmp_path)
+    try:
+        processor.process(full=True)
+        (tmp_path / "mod.py").write_text(
+            "class GenericContext:\n    def plan(self):\n        return 1\n",
+            encoding="utf-8",
+        )
+        processor.process()
+        leftover = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'mod.Context.plan'"
+        ).fetchone()
+        defined = db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE qualified_name = 'mod.GenericContext.plan'"
+        ).fetchone()
+        assert leftover is None
+        assert defined is not None
+    finally:
+        db.close()
+
+
 def test_reparsing_base_keeps_inherited_copy(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)

@@ -246,6 +246,12 @@ class CodeProcessor:
                     for children in self.symbol_catalog["subclasses"].values():
                         children.pop(qualified_name, None)
 
+    def cleanup_orphaned_inherited_symbols(self) -> None:
+        for qualified_name in self.db.delete_orphaned_inherited_symbols():
+            self.symbol_catalog["by_qn"].pop(qualified_name, None)
+            for children in self.symbol_catalog["subclasses"].values():
+                children.pop(qualified_name, None)
+
     def _process_files(self, file_names: list[str], directory_path: Path, full: bool) -> None:
         for file_name in file_names:
             self._process_file(file_name, directory_path, full)
@@ -320,6 +326,7 @@ class CodeProcessor:
         }
 
         self._insert_batch(final=True)
+        self.cleanup_orphaned_inherited_symbols()
 
         time_now = time.time()
         end_epoch = int(time_now)

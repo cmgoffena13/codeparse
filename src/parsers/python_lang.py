@@ -265,6 +265,23 @@ class PythonParser(ParserBase):
             if parent_qn not in local_qns and leaf in local_leaves:
                 entry["seen"] = True
 
+    def _unsee_inherited_without_parent(self) -> None:
+        unseen_local_classes = {
+            qualified_name
+            for (qualified_name, kind), entry in self.symbols_snapshot.items()
+            if kind == "class" and not entry["seen"]
+        }
+        for (qualified_name, kind), entry in self.symbols_snapshot.items():
+            parent_qn = qualified_name.rsplit(".", 1)[0] if "." in qualified_name else ""
+            skip = (
+                (not entry["seen"])
+                or kind not in _INHERIT_KINDS
+                or parent_qn not in unseen_local_classes
+            )
+            if not skip:
+                entry["seen"] = False
+                self._catalog_drop(qualified_name)
+
     def _inherited_member_symbol(self, cls: dict, member: dict) -> dict:
         qualified_name = f"{cls['qualified_name']}.{member['name']}"
         key = (qualified_name, member["kind"])
@@ -327,6 +344,7 @@ class PythonParser(ParserBase):
         for (qualified_name, _kind), entry in self.symbols_snapshot.items():
             if not entry["seen"]:
                 self._catalog_drop(qualified_name)
+        self._unsee_inherited_without_parent()
         for symbol in self.symbols:
             self._catalog_put(symbol)
 

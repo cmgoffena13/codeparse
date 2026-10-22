@@ -189,6 +189,32 @@ class CodeDB:
             for key, entry in by_key.items()
         }
 
+    def delete_orphaned_inherited_symbols(self) -> list[str]:
+        rows = list(
+            self.connection.execute(
+                """
+                SELECT
+                    inherited.id AS inherited_id,
+                    inherited.qualified_name AS inherited_qualified_name
+                FROM symbols AS inherited
+                LEFT JOIN symbols AS parent
+                    ON parent.id = inherited.parent_id
+                WHERE inherited.is_inherited = 1
+                    AND parent.id IS NULL
+                """
+            )
+        )
+        snapshot = {
+            (row["inherited_qualified_name"], str(row["inherited_id"])): {
+                "id": int(row["inherited_id"]),
+                "seen": False,
+            }
+            for row in rows
+        }
+        names = [row["inherited_qualified_name"] for row in rows]
+        self.delete_symbols(snapshot)
+        return names
+
     def delete_symbols(self, symbols_snapshot: dict[tuple[str, str], dict[str, Any]]) -> None:
         symbol_ids = [symbol["id"] for symbol in symbols_snapshot.values() if not symbol["seen"]]
         if not symbol_ids:
