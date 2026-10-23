@@ -8,10 +8,10 @@
 
 CodeParse is a codebase indexer that gives agents fast, accurate, and compact context on your Python codebases while reducing token usage. It parses your codebase and stores the relationships of your code in a local SQLite database.
 
-<p align="center">
+<figure align="center">
   <img alt="Benchmark" src="static/benchmark.png">
-  <figcaption align="center">See the <a href="#benchmark-evaluation-in-progress">Benchmark</a> section for more details.</figcaption>
-</p>
+  <figcaption>See the <a href="#benchmark-evaluation-in-progress">Benchmark</a> section for more details.</figcaption>
+</figure>
 
 ## Install MCP Server and Skill
 
