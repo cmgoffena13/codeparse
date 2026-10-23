@@ -1,6 +1,6 @@
 [project]
 name = "codeparse"
-version = "0.9.3"
+version = "0.9.4"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -68,6 +68,3 @@ lint.extend-select = [
 
 [tool.ty.src]
 exclude = ["src/tests/files_to_parse/"]
-
-[tool.uv.sources]
-tree-sitter = { git = "https://github.com/tree-sitter/py-tree-sitter" }
