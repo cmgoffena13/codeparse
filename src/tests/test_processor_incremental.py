@@ -339,3 +339,18 @@ def test_concurrent_run_query_does_not_raise(tmp_path: Path) -> None:
 
     assert len(results) == 8
     assert all(isinstance(n, int) for n in results)
+
+
+def test_process_survives_line_numbers_past_interned_ints(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    source = Path(__file__).resolve().parent / "files_to_parse" / "python" / "long_line_numbers.py"
+    (tmp_path / "long_line_numbers.py").write_bytes(source.read_bytes())
+    db = CodeDB(tmp_path)
+    try:
+        CodeProcessor(db, tmp_path).process(full=True)
+        count = db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE name = 'past_interned'"
+        ).fetchone()["c"]
+        assert count == 1
+    finally:
+        db.close()
