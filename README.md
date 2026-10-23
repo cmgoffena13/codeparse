@@ -10,6 +10,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 
 <p align="center">
   <img alt="Benchmark" src="static/benchmark.png">
+  <figcaption align="center">See the <a href="#benchmark-evaluation-in-progress">Benchmark</a> section for more details.</figcaption>
 </p>
 
 ## Install MCP Server and Skill
