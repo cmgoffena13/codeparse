@@ -11,7 +11,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 <div align="center">
   <img alt="Benchmark" src="static/benchmark.png">
   <br>
-  <small>See the <a href="#benchmark-evaluation-in-progress">Benchmark</a> section for more details.</small>
+  <small>See the <a href="#benchmark-evaluation">Benchmark Evaluation</a> section for more details.</small>
 </div>
 
 ## Install MCP Server and Skill
@@ -44,31 +44,19 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `mcp` | Start the MCP server. |
 | `reload` | Drop the index and reprocess the workspace ad-hoc |
 
-## Benchmark Evaluation (in-progress)
+## Benchmark Evaluation
 
-Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server. The average amount of tokens is calculated at the end for comparison.
+In-Progress
 
-### Benchmark Legend
- - **AI Baseline**: Builtin tools
- - **CodeParse**: Builtin tools and CodeParse MCP Server w/ SKILL.md
- - **Tokens**: Avg tokens used by the agent to complete a task.
- 
-### Benchmark Results
-```
-Cursor Benchmark Evaluation - Grok 4.7
------------------ Mean -----------------
-AI Baseline Tokene: 393,530
-CodeParse Tokens: 265,867 (-32% reduction)
-----------------------------------------
+Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](https://github.com/TobikoData/sqlmesh) repo using a baseline agent and an agent with the CodeParse MCP server.
 
-Claude Benchmark Evaluation - Opus 5.5 Medium
------------------ Mean -----------------
-AI Baseline Tokene: XXXX
-CodeParse Tokens: XXXX
-----------------------------------------
-```
+| Model | Baseline Avg Tokens | CodeParse Avg Tokens | Token Reduction |
+| --- | --- | --- | --- |
+| Grok 4.7 High Fast | 393,530 | 265,867 | -32% |
+| Opus 5.5 Medium | ... | ... | ... |
 
-### Running the Evaluation
+
+## Running the Evaluation
 
 Cursor Default Model: `grok 4.7`  
 Claude Defualt Model: `opus 5.5 medium`
