@@ -132,7 +132,8 @@ def get_project_overview(db: CodeDB) -> str:
             symbols = int(row["symbol_count"])
             line_count = int(row["line_count"])
             files = int(row["file_count"])
-            lines.append(bullet(f"{row['path']} ({line_count}L, {symbols}S, {files}F)"))
+            directory = row["path"] or "root"
+            lines.append(bullet(f"{directory} ({line_count}L, {symbols}S, {files}F)"))
     else:
         lines.append("No symbols.")
 

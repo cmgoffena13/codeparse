@@ -12,6 +12,7 @@ from src.processor import CodeProcessor
 @pytest.fixture
 def indexed_project(tmp_path: Path) -> Path:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "root_mod.py").write_text("def root_fn() -> None:\n    pass\n", encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text(
         "[project]\n"
         'name = "demo"\n'
@@ -79,6 +80,8 @@ def test_project_overview_directories_and_entry_points(indexed_project: Path) ->
     assert out.startswith("Directories - Top 10\n")
     assert "Legend:" not in out
     assert "  • pkg (29L, 8S, 6F)" in out
+    assert any(line.startswith("  • root (") for line in out.splitlines())
+    assert not any(line.startswith("  • None ") for line in out.splitlines())
     assert out.index("  • pkg (") < out.index("  • other (")
 
     script_at = out.index("  • pkg/cli.py")
