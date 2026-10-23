@@ -22,6 +22,14 @@ def test_bare_codeparse_prints_help(
     assert "sync" not in out
 
 
+def test_hidden_sync_writes_the_skill(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[bool] = []
+    monkeypatch.setattr(sys, "argv", ["codeparse", "sync"])
+    monkeypatch.setattr("src.codeparse_mcp.skill.sync_skill", lambda: seen.append(True) or [])
+    assert main() == 0
+    assert seen == [True]
+
+
 def test_version_flag_prints_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

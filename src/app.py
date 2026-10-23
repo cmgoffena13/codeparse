@@ -50,6 +50,11 @@ def _run_mcp(root: Path) -> int:
 
 
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "sync":
+        from src.codeparse_mcp.skill import sync_skill
+
+        sync_skill()
+        return 0
     args = build_arg_parser()
     if args.info:
         cli_path = Path(sys.argv[0]).resolve()
