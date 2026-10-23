@@ -31,7 +31,8 @@ def _open_db(root: Path, *, reindex: bool) -> CodeDB:
     if reindex:
         from src.processor import CodeProcessor
 
-        CodeProcessor(db, root).process(full=True)
+        processor: CodeProcessor = CodeProcessor(db, root)
+        processor.process(full=True)
     return db
 
 

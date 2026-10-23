@@ -201,6 +201,6 @@ def test_symbol_references_none(tmp_path: Path) -> None:
     db = CodeDB(root)
     try:
         out = get_symbol_references(db, "pkg.target.missing", include_tests=False)
-        assert out == "No references to pkg.target.missing were found."
+        assert out == "No references found."
     finally:
         db.close()

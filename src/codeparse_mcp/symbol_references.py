@@ -76,7 +76,7 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
         )
     )
     if not rows:
-        return f"No references to {key} were found."
+        return "No references found."
 
     by_kind: defaultdict[str, list] = defaultdict(list)
     for row in rows:

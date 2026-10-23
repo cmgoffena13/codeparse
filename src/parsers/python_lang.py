@@ -862,6 +862,11 @@ class PythonParser(ParserBase):
             and self.stack[-1].kind != "class"
             and not self.stack[-1].qualified_name.endswith(".__init__")
         ):
+            target = node.child_by_field_name("left") or node.child_by_field_name("target")
+            if target is not None and target.type == "identifier" and target.text is not None:
+                anno = self._annotation_type_name(node.child_by_field_name("type"))
+                if anno:
+                    self._name_types[target.text.decode("utf-8")] = anno
             return symbols
 
         # target is usually in field 'left' for assignment/augmented_assignment

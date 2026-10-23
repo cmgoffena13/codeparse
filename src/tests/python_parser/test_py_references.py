@@ -218,6 +218,17 @@ def test_builtin_method_call_also_references_the_variable(python_parser, fixture
     assert accesses[0]["source_symbol_id"] == calls[0]["source_symbol_id"]
 
 
+def test_annotated_local_method_call_resolves_to_type(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("typed_local_call.py")
+    _, _, references = python_parser.parse(80, file_bytes, module_qn="pkg.mod")
+    call = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call" and r["ref_symbol_name"] == "worker.process"
+    )
+    assert call["ref_symbol_qualified_name"] == "pkg.mod.Worker.process"
+
+
 def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
     source = b"ITEMS = {}\n\ndef run():\n    return ITEMS.get('a')\n"
     _, _, references = python_parser.parse(71, source, module_qn="pkg.mod")

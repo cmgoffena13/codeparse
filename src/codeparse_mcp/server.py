@@ -46,7 +46,7 @@ async def _lifespan(_app: FastMCP) -> AsyncGenerator[dict[str, Any], None]:
     get_code_parse_config_dir()
     root = index_root()
     db = CodeDB(root)
-    processor = CodeProcessor(db, root)
+    processor: CodeProcessor = CodeProcessor(db, root)
     processor.process()
     try:
         yield {"db": db, "processor": processor}
