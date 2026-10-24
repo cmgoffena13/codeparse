@@ -72,7 +72,7 @@ def test_list_subclasses_none(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
         out = list_subclasses(db, "pkg.base.Alone", include_tests=False)
-        assert out == "No subclasses of pkg.base.Alone found."
+        assert out == "No subclasses found."
     finally:
         db.close()
 
@@ -81,7 +81,7 @@ def test_list_subclasses_missing_symbol(indexed_hierarchy: Path) -> None:
     db = CodeDB(indexed_hierarchy)
     try:
         out = list_subclasses(db, "pkg.base.Missing", include_tests=False)
-        assert out == "No subclasses of pkg.base.Missing found."
+        assert out == "No subclasses found."
     finally:
         db.close()
 

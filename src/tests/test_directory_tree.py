@@ -75,7 +75,7 @@ def test_directory_tree_path_file_rejected(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_directory_tree(db, path="pkg/core/dialect.py")
-        assert "No directory matches" in out
+        assert "No directory found." in out
     finally:
         db.close()
 
@@ -85,6 +85,6 @@ def test_directory_tree_path_missing(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_directory_tree(db, path="pkg/missing")
-        assert "No directory matches" in out
+        assert "No directory found." in out
     finally:
         db.close()

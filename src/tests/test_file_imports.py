@@ -44,7 +44,7 @@ def test_file_imports_none_when_file_has_no_imports(tmp_path: Path) -> None:
         assert "Total Lines:" not in out
         assert "File:" not in out
         assert "## Imports" not in out
-        assert "_(none)_" in out
+        assert "No imports found." in out
         assert "## Symbols" not in out
     finally:
         db.close()
