@@ -140,6 +140,15 @@ def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
     )
     _record(
         tmp_path,
+        "window-a",
+        "pkg/other.py",
+        "get_symbol",
+        "pkg.other.other",
+        "xyzw",
+        8,
+    )
+    _record(
+        tmp_path,
         "window-b",
         "pkg/other.py",
         "get_symbol",
@@ -151,17 +160,22 @@ def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
     report = format_session_stats_report(tmp_path)
     started_a = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_a))
     started_b = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_b))
+    header = "| file | tool_calls | if_read_file_tokens | tool_output_tokens | tokens_saved |"
+    rule = "| --- | --- | --- | --- | --- |"
     assert (
         f"window-a - {started_a}\n"
-        "| file | tool_calls | tokens_saved |\n"
-        "| --- | --- | --- |\n"
-        "| pkg/target.py | 2 | 16 |\n"
+        f"{header}\n"
+        f"{rule}\n"
+        "| pkg/other.py | 1 | 2 | 1 | 1 |\n"
+        "| pkg/target.py | 2 | 20 | 4 | 16 |\n"
+        "| 2 files | 3 | 22 | 5 | 17 |\n"
     ) in report
     assert (
         f"window-b - {started_b}\n"
-        "| file | tool_calls | tokens_saved |\n"
-        "| --- | --- | --- |\n"
-        "| pkg/other.py | 1 | 1 |\n"
+        f"{header}\n"
+        f"{rule}\n"
+        "| pkg/other.py | 1 | 2 | 1 | 1 |\n"
+        "| 1 file | 1 | 2 | 1 | 1 |\n"
     ) in report
     assert report.index("window-b") < report.index("window-a")
 

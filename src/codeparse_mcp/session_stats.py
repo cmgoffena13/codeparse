@@ -170,22 +170,53 @@ def format_session_stats_report(root: Path) -> str:
             connection.close()
     if not rows:
         lines.append("No session stats recorded.")
+    header = "| file | tool_calls | if_read_file_tokens | tool_output_tokens | tokens_saved |"
+    rule = "| --- | --- | --- | --- | --- |"
     current_session = ""
+    session_files = 0
+    session_calls = 0
+    session_if_read = 0
+    session_output = 0
     for row in rows:
         session_id = str(row["session_id"])
+        calls = int(row["tool_call_count"])
+        if_read = int(row["total_if_read_tokens"])
+        output = int(row["output_tokens"])
         if session_id != current_session:
-            if lines:
+            if current_session:
+                saved = session_if_read - session_output
+                noun = "file" if session_files == 1 else "files"
+                total = (
+                    f"| {session_files} {noun} | {session_calls} | "
+                    f"{session_if_read} | {session_output} | {saved} |"
+                )
+                lines.append(total)
                 lines.append("")
             current_session = session_id
+            session_files = 0
+            session_calls = 0
+            session_if_read = 0
+            session_output = 0
             started = time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(int(row["session_start_time"])),
             )
             lines.append(f"{session_id} - {started}")
-            lines.append("| file | tool_calls | tokens_saved |")
-            lines.append("| --- | --- | --- |")
-        saved = int(row["total_if_read_tokens"]) - int(row["output_tokens"])
-        lines.append(f"| {row['path']} | {int(row['tool_call_count'])} | {saved} |")
+            lines.append(header)
+            lines.append(rule)
+        session_files += 1
+        session_calls += calls
+        session_if_read += if_read
+        session_output += output
+        lines.append(f"| {row['path']} | {calls} | {if_read} | {output} | {if_read - output} |")
+    if current_session:
+        saved = session_if_read - session_output
+        noun = "file" if session_files == 1 else "files"
+        total = (
+            f"| {session_files} {noun} | {session_calls} | "
+            f"{session_if_read} | {session_output} | {saved} |"
+        )
+        lines.append(total)
     return "\n".join(lines) + "\n"
 
 
