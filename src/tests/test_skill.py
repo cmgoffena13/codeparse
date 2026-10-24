@@ -10,7 +10,7 @@ def test_frontmatter_description_parses() -> None:
     frontmatter, _, body = SKILL_INSTRUCTIONS.partition("\n---\n")
     parsed = yaml.safe_load(frontmatter.removeprefix("---\n"))
     assert parsed == {"name": "codeparse", "description": DESCRIPTION}
-    assert body.lstrip("\n").startswith("IMPORTANT:")
+    assert body.lstrip("\n").startswith("# IMPORTANT RULES")
 
 
 def test_sync_skips_skill_when_hash_matches(monkeypatch, tmp_path: Path) -> None:

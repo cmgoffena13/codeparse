@@ -52,7 +52,7 @@ The information that is provided to you will determine the tool you should use.
  - Use when the clue is a reference to a symbol name.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
 
-# Resources
+# RESOURCES
 
 ## ``stats://codeparse/sessions``
  - Only use when the question is about codeparse cost or decision quality.
