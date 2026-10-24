@@ -21,17 +21,11 @@ from src.utils import db_path_for_index_root
 DEFAULT_ROOT = REPO_ROOT / "eval" / "cache" / "sqlmesh"
 
 
-def _open_db(root: Path, *, reindex: bool) -> CodeDB:
+def _open_db(root: Path) -> CodeDB:
     db_file = db_path_for_index_root(root)
-    if not db_file.exists() and not reindex:
+    if not db_file.exists():
         raise SystemExit(f"No index at {db_file}\nIndex first (codeparse reload --cwd {root}).")
-    db = CodeDB(root)
-    if reindex:
-        from src.processor import CodeProcessor
-
-        processor: CodeProcessor = CodeProcessor(db, root)
-        processor.process(full=True)
-    return db
+    return CodeDB(root)
 
 
 def _cmd_search_symbols(db: CodeDB, args: argparse.Namespace) -> int:
@@ -66,11 +60,6 @@ def main() -> int:
         default=DEFAULT_ROOT,
         help=f"Indexed workspace root (default: {DEFAULT_ROOT})",
     )
-    parser.add_argument(
-        "--reindex",
-        action="store_true",
-        help="Full reindex before running the command",
-    )
 
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -96,7 +85,7 @@ def main() -> int:
     if not root.is_dir():
         raise SystemExit(f"Not a directory: {root}")
 
-    db = _open_db(root, reindex=args.reindex)
+    db = _open_db(root)
     try:
         return args.func(db, args)
     finally:
