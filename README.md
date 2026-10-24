@@ -34,6 +34,13 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `list_subclasses` | Return the classes that directly inherit from a class. |
 | `list_importers` | Return the files that import a module. |
 
+## Resources
+
+| Resource | Description |
+| --- | --- |
+| `skill://codeparse/SKILL.md` | Guided exploration skill for navigating Python codebases. |
+| `stats://codeparse/sessions` | Per-session markdown table of files with tool calls and tokens saved. |
+
 ## Commands
 
 | Command | Description |
