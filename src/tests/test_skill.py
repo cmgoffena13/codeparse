@@ -52,5 +52,5 @@ def test_server_exposes_skill_resource() -> None:
     resources = asyncio.run(mcp.list_resources())
     uris = {str(resource.uri) for resource in resources}
     assert "skill://codeparse/SKILL.md" in uris
-    assert "skill://codeparse/_manifest" in uris
+    assert "skill://codeparse/_manifest" not in uris
     assert "stats://codeparse/sessions" in uris

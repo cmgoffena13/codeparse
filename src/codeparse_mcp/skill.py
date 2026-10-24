@@ -1,5 +1,3 @@
-import hashlib
-import json
 from pathlib import Path
 
 import xxhash
@@ -70,24 +68,6 @@ def skill_frontmatter() -> str:
 
 
 SKILL_INSTRUCTIONS = skill_frontmatter() + _SKILL_BODY
-
-
-def skill_manifest(skill_bytes: bytes) -> str:
-    """Skill listing served at ``skill://codeparse/_manifest``."""
-    return json.dumps(
-        {
-            "skill": "codeparse",
-            "description": DESCRIPTION,
-            "files": [
-                {
-                    "path": "SKILL.md",
-                    "size": len(skill_bytes),
-                    "hash": f"sha256:{hashlib.sha256(skill_bytes).hexdigest()}",
-                }
-            ],
-        },
-        indent=2,
-    )
 
 
 def materialize_skill(base: Path) -> Path:

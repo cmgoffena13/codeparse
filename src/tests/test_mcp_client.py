@@ -1,8 +1,6 @@
 """Drive the codeparse MCP server through FastMCP's client."""
 
 import asyncio
-import hashlib
-import json
 from pathlib import Path
 
 import mcp_types
@@ -10,7 +8,7 @@ import pytest
 from fastmcp import Client
 from fastmcp.client.client import CallToolResult
 
-from src.codeparse_mcp.skill import DESCRIPTION, SKILL_INSTRUCTIONS
+from src.codeparse_mcp.skill import SKILL_INSTRUCTIONS
 
 _PROJECT = Path(__file__).resolve().parent / "test_project"
 _TOOLS = {
@@ -53,20 +51,6 @@ def test_client_lists_tools_and_reads_skill(
 
             skill = _resource_text(await mcp_client.read_resource("skill://codeparse/SKILL.md"))
             assert skill == SKILL_INSTRUCTIONS
-
-            manifest = json.loads(
-                _resource_text(await mcp_client.read_resource("skill://codeparse/_manifest"))
-            )
-            digest = hashlib.sha256(SKILL_INSTRUCTIONS.encode()).hexdigest()
-            assert manifest["skill"] == "codeparse"
-            assert manifest["description"] == DESCRIPTION
-            assert manifest["files"] == [
-                {
-                    "path": "SKILL.md",
-                    "size": len(SKILL_INSTRUCTIONS.encode()),
-                    "hash": f"sha256:{digest}",
-                }
-            ]
 
     asyncio.run(run())
 

@@ -16,7 +16,7 @@ from src.codeparse_mcp.project_overview import (
 )
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
 from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_session_stats_report
-from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill, skill_manifest
+from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_symbol_at_lines
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
 from src.codeparse_mcp.symbol_references import (
@@ -67,16 +67,6 @@ _SKILL_PATH = materialize_skill(get_code_parse_config_dir())
 )
 def codeparse_skill() -> str:
     return _SKILL_PATH.read_text(encoding="utf-8")
-
-
-@mcp.resource(
-    "skill://codeparse/_manifest",
-    name="codeparse/_manifest",
-    description="File listing for codeparse",
-    mime_type="application/json",
-)
-def codeparse_skill_manifest() -> str:
-    return skill_manifest(_SKILL_PATH.read_bytes())
 
 
 @mcp.resource(
