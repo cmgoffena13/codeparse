@@ -29,6 +29,7 @@ from src.utils import get_code_parse_config_dir
 _INSTRUCTIONS = """\
 codeparse tools read an up-to-date view of Python codebases.
 Utilize the ``codeparse`` skill for guided exploration workflows.
+Use the ``skill://codeparse/SKILL.md`` resource if the skill is not found.
 """
 
 
