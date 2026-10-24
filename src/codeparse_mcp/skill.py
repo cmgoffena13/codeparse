@@ -10,12 +10,15 @@ DESCRIPTION = (
 )
 
 _SKILL_BODY = """\
-IMPORTANT: ALWAYS USE ``get_file_symbols`` / ``get_symbol`` instead of \
-``read`` to get symbol information. NEVER use ``read`` on a Python file.
+# IMPORTANT RULES
+ - ALWAYS use codeparse tools to get symbol information.
+ - NEVER use ``read`` on a Python file.
+ - Only ``include_tests`` when making changes to the codebase. 
+ - DO NOT ``include_tests`` when investigating unless explicitly asked.
+
+# INSTRUCTIONS
 
 The information that is provided to you will determine the tool you should use.
-Only ``include_tests`` when making changes to the codebase. 
-DO NOT ``include_tests`` when investigating unless explicitly asked.
 
 ## You are given the file name.
 1. Use ``get_file_symbols`` to get a file's nested symbol tree.
@@ -32,12 +35,12 @@ DO NOT ``include_tests`` when investigating unless explicitly asked.
 2. Use ``get_file_symbols`` to get a file's nested symbol tree.
 3. Use ``get_symbol`` to get the symbol definition. 
 
-## How to investigate the codebase using keywords
+### How to investigate the codebase using keywords
 
-### ``glob``
+#### ``glob``
  - Use when the clue is a path or a file name.
 
-### ``grep``
+#### ``grep``
  - Use when the clue is specific text in file contents.
  - Use `-n` to get the line number and then use ``get_symbol_at_lines`` to get the symbol.
  - Use ``list_importers`` to find which files depend on a module; DO NOT grep for this.
@@ -45,9 +48,14 @@ DO NOT ``include_tests`` when investigating unless explicitly asked.
  - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
  - Use ``list_subclasses`` to find subclasses of a class; DO NOT grep for this.
 
-### ``search_symbols``
+#### ``search_symbols``
  - Use when the clue is a reference to a symbol name.
  - Set the limit to 5 if you know the local symbol name, but need the qualified name.
+
+# Resources
+
+## ``stats://codeparse/sessions``
+ - Only use when the question is about codeparse cost or decision quality.
 """
 
 
