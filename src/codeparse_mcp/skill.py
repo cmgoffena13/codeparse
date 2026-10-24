@@ -35,7 +35,7 @@ The information that is provided to you will determine the tool you should use.
 2. Use ``get_file_symbols`` to get a file's nested symbol tree.
 3. Use ``get_symbol`` to get the symbol definition. 
 
-### How to investigate the codebase using keywords
+### Investigate the codebase using keywords
 
 #### ``glob``
  - Use when the clue is a path or a file name.
@@ -56,7 +56,6 @@ The information that is provided to you will determine the tool you should use.
 
 ## ``stats://codeparse/sessions``
  - Only use when the question is about codeparse cost or decision quality.
-
 """
 
 
