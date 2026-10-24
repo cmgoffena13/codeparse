@@ -141,8 +141,7 @@ CREATE TABLE IF NOT EXISTS session_stats_files (
     file_id             INTEGER NOT NULL REFERENCES files(id),
     current_file_tokens     INTEGER NOT NULL,
     tool_call_count         INTEGER NOT NULL,
-    output_tokens           INTEGER NOT NULL,
-    total_if_read_tokens    INTEGER NOT NULL
+    output_tokens           INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS session_stats_files_session_id_file_id_index ON session_stats_files (session_id, file_id);
 

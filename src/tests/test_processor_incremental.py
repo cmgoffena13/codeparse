@@ -238,10 +238,9 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
     db.connection.execute(
         """
         INSERT INTO session_stats_files (
-            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens,
-            total_if_read_tokens
+            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens
         )
-        VALUES (1, 1, ?, 4, 1, 2, 4)
+        VALUES (1, 1, ?, 4, 1, 2)
         """,
         (file_id,),
     )

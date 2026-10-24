@@ -67,11 +67,10 @@ def test_delete_files_leaves_session_stats_for_that_file(tmp_path: Path) -> None
     db.connection.execute(
         """
         INSERT INTO session_stats_files (
-            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens,
-            total_if_read_tokens
+            id, session_id, file_id, current_file_tokens, tool_call_count, output_tokens
         )
-        VALUES (100, 1, 10, 4, 1, 2, 4),
-               (101, 1, 11, 8, 1, 3, 8)
+        VALUES (100, 1, 10, 4, 1, 2),
+               (101, 1, 11, 8, 1, 3)
         """
     )
     db.connection.execute(

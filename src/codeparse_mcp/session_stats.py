@@ -38,15 +38,13 @@ INSERT INTO session_stats_files (
     file_id,
     current_file_tokens,
     tool_call_count,
-    output_tokens,
-    total_if_read_tokens
+    output_tokens
 )
-VALUES (?, ?, ?, 1, ?, ?)
+VALUES (?, ?, ?, 1, ?)
 ON CONFLICT(session_id, file_id) DO UPDATE SET
     current_file_tokens = excluded.current_file_tokens,
     tool_call_count = session_stats_files.tool_call_count + 1,
-    output_tokens = session_stats_files.output_tokens + excluded.output_tokens,
-    total_if_read_tokens = session_stats_files.total_if_read_tokens + excluded.total_if_read_tokens
+    output_tokens = session_stats_files.output_tokens + excluded.output_tokens
 RETURNING id
 """
 
@@ -72,7 +70,6 @@ SELECT
     sf.current_file_tokens,
     sf.tool_call_count,
     sf.output_tokens,
-    sf.total_if_read_tokens,
     o.tool,
     o.tool_symbol_qualified_name,
     o.output_tokens AS call_output_tokens,
@@ -94,7 +91,7 @@ SELECT
     f.path,
     sf.tool_call_count,
     sf.output_tokens,
-    sf.total_if_read_tokens
+    sf.current_file_tokens
 FROM session_stats_files AS sf
 INNER JOIN session_stats AS s
     ON s.id = sf.session_id
@@ -117,7 +114,6 @@ class FileToolStats(BaseModel):
     current_file_tokens: int
     tool_call_count: int
     output_tokens: int
-    total_if_read_tokens: int
     outputs: list[ToolOutput]
 
 
@@ -143,7 +139,6 @@ def load_session_files(root: Path) -> list[FileToolStats]:
                     current_file_tokens=int(row["current_file_tokens"]),
                     tool_call_count=int(row["tool_call_count"]),
                     output_tokens=int(row["output_tokens"]),
-                    total_if_read_tokens=int(row["total_if_read_tokens"]),
                     outputs=[],
                 )
                 grouped[key] = stats
@@ -170,32 +165,32 @@ def format_session_stats_report(root: Path) -> str:
             connection.close()
     if not rows:
         lines.append("No session stats recorded.")
-    header = "| file | tool_calls | if_read_file_tokens | tool_output_tokens | tokens_saved |"
+    header = "| file | tool_calls | latest_file_tokens | tool_output_tokens | tokens_saved |"
     rule = "| --- | --- | --- | --- | --- |"
     current_session = ""
     session_files = 0
     session_calls = 0
-    session_if_read = 0
+    session_latest = 0
     session_output = 0
     for row in rows:
         session_id = str(row["session_id"])
         calls = int(row["tool_call_count"])
-        if_read = int(row["total_if_read_tokens"])
+        latest = int(row["current_file_tokens"])
         output = int(row["output_tokens"])
         if session_id != current_session:
             if current_session:
-                saved = session_if_read - session_output
+                saved = session_latest - session_output
                 noun = "file" if session_files == 1 else "files"
                 total = (
                     f"| {session_files} {noun} | {session_calls} | "
-                    f"{session_if_read} | {session_output} | {saved} |"
+                    f"{session_latest} | {session_output} | {saved} |"
                 )
                 lines.append(total)
                 lines.append("")
             current_session = session_id
             session_files = 0
             session_calls = 0
-            session_if_read = 0
+            session_latest = 0
             session_output = 0
             started = time.strftime(
                 "%Y-%m-%d %H:%M:%S",
@@ -206,15 +201,15 @@ def format_session_stats_report(root: Path) -> str:
             lines.append(rule)
         session_files += 1
         session_calls += calls
-        session_if_read += if_read
+        session_latest += latest
         session_output += output
-        lines.append(f"| {row['path']} | {calls} | {if_read} | {output} | {if_read - output} |")
+        lines.append(f"| {row['path']} | {calls} | {latest} | {output} | {latest - output} |")
     if current_session:
-        saved = session_if_read - session_output
+        saved = session_latest - session_output
         noun = "file" if session_files == 1 else "files"
         total = (
             f"| {session_files} {noun} | {session_calls} | "
-            f"{session_if_read} | {session_output} | {saved} |"
+            f"{session_latest} | {session_output} | {saved} |"
         )
         lines.append(total)
     return "\n".join(lines) + "\n"
@@ -462,7 +457,6 @@ def _write_tool_call(
                     int(file_row["id"]),
                     file_tokens,
                     output_tokens,
-                    file_tokens,
                 ),
             ).fetchone()
         if file_stats is not None:
