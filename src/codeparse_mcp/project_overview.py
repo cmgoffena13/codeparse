@@ -135,7 +135,7 @@ def get_project_overview(db: CodeDB) -> str:
             directory = row["path"] or "root"
             lines.append(bullet(f"{directory} ({line_count}L, {symbols}S, {files}F)"))
     else:
-        lines.append("No symbols.")
+        lines.append("No directories found.")
 
     lines.extend(["", "Entrypoints", ""])
     lines.extend(entry_points)

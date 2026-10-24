@@ -42,7 +42,7 @@ def list_subclasses(db: CodeDB, qualified_name: str, *, include_tests: bool) -> 
         )
     )
     if not rows:
-        return f"No subclasses of {key} found."
+        return "No subclasses found."
 
     total = len(rows)
     shown = rows[:_MAX_SUBCLASSES]

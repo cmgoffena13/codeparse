@@ -86,9 +86,6 @@ def search_symbols(
     ``is_test`` files; pass ``include_tests=True`` to include them.
     """
     stripped = query.strip().replace("-", " ")
-    if not stripped:
-        return "No search text given; pass a non-empty query."
-
     fts_query = build_fts_query(stripped)
     if not fts_query:
         return "No search text given; pass a non-empty query."

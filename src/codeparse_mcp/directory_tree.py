@@ -24,9 +24,7 @@ SELECT
 FROM files
 """
 
-# Paths under one directory. ``path`` is unique, so the bounds are an index range.
-# ``pkg/core/`` through ``pkg/core0`` is every path under ``pkg/core``, because
-# ``/`` is the byte immediately before ``0``.
+# Paths under one directory.
 _SUBTREE_SQL = """
 SELECT
     'directory' AS row_type,
@@ -116,7 +114,7 @@ def get_directory_tree(db: CodeDB, path: str | None) -> str:
         (scoped,),
     ).fetchone()
     if dir_row is None:
-        return f"No directory matches {scoped!r}."
+        return "No directory found."
 
     prefix = f"{dir_row['path']}/"
     upper = f"{dir_row['path']}0"

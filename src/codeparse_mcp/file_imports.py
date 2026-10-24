@@ -34,7 +34,7 @@ def get_file_imports(db: CodeDB, file_path: str) -> str:
             "",
         ]
         if not imp_rows:
-            lines_out.append("_(none)_")
+            lines_out.append("No imports found.")
         else:
             seen_signatures: set[str] = set()
             import_lines: list[tuple[int, str]] = []
