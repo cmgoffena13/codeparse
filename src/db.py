@@ -197,10 +197,13 @@ class CodeDB:
                     inherited.id AS inherited_id,
                     inherited.qualified_name AS inherited_qualified_name
                 FROM symbols AS inherited
-                LEFT JOIN symbols AS parent
-                    ON parent.id = inherited.parent_id
                 WHERE inherited.is_inherited = 1
-                    AND parent.id IS NULL
+                    AND NOT EXISTS (
+                        SELECT 
+                        1 
+                        FROM symbols AS parent 
+                        WHERE parent.id = inherited.parent_id
+                    )
                 """
             )
         )
