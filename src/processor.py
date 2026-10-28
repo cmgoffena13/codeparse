@@ -349,6 +349,6 @@ class CodeProcessor:
             else f"Indexed {self.files_indexed} files"
         )
         print(
-            f"{indexed} in {duration_ms:.2f} ms (files_skipped: {self.files_skipped})",
+            f"{indexed} in {duration_ms}ms (files_skipped: {self.files_skipped})",
             file=sys.stderr,  # NOTE: Print to stderr to avoid interfering with MCP output.
         )
