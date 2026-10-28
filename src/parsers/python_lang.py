@@ -417,17 +417,16 @@ class PythonParser(ParserBase):
         resolved: list[str] = []
         seen: set[str] = set()
         for child in node.children:
-            if child.type != "argument_list":
-                continue
-            for base in child.named_children:
-                text = self._base_source_name(base)
-                if not text:
-                    continue
-                raw.append(text)
-                qualified_name = self._resolve_ref_qn(text)
-                if qualified_name and qualified_name not in seen:
-                    seen.add(qualified_name)
-                    resolved.append(qualified_name)
+            if child.type == "argument_list":
+                for base in child.named_children:
+                    text = self._base_source_name(base)
+                    if not text:
+                        continue
+                    raw.append(text)
+                    qualified_name = self._resolve_ref_qn(text)
+                    if qualified_name and qualified_name not in seen:
+                        seen.add(qualified_name)
+                        resolved.append(qualified_name)
         return raw, resolved
 
     @staticmethod
@@ -986,40 +985,69 @@ class PythonParser(ParserBase):
                 self._extract_reference(type_node, "type_annotation", file_id)
 
     def _extract_symbol(self, node: Node, file_id: int, file_bytes: bytes) -> dict | None:
-        """Extract symbol definition (Class, Function, Variable)."""
+        """
+        Extract Symbol Dictionary:
+            - Qualified Name
+            - Modifiers
+            - Symbol Kind
+            - Line Start
+            - Line End
+            - Signature
+            - Is Test
+            - Base Qualified Names
+        """
         name_node = node.child_by_field_name("name")
-        if not name_node:
+        body_node = node.child_by_field_name("body")
+        if not name_node or name_node.text is None:
             return None
 
-        if name_node.text is None:
-            return None
         name = name_node.text.decode("utf-8")
-        outer = (
-            node.parent
-            if node.parent is not None and node.parent.type == "decorated_definition"
-            else None
-        )
-        line_start = outer.start_point.row + 1 if outer is not None else node.start_point.row + 1
-        line_end = node.end_point.row + 1
+        qualified_name = self._qualify(name)
+        kind = self._kind_for_definition(node)
 
         # Extract Modifiers (Decorators)
-        modifiers = []
-        if node.parent and node.parent.type == "decorated_definition":
+        modifiers: list[str] = []
+        if node.parent is not None and node.parent.type == "decorated_definition":
             for child in node.parent.children:
-                if child.type == "decorator":
-                    if child.text is None:
-                        continue
-                    dec_text = child.text.decode("utf-8", errors="replace").strip()
-                    if dec_text.startswith("@"):
-                        dec_text = dec_text[1:].strip()
-                    if dec_text:
-                        modifiers.append(dec_text)
+                if child.text is None:
+                    continue
+                decorator_text = child.text.decode("utf-8", errors="replace").strip()
+                if decorator_text.startswith("@"):
+                    decorator_text = decorator_text[1:].strip()
+                    if kind == "method" and decorator_text.split(".")[-1] == "property":
+                        kind = "property"
+                if decorator_text:
+                    modifiers.append(decorator_text)
 
-        kind = self._kind_for_definition(node)
-        if kind == "method" and any(mod.split(".")[-1] == "property" for mod in modifiers):
-            kind = "property"
+            line_start = node.parent.start_point.row + 1
+        else:
+            line_start = node.start_point.row + 1
+        line_end = node.end_point.row + 1
 
-        scope_path = self._qualify(name)
+        # Extract Signature. Decorators stay in modifiers.
+        end_byte = body_node.start_byte if body_node is not None else node.end_byte
+        signature_start_byte = node.start_byte
+        signature = self._normalize_signature_bytes(
+            file_bytes, signature_start_byte, end_byte, tail_rstrip=True
+        )
+
+        # Extract Docstring. First statement is a string.
+        docstring = None
+        if body_node is not None and body_node.named_children:
+            first_statement = body_node.named_children[0]
+            string_node = None
+            if first_statement.type == "expression_statement" and first_statement.named_children:
+                candidate = first_statement.named_children[0]
+                if candidate.type == "string":
+                    string_node = candidate
+            elif first_statement.type == "string":
+                string_node = first_statement
+            if string_node is not None and string_node.text is not None:
+                raw = string_node.text.decode("utf-8", errors="replace")
+                try:
+                    docstring = ast.literal_eval(raw)
+                except ValueError, SyntaxError:
+                    docstring = raw.strip("\"'")
 
         # Extract Base Classes (for classes only). Raw text feeds is_test;
         # stored names are resolved qualified names.
@@ -1028,36 +1056,9 @@ class PythonParser(ParserBase):
         if kind == "class":
             raw_bases, base_qualified_names = self._class_bases(node)
 
-        # Signature is the def/class header only. Decorators stay in modifiers.
-        body_node = node.child_by_field_name("body")
-        end_byte = body_node.start_byte if body_node is not None else node.end_byte
-        sig_start_byte = node.start_byte
-        signature = self._normalize_signature_bytes(
-            file_bytes, sig_start_byte, end_byte, tail_rstrip=True
-        )
-
-        # A docstring is the first statement, or nothing.
-        docstring = None
-        if body_node is not None and body_node.named_children:
-            stmt = body_node.named_children[0]
-            str_node = None
-            if stmt.type == "expression_statement" and stmt.named_children:
-                candidate = stmt.named_children[0]
-                if candidate.type == "string":
-                    str_node = candidate
-            elif stmt.type == "string":
-                str_node = stmt
-            if str_node is not None and str_node.text is not None:
-                raw = str_node.text.decode("utf-8", errors="replace")
-                try:
-                    docstring = ast.literal_eval(raw)
-                except ValueError, SyntaxError:
-                    docstring = raw.strip("\"'")
-
         # Determine is_test (pytest + unittest)
         parent_is_test = self.stack[-1].is_test if self.stack else False
         is_test = False
-        # Pytest
         if (
             (kind == "function" and name.startswith("test_"))
             or (kind == "class" and name.startswith("Test"))
@@ -1066,47 +1067,37 @@ class PythonParser(ParserBase):
         ):
             is_test = True
 
-        symbol_identity = scope_path
-        qualified_name = symbol_identity
-        key = (symbol_identity, kind)
+        key = (qualified_name, kind)
+        symbol = self.symbols_snapshot.get(key)
+
         resolved_bases = tuple(base_qualified_names)
-        if key in self.symbols_snapshot:
-            self.symbols_snapshot[key]["seen"] = True
-            # Only emit a row when something relevant changed; unchanged symbols still
-            # need stack context, which is handled in _walk.
-            prev = self.symbols_snapshot[key]
-            prev_bases = tuple(prev.get("base_qualified_names", ()))
+
+        # Symbol record exists in Snapshot, check if it needs to be updated.
+        if symbol is not None:
+            symbol["seen"] = True
+            record_bases = tuple(symbol.get("base_qualified_names", ()))
+
+            # Compare Line Start, Line End, and Base Qualified Names.
             if (line_start, line_end) != (
-                prev["line_start"],
-                prev["line_end"],
-            ) or tuple(sorted(resolved_bases)) != tuple(sorted(prev_bases)):
-                symbol_id = prev["id"]
-                prev["line_start"] = line_start
-                prev["line_end"] = line_end
-                prev["base_qualified_names"] = resolved_bases
-                return self._container_symbol_dict(
-                    symbol_id,
-                    file_id,
-                    name,
-                    qualified_name,
-                    kind,
-                    line_start,
-                    line_end,
-                    signature,
-                    docstring,
-                    modifiers,
-                    base_qualified_names,
-                    is_test,
-                )
-            return None
-        symbol_id = self.assigner.reserve("symbols", 1)[0]
-        self.symbols_snapshot[key] = {
-            "id": symbol_id,
-            "seen": True,
-            "line_start": line_start,
-            "line_end": line_end,
-            "base_qualified_names": resolved_bases,
-        }
+                symbol["line_start"],
+                symbol["line_end"],
+            ) or tuple(sorted(resolved_bases)) != tuple(sorted(record_bases)):
+                symbol_id = symbol["id"]
+            else:
+                # Symbol record is up to date, no need to insert/update.
+                return None
+
+        else:
+            # Symbol record does not exist in Snapshot, create a new symbol record.
+            symbol_id = self.assigner.reserve("symbols", 1)[0]
+            self.symbols_snapshot[key] = {
+                "id": symbol_id,
+                "seen": True,
+                "line_start": line_start,
+                "line_end": line_end,
+                "base_qualified_names": resolved_bases,
+            }
+
         return self._container_symbol_dict(
             symbol_id,
             file_id,
