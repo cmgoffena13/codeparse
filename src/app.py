@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from src.cli.commands import build_arg_parser, make_parser
+from src.db import remove_index_files
 from src.utils import get_code_parse_config_dir, get_version
 
 
@@ -89,6 +90,7 @@ def main() -> int:
 
         ok = uninstall_mcp()
         remove_skill()
+        remove_index_files()
         return 0 if ok else 1
     if args.command == "update":
         from src.cli.upgrade import upgrade

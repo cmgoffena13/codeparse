@@ -30,6 +30,14 @@ def index_workspace_paths() -> list[tuple[Path, Path]]:
     return records
 
 
+def remove_index_files() -> None:
+    for db_file in sorted(get_code_parse_config_dir("indexes").glob("*.db")):
+        db_file.unlink(missing_ok=True)
+        db_file.with_suffix(".db-wal").unlink(missing_ok=True)
+        db_file.with_suffix(".db-shm").unlink(missing_ok=True)
+    print("Removed all index files.")
+
+
 class CodeDB:
     def __init__(self, root: Path):
         self.root = root.resolve()
