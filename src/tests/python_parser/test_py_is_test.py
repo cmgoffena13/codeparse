@@ -20,5 +20,5 @@ def test_is_test_detection_pytest_and_unittest(python_parser, fixture_bytes):
     assert by_qn["test_top"]["is_test"] is True
     assert by_qn["TestPy"]["is_test"] is True
     assert by_qn["TestPy.test_m"]["is_test"] is True
-    assert by_qn["UT"]["is_test"] is True
-    assert by_qn["UT.test_u"]["is_test"] is True
+    assert by_qn["TestUT"]["is_test"] is True
+    assert by_qn["TestUT.test_u"]["is_test"] is True

@@ -10,6 +10,6 @@ class TestPy:
         pass
 
 
-class UT(unittest.TestCase):
+class TestUT(unittest.TestCase):
     def test_u(self):
         pass

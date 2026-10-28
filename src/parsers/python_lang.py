@@ -412,8 +412,7 @@ class PythonParser(ParserBase):
             return None
         return current.text.decode("utf-8")
 
-    def _class_bases(self, node: Node) -> tuple[list[str], list[str]]:
-        raw: list[str] = []
+    def _class_bases(self, node: Node) -> list[str]:
         resolved: list[str] = []
         seen: set[str] = set()
         for child in node.children:
@@ -422,12 +421,11 @@ class PythonParser(ParserBase):
                     text = self._base_source_name(base)
                     if not text:
                         continue
-                    raw.append(text)
                     qualified_name = self._resolve_ref_qn(text)
                     if qualified_name and qualified_name not in seen:
                         seen.add(qualified_name)
                         resolved.append(qualified_name)
-        return raw, resolved
+        return sorted(resolved)
 
     @staticmethod
     def _normalize_signature_bytes(
@@ -1031,17 +1029,29 @@ class PythonParser(ParserBase):
             file_bytes, signature_start_byte, end_byte, tail_rstrip=True
         )
 
+        # NOTE: Determine if its a test symbol.
+        parent_is_test = self.stack[-1].is_test if self.stack else False
+        is_test = False
+        if (
+            (kind == "function" and name.startswith("test_"))
+            or (kind == "class" and name.startswith("Test"))
+            or (kind == "method" and name.startswith("test_") and parent_is_test)
+        ):
+            is_test = True
+
         # NOTE: Extract Docstring. First statement is a string.
         docstring = None
+        string_node = None
         if body_node is not None and body_node.named_children:
             first_statement = body_node.named_children[0]
-            string_node = None
+
             if first_statement.type == "expression_statement" and first_statement.named_children:
                 candidate = first_statement.named_children[0]
                 if candidate.type == "string":
                     string_node = candidate
             elif first_statement.type == "string":
                 string_node = first_statement
+
             if string_node is not None and string_node.text is not None:
                 raw = string_node.text.decode("utf-8", errors="replace")
                 try:
@@ -1049,46 +1059,30 @@ class PythonParser(ParserBase):
                 except ValueError, SyntaxError:
                     docstring = raw.strip("\"'")
 
-        # Extract Base Classes (for classes only). Raw text feeds is_test;
-        # stored names are resolved qualified names.
-        raw_bases: list[str] = []
-        base_qualified_names: list[str] = []
+        # NOTE: Extract Qualified Base Class Names.
+        resolved_bases: list[str] = []
         if kind == "class":
-            raw_bases, base_qualified_names = self._class_bases(node)
-
-        # Determine is_test (pytest + unittest)
-        parent_is_test = self.stack[-1].is_test if self.stack else False
-        is_test = False
-        if (
-            (kind == "function" and name.startswith("test_"))
-            or (kind == "class" and name.startswith("Test"))
-            or (kind == "class" and any("TestCase" in bc for bc in raw_bases))
-            or (kind == "method" and name.startswith("test_") and parent_is_test)
-        ):
-            is_test = True
-
+            resolved_bases = self._class_bases(node)
         key = (qualified_name, kind)
         symbol = self.symbols_snapshot.get(key)
 
-        resolved_bases = tuple(base_qualified_names)
-
-        # Symbol record exists in Snapshot, check if it needs to be updated.
+        # NOTE: Symbol record exists in Snapshot, check if it needs to be updated.
         if symbol is not None:
             symbol["seen"] = True
-            record_bases = tuple(symbol.get("base_qualified_names", ()))
+            record_bases = sorted(symbol.get("base_qualified_names", []))
 
             # Compare Line Start, Line End, and Base Qualified Names.
             if (line_start, line_end) != (
                 symbol["line_start"],
                 symbol["line_end"],
-            ) or tuple(sorted(resolved_bases)) != tuple(sorted(record_bases)):
+            ) or resolved_bases != record_bases:
                 symbol_id = symbol["id"]
             else:
-                # Symbol record is up to date, no need to insert/update.
+                # NOTE: Symbol record is up to date, no need to insert/update.
                 return None
 
         else:
-            # Symbol record does not exist in Snapshot, create a new symbol record.
+            # NOTE: Symbol record does not exist in Snapshot, create a new symbol record.
             symbol_id = self.assigner.reserve("symbols", 1)[0]
             self.symbols_snapshot[key] = {
                 "id": symbol_id,
@@ -1109,15 +1103,16 @@ class PythonParser(ParserBase):
             signature,
             docstring,
             modifiers,
-            base_qualified_names,
+            resolved_bases,
             is_test,
         )
 
     def _extract_import(self, node: Node, file_id: int) -> None:
         """Extract Import Statement."""
-        line_number = node.start_point.row + 1
         if node.text is None:
             return
+
+        line_number = node.start_point.row + 1
         signature = node.text.decode("utf-8")
         import_scope = "module" if not self.stack else "function"
 
@@ -1126,12 +1121,13 @@ class PythonParser(ParserBase):
             import_type = "absolute"
             import_path = ""
 
-            # Relative imports come through as `relative_import` nodes, e.g. `.base` / `..pkg`
+            # NOTE: Check for relative import paths (e.g. `.base` / `..pkg`).
             relative_node = None
             for child in node.children:
                 if child.type == "relative_import":
                     relative_node = child
                     break
+
             if relative_node is not None:
                 import_type = "relative"
                 if relative_node.text is None:
