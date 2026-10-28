@@ -83,8 +83,8 @@ class PythonParser(ParserBase):
         qualified_name = cls["qualified_name"]
         for children in self.catalog["subclasses"].values():
             children.pop(qualified_name, None)
-        for base_qn in cls["bases"]:
-            bucket = self.catalog["subclasses"].setdefault(base_qn, {})
+        for base_qualified_name in cls["bases"]:
+            bucket = self.catalog["subclasses"].setdefault(base_qualified_name, {})
             bucket[qualified_name] = {
                 "id": cls["id"],
                 "name": cls["name"],
@@ -318,28 +318,31 @@ class PythonParser(ParserBase):
     def _link_inherited_members(self) -> None:
         self._ingest_snapshot_into_catalog()
         classes = self._classes_seen()
+
         for cls in classes:
             self._catalog_register_class(cls)
             owned = self._owned_names(cls["id"])
-            for base_qn in cls["bases"]:
-                for member in self._members_of_class(base_qn):
-                    inherited_qn = f"{cls['qualified_name']}.{member['name']}"
+            for base_qualified_name in cls["bases"]:
+                for member in self._members_of_class(base_qualified_name):
+                    inherited_qualified_name = f"{cls['qualified_name']}.{member['name']}"
                     if member["name"] in owned:
-                        self._keep_inherited_snapshot(inherited_qn, member["kind"])
+                        self._keep_inherited_snapshot(inherited_qualified_name, member["kind"])
                         continue
                     owned.add(member["name"])
                     self.symbols.append(self._inherited_member_symbol(cls, member))
+
         for cls in classes:
             children = self.catalog["subclasses"].get(cls["qualified_name"], {})
             for child in list(children.values()):
                 owned = self._owned_names(child["id"])
                 for member in self._members_of_class(cls["qualified_name"]):
-                    inherited_qn = f"{child['qualified_name']}.{member['name']}"
+                    inherited_qualified_name = f"{child['qualified_name']}.{member['name']}"
                     if member["name"] in owned:
-                        self._keep_inherited_snapshot(inherited_qn, member["kind"])
+                        self._keep_inherited_snapshot(inherited_qualified_name, member["kind"])
                         continue
                     owned.add(member["name"])
                     self.symbols.append(self._inherited_member_symbol(child, member))
+
         self._keep_foreign_inherited_copies()
         for (qualified_name, _kind), entry in self.symbols_snapshot.items():
             if not entry["seen"]:
@@ -421,10 +424,10 @@ class PythonParser(ParserBase):
                 if not text:
                     continue
                 raw.append(text)
-                qn = self._resolve_ref_qn(text)
-                if qn and qn not in seen:
-                    seen.add(qn)
-                    resolved.append(qn)
+                qualified_name = self._resolve_ref_qn(text)
+                if qualified_name and qualified_name not in seen:
+                    seen.add(qualified_name)
+                    resolved.append(qualified_name)
         return raw, resolved
 
     @staticmethod
@@ -592,6 +595,7 @@ class PythonParser(ParserBase):
             stored_ref["seen"] = False
             self.symbol_references.append({"id": stored_ref["id"], **row})
             return
+
         symbol_reference_id = self.assigner.reserve("symbol_references", 1)[0]
         self.symbols_references_snapshot[key] = {
             "id": symbol_reference_id,
@@ -675,14 +679,14 @@ class PythonParser(ParserBase):
     @staticmethod
     def _reference_root_identifier(target_name: str) -> str:
         """First identifier token (handles Path('.').resolve vs os.path.join)."""
-        i = 0
+        index = 0
         for ch in target_name:
             if ch.isalnum() or ch == "_":
-                i += 1
+                index += 1
             else:
                 break
-        if i > 0:
-            return target_name[:i]
+        if index > 0:
+            return target_name[:index]
         return target_name.split(".", 1)[0]
 
     def _walk(self, node: Node, file_id: int, file_bytes: bytes) -> None:
