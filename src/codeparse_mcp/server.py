@@ -43,7 +43,7 @@ def index_root() -> Path:
 
 
 @asynccontextmanager
-async def _lifespan(_app: FastMCP) -> AsyncGenerator[dict[str, Any], None]:
+async def _lifespan(_app: FastMCP) -> AsyncGenerator[dict[str, Any]]:
     get_code_parse_config_dir()
     root = index_root()
     db = CodeDB(root)
