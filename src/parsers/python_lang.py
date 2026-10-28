@@ -1063,6 +1063,7 @@ class PythonParser(ParserBase):
         resolved_bases: list[str] = []
         if kind == "class":
             resolved_bases = self._class_bases(node)
+
         key = (qualified_name, kind)
         symbol = self.symbols_snapshot.get(key)
 

@@ -293,7 +293,7 @@ class CodeProcessor:
     def _process_unlocked(self, full: bool = False) -> None:
         self._reset_run_state()
         start_epoch = int(time.time())
-        start_time = time.time()
+        start_time = time.perf_counter()
         for directory_path, directory_names, file_names in os.walk(self.root):
             directory_path = Path(directory_path)
             directory_names[:] = [
@@ -331,8 +331,7 @@ class CodeProcessor:
         self._insert_batch(final=True)
         self.cleanup_orphaned_inherited_symbols()
 
-        time_now = time.time()
-        end_epoch = int(time_now)
+        end_epoch = int(time.time())
         if full:
             self.last_full_parse = end_epoch
             self.last_incremental = end_epoch
@@ -343,8 +342,7 @@ class CodeProcessor:
         self.db.set_watermark(self.last_full_parse, self.last_incremental)
         self._bulk_operations(start_epoch, self.last_incremental)
 
-        duration = time_now - start_time
-        duration_ms = duration * 1000
+        duration_ms = round((time.perf_counter() - start_time) * 1000)
         indexed = (
             f"Indexed {self.files_indexed} files incrementally"
             if not full
