@@ -1005,7 +1005,7 @@ class PythonParser(ParserBase):
         qualified_name = self._qualify(name)
         kind = self._kind_for_definition(node)
 
-        # Extract Modifiers (Decorators)
+        # NOTE: Extract Modifiers (Decorators)
         modifiers: list[str] = []
         if node.parent is not None and node.parent.type == "decorated_definition":
             for child in node.parent.children:
@@ -1024,14 +1024,14 @@ class PythonParser(ParserBase):
             line_start = node.start_point.row + 1
         line_end = node.end_point.row + 1
 
-        # Extract Signature. Decorators stay in modifiers.
+        # NOTE: Extract Signature. Decorators stay in modifiers.
         end_byte = body_node.start_byte if body_node is not None else node.end_byte
         signature_start_byte = node.start_byte
         signature = self._normalize_signature_bytes(
             file_bytes, signature_start_byte, end_byte, tail_rstrip=True
         )
 
-        # Extract Docstring. First statement is a string.
+        # NOTE: Extract Docstring. First statement is a string.
         docstring = None
         if body_node is not None and body_node.named_children:
             first_statement = body_node.named_children[0]
