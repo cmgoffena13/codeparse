@@ -232,22 +232,21 @@ class CodeProcessor:
 
     def cleanup_deleted_file_symbols(self) -> None:
         for file_meta in self.files_snapshot.values():
-            if file_meta["seen"]:
-                continue
-            file_id = int(file_meta["id"])
-            references = self.db.get_symbol_references_snapshot(file_id)
-            for reference in references.values():
-                reference["seen"] = False
-            self.db.delete_symbol_references(references)
-            symbols = self.db.get_symbols_snapshot(file_id)
-            for symbol in symbols.values():
-                symbol["seen"] = False
-            self.db.delete_symbols(symbols)
-            for qualified_name, cataloged in list(self.symbol_catalog["by_qn"].items()):
-                if cataloged.get("file_id") == file_id:
-                    self.symbol_catalog["by_qn"].pop(qualified_name, None)
-                    for children in self.symbol_catalog["subclasses"].values():
-                        children.pop(qualified_name, None)
+            if file_meta["seen"] == False:
+                file_id = int(file_meta["id"])
+                references = self.db.get_symbol_references_snapshot(file_id)
+                for reference in references.values():
+                    reference["seen"] = False
+                self.db.delete_symbol_references(references)
+                symbols = self.db.get_symbols_snapshot(file_id)
+                for symbol in symbols.values():
+                    symbol["seen"] = False
+                self.db.delete_symbols(symbols)
+                for qualified_name, cataloged in list(self.symbol_catalog["by_qn"].items()):
+                    if cataloged.get("file_id") == file_id:
+                        self.symbol_catalog["by_qn"].pop(qualified_name, None)
+                        for children in self.symbol_catalog["subclasses"].values():
+                            children.pop(qualified_name, None)
 
     def cleanup_orphaned_inherited_symbols(self) -> None:
         for qualified_name in self.db.delete_orphaned_inherited_symbols():
