@@ -242,6 +242,7 @@ class CodeProcessor:
                 for symbol in symbols.values():
                     symbol["seen"] = False
                 self.db.delete_symbols(symbols)
+
                 for qualified_name, cataloged in list(self.symbol_catalog["by_qn"].items()):
                     if cataloged.get("file_id") == file_id:
                         self.symbol_catalog["by_qn"].pop(qualified_name, None)
