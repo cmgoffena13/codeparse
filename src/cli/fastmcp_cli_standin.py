@@ -111,7 +111,7 @@ def open_deeplink(url: str, *, expected_scheme: str) -> bool:
             os.startfile(url)  # noqa: S606
         else:
             subprocess.run(["xdg-open", url], check=True, capture_output=True)  # noqa: S603, S607
-    except subprocess.CalledProcessError, FileNotFoundError, OSError:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return False
     return True
 
@@ -162,7 +162,7 @@ def _command_reports_version(path: str, *, stdout_contains: str | None) -> bool:
             capture_output=True,
             text=True,
         )
-    except subprocess.CalledProcessError, FileNotFoundError, OSError:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return False
     if stdout_contains is None:
         return True
