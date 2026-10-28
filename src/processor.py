@@ -184,14 +184,14 @@ class CodeProcessor:
                 FILE_EXTENSION_MAPPING[file_extension], self.assigner, self.db
             )
             parser.catalog = self.symbol_catalog
-            module_qualified_name = (
+            module_qn = (
                 self._normalize_path(file_relative_path, language=lang) if lang == "python" else ""
             )
             is_package = lang == "python" and file_name == "__init__.py"
             symbols, imports, references = parser.parse(
                 file_id,
                 file_bytes,
-                module_qualified_name=module_qualified_name,
+                module_qn=module_qn,
                 is_package=is_package,
             )
             n = len(symbols)
