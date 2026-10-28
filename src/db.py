@@ -415,9 +415,9 @@ class CodeDB:
             self.connection.executemany(
                 """
                 INSERT OR REPLACE INTO imports
-                (id, file_id, import_path, imported_symbol, alias, line_number,
+                (id, file_id, module, import_path, imported_symbol, alias, line_number,
                  import_type, import_scope, signature)
-                VALUES (:id, :file_id, :import_path, :imported_symbol, :alias,
+                VALUES (:id, :file_id, :module, :import_path, :imported_symbol, :alias,
                         :line_number, :import_type, :import_scope, :signature)
                 """,
                 imports,

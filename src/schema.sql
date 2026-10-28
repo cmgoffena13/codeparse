@@ -104,6 +104,7 @@ CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_qualified_name_index ON 
 CREATE TABLE IF NOT EXISTS imports (
     id                    INTEGER NOT NULL PRIMARY KEY,
     file_id               INTEGER NOT NULL REFERENCES files(id),
+    module                TEXT NOT NULL,
     import_path           TEXT NOT NULL,                           
     imported_symbol       TEXT NOT NULL DEFAULT '',                           
     alias                 TEXT,                           

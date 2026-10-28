@@ -522,6 +522,7 @@ class PythonParser(ParserBase):
     def _record_import(
         self,
         file_id: int,
+        module: str,
         import_path: str,
         imported_symbol: str,
         alias: str | None,
@@ -533,6 +534,7 @@ class PythonParser(ParserBase):
         key = (import_path, imported_symbol)
         row = {
             "file_id": file_id,
+            "module": module,
             "import_path": import_path,
             "imported_symbol": imported_symbol,
             "alias": alias,
@@ -1191,8 +1193,11 @@ class PythonParser(ParserBase):
                 if imported_symbol is None:
                     continue
 
+                module = stored_path.split(".")[0]
+
                 self._record_import(
                     file_id,
+                    module,
                     stored_path,
                     imported_symbol,
                     alias,
@@ -1229,9 +1234,12 @@ class PythonParser(ParserBase):
                 if import_path is None:
                     continue
 
+                module = import_path.split(".")[0]
+
                 imported_symbol = ""
                 self._record_import(
                     file_id,
+                    module,
                     import_path,
                     imported_symbol,
                     alias,
