@@ -1,5 +1,8 @@
 # Agents Guide
 
+## Important Notes
+ - Simplifying code means less code.
+
 ## Styling
  - DO NOT write comments. The user will add comments if necessary.
 

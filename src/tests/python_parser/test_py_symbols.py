@@ -71,13 +71,17 @@ def test_docstring_is_only_the_first_statement(python_parser):
     source = (
         b'def documented():\n    """real"""\n    x = 1\n\n'
         b'def later_string():\n    x = 1\n    "not a docstring"\n\n'
-        b'def commented():\n    # note\n    """still a docstring"""\n'
+        b'def commented():\n    # note\n    """still a docstring"""\n\n'
+        b'def one_liner(): "inline"\n\n'
+        b'def returned():\n    return "not a docstring"\n'
     )
     symbols, _, _ = python_parser.parse(1, source)
     by_qn = index_symbols(symbols)
     assert by_qn["documented"]["docstring"] == "real"
     assert by_qn["later_string"]["docstring"] is None
     assert by_qn["commented"]["docstring"] == "still a docstring"
+    assert by_qn["one_liner"]["docstring"] == "inline"
+    assert by_qn["returned"]["docstring"] is None
 
 
 def test_python_module_qn_prefixes_root_symbols(python_parser, fixture_bytes):

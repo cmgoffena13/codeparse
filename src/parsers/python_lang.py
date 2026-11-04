@@ -452,41 +452,6 @@ class PythonParser(ParserBase):
             return True
         return base
 
-    def _container_symbol_dict(
-        self,
-        symbol_id: int,
-        file_id: int,
-        name: str,
-        qualified_name: str,
-        kind: str,
-        line_start: int,
-        line_end: int,
-        signature: str,
-        docstring: str | None,
-        modifiers: list,
-        base_qualified_names: list[str],
-        is_test: bool,
-    ) -> dict:
-        return {
-            "id": symbol_id,
-            "file_id": file_id,
-            "parent_id": self.stack[-1].symbol_id if self.stack else None,
-            "parent": self.stack[-1].name if self.stack else None,
-            "name": name,
-            "qualified_name": qualified_name,
-            "kind": kind,
-            "line_start": line_start,
-            "line_end": line_end,
-            "line_count": line_end - line_start + 1,
-            "signature": signature,
-            "docstring": docstring,
-            "modifiers": str(modifiers) if modifiers else None,
-            "language": "python",
-            "base_qualified_names": base_qualified_names,
-            "is_test": is_test,
-            "is_inherited": False,
-        }
-
     def _variable_symbol_dict(
         self,
         symbol_id: int,
@@ -1041,19 +1006,12 @@ class PythonParser(ParserBase):
 
         # NOTE: Extract Docstring. First statement is a string.
         docstring = None
-        string_node = None
         if body_node is not None and body_node.named_children:
-            first_statement = body_node.named_children[0]
-
-            if first_statement.type == "expression_statement" and first_statement.named_children:
-                candidate = first_statement.named_children[0]
-                if candidate.type == "string":
-                    string_node = candidate
-            elif first_statement.type == "string":
-                string_node = first_statement
-
-            if string_node is not None and string_node.text is not None:
-                raw = string_node.text.decode("utf-8", errors="replace")
+            statement = body_node.named_children[0]
+            if statement.type == "expression_statement" and statement.named_children:
+                statement = statement.named_children[0]
+            if statement.type == "string" and statement.text is not None:
+                raw = statement.text.decode("utf-8", errors="replace")
                 try:
                     docstring = ast.literal_eval(raw)
                 except (ValueError, SyntaxError):
@@ -1093,20 +1051,25 @@ class PythonParser(ParserBase):
                 "base_qualified_names": resolved_bases,
             }
 
-        return self._container_symbol_dict(
-            symbol_id,
-            file_id,
-            name,
-            qualified_name,
-            kind,
-            line_start,
-            line_end,
-            signature,
-            docstring,
-            modifiers,
-            resolved_bases,
-            is_test,
-        )
+        return {
+            "id": symbol_id,
+            "file_id": file_id,
+            "parent_id": self.stack[-1].symbol_id if self.stack else None,
+            "parent": self.stack[-1].name if self.stack else None,
+            "name": name,
+            "qualified_name": qualified_name,
+            "kind": kind,
+            "line_start": line_start,
+            "line_end": line_end,
+            "line_count": line_end - line_start + 1,
+            "signature": signature,
+            "docstring": docstring,
+            "modifiers": str(modifiers) if modifiers else None,
+            "language": "python",
+            "base_qualified_names": resolved_bases,
+            "is_test": is_test,
+            "is_inherited": False,
+        }
 
     def _extract_import(self, node: Node, file_id: int) -> None:
         """Extract Import Statement."""
