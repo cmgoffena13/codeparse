@@ -1136,25 +1136,24 @@ class PythonParser(ParserBase):
             self._register_import_ref_binding(child_path, imported_symbol, alias, import_type)
 
     def _extract_identifier_reference(self, node: Node, file_id: int) -> None:
-        name = node_text(node) or ""
-        qualified = None
+        name = node_text(node)
         if name and not self._identifier_is_skipped(node):
             qualified = self._var_qns.get(name)
             if qualified is None:
                 qualified = self._import_qn.get(name)
-        if qualified is not None:
-            source_line = node.start_point.row + 1
-            source_column = node.start_point.column
-            self._record_symbol_reference(
-                file_id,
-                name,
-                qualified,
-                source_line,
-                source_column,
-                "access",
-                name,
-                (qualified, "access", source_line, source_column),
-            )
+            if qualified is not None:
+                source_line = node.start_point.row + 1
+                source_column = node.start_point.column
+                self._record_symbol_reference(
+                    file_id,
+                    name,
+                    qualified,
+                    source_line,
+                    source_column,
+                    "access",
+                    name,
+                    (qualified, "access", source_line, source_column),
+                )
 
     def _identifier_is_skipped(self, node: Node) -> bool:
         parent = node.parent
