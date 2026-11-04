@@ -484,44 +484,6 @@ class PythonParser(ParserBase):
             "is_inherited": False,
         }
 
-    def _record_import(
-        self,
-        file_id: int,
-        module: str,
-        import_path: str,
-        imported_symbol: str,
-        alias: str | None,
-        line_number: int,
-        import_type: str,
-        import_scope: str,
-        signature: str,
-    ) -> None:
-        key = (import_path, imported_symbol)
-        row = {
-            "file_id": file_id,
-            "module": module,
-            "import_path": import_path,
-            "imported_symbol": imported_symbol,
-            "alias": alias,
-            "line_number": line_number,
-            "import_type": import_type,
-            "import_scope": import_scope,
-            "signature": signature,
-        }
-        if key in self.imports_snapshot:
-            self.imports_snapshot[key]["seen"] = True
-            if self.imports_snapshot[key]["line_number"] != line_number:
-                import_id = self.imports_snapshot[key]["id"]
-                self.imports.append({"id": import_id, **row})
-        else:
-            import_id = self.assigner.reserve("imports", 1)[0]
-            self.imports_snapshot[key] = {
-                "id": import_id,
-                "line_number": line_number,
-                "seen": True,
-            }
-            self.imports.append({"id": import_id, **row})
-
     def _record_symbol_reference(
         self,
         file_id: int,
@@ -1073,137 +1035,115 @@ class PythonParser(ParserBase):
 
     def _extract_import(self, node: Node, file_id: int) -> None:
         """Extract Import Statement."""
-        if node.text is None:
+        text = node.text
+        if text is None or node.type not in ("import_from_statement", "import_statement"):
             return
 
         line_number = node.start_point.row + 1
-        signature = node.text.decode("utf-8")
+        signature = text.decode("utf-8")
         import_scope = "module" if not self.stack else "function"
+        from_import = node.type == "import_from_statement"
 
-        # Determine Type (Relative vs Absolute)
-        if node.type == "import_from_statement":
-            import_type = "absolute"
-            import_path = ""
+        import_type = "absolute"  # NOTE: Default to absolute import.
+        module_name = ""
+        relative_node = None
 
-            # NOTE: Check for relative import paths (e.g. `.base` / `..pkg`).
-            relative_node = None
-            for child in node.children:
-                if child.type == "relative_import":
-                    relative_node = child
-                    break
-
+        # "from typing import X"
+        # "from .sib import Foo"
+        # "from . import Foo".
+        if from_import:
+            relative_node = next(
+                (child for child in node.children if child.type == "relative_import"), None
+            )
             if relative_node is not None:
-                import_type = "relative"
                 if relative_node.text is None:
                     return
-                import_path = relative_node.text.decode("utf-8")
 
-            # Absolute import fallback (e.g. `from typing import X`)
-            if not import_path:
-                for child in node.children:
-                    if child.type == "dotted_name":
-                        if child.text is None:
-                            continue
-                        import_path = child.text.decode("utf-8")
-                        break
+                # "from .sib import Foo" -> import_type = "relative", module_name = ".sib"
+                # "from . import Foo" -> import_type = "relative", module_name = "."
+                import_type = "relative"
+                module_name = relative_node.text.decode("utf-8")
 
-            # Keep the source spelling in ``signature``. ``import_path`` is the
-            # module key ``resolve_imports`` matches to ``files.normalized_path``.
-            stored_path = import_path
-            if import_type == "relative":
-                resolved = self._resolve_relative_import_path(import_path)
-                if resolved:
-                    stored_path = resolved.lower()
-
-            for child in node.children:
-                imported_symbol = None
-                alias = None
-                if child.type == "aliased_import":
-                    name_node = child.child_by_field_name("name")
-                    alias_node = child.child_by_field_name("alias")
-                    if not name_node:
-                        continue
-                    if name_node.text is None:
-                        continue
-                    imported_symbol = name_node.text.decode("utf-8")
-                    alias = (
-                        alias_node.text.decode("utf-8")
-                        if alias_node is not None and alias_node.text is not None
-                        else None
-                    )
-                elif child.type == "dotted_name":
-                    # Skip the module part (absolute dotted_name or relative_import's dotted_name)
-                    if relative_node is not None and child.start_byte < relative_node.end_byte:
-                        continue
-                    if (
-                        relative_node is None
-                        and child.text is not None
-                        and child.text.decode("utf-8") == import_path
-                    ):
-                        continue
-                    if child.text is None:
-                        continue
-                    imported_symbol = child.text.decode("utf-8")
-
-                if imported_symbol is None:
-                    continue
-
-                module = stored_path.split(".")[0]
-
-                self._record_import(
-                    file_id,
-                    module,
-                    stored_path,
-                    imported_symbol,
-                    alias,
-                    line_number,
-                    import_type,
-                    import_scope,
-                    signature,
+            if not module_name:
+                dotted = next(
+                    (
+                        child
+                        for child in node.children
+                        if child.type == "dotted_name" and child.text is not None
+                    ),
+                    None,
                 )
-                self._register_import_ref_binding(import_path, imported_symbol, alias, import_type)
+                # "from Foo import Bar" -> module_name = "Foo"
+                if dotted is not None and dotted.text is not None:
+                    module_name = dotted.text.decode("utf-8")
 
-        elif node.type == "import_statement":
-            import_type = "absolute"
-            for child in node.children:
-                import_path = None
-                alias = None
-                if child.type == "aliased_import":
-                    name_node = child.child_by_field_name("name")
-                    alias_node = child.child_by_field_name("alias")
-                    if not name_node:
-                        continue
-                    if name_node.text is None:
-                        continue
-                    import_path = name_node.text.decode("utf-8")
-                    alias = (
-                        alias_node.text.decode("utf-8")
-                        if alias_node is not None and alias_node.text is not None
-                        else None
-                    )
-                elif child.type == "dotted_name":
-                    if child.text is None:
-                        continue
-                    import_path = child.text.decode("utf-8")
+        stored_path = module_name
+        if import_type == "relative":
+            resolved = self._resolve_relative_import_path(module_name)
+            if resolved:
+                stored_path = resolved.lower()
 
-                if import_path is None:
+        for child in node.children:
+            name_node = child
+            alias = None
+            # "from Foo import Bar as Baz" -> name_node = "Bar", alias = "Baz"
+            # "import os as operating_system" -> name_node = "os", alias = "operating_system"
+            if child.type == "aliased_import":
+                name_node = child.child_by_field_name("name")
+                alias_node = child.child_by_field_name("alias")
+                if alias_node is not None and alias_node.text is not None:
+                    alias = alias_node.text.decode("utf-8")
+            # "from Foo import *", commas, and parentheses are not names.
+            elif child.type != "dotted_name":
+                continue
+            # "from Foo import Bar" -> name = "Bar"
+            # "import os" -> name = "os"
+            if name_node is None or name_node.text is None:
+                continue
+            name = name_node.text.decode("utf-8")
+            if from_import and child.type == "dotted_name":
+                # "from .sib import Foo": "sib" starts inside ".sib", so skip the module.
+                if relative_node is not None and child.start_byte < relative_node.end_byte:
                     continue
+                # "from typing import typing" equals the module, so skip both names.
+                if relative_node is None and name == module_name:
+                    continue
+            # "from Foo import Bar" -> child_path = "Foo"
+            # "import os" -> child_path = "os"
+            child_path = module_name if from_import else name
+            # "from Foo import Bar" -> imported_symbol = "Bar"
+            # "import os" -> imported_symbol = ""
+            imported_symbol = name if from_import else ""
+            # "from .sib import Foo" inside pkg.sub.caller -> record_path = "pkg.sub.sib"
+            # "import os" -> record_path = "os"
+            record_path = stored_path if from_import else child_path
 
-                module = import_path.split(".")[0]
-
-                imported_symbol = ""
-                self._record_import(
-                    file_id,
-                    module,
-                    import_path,
-                    imported_symbol,
-                    alias,
-                    line_number,
-                    import_type,
-                    import_scope,
-                    signature,
-                )
-                self._register_import_ref_binding(import_path, imported_symbol, alias, import_type)
+            key = (record_path, imported_symbol)
+            row = {
+                "file_id": file_id,
+                "module": record_path.split(".")[0],
+                "import_path": record_path,
+                "imported_symbol": imported_symbol,
+                "alias": alias,
+                "line_number": line_number,
+                "import_type": import_type,
+                "import_scope": import_scope,
+                "signature": signature,
+            }
+            if key in self.imports_snapshot:
+                self.imports_snapshot[key]["seen"] = True
+                if self.imports_snapshot[key]["line_number"] != line_number:
+                    import_id = self.imports_snapshot[key]["id"]
+                    self.imports.append({"id": import_id, **row})
+            else:
+                import_id = self.assigner.reserve("imports", 1)[0]
+                self.imports_snapshot[key] = {
+                    "id": import_id,
+                    "line_number": line_number,
+                    "seen": True,
+                }
+                self.imports.append({"id": import_id, **row})
+            self._register_import_ref_binding(child_path, imported_symbol, alias, import_type)
 
     def _extract_identifier_reference(self, node: Node, file_id: int) -> None:
         name = node.text.decode("utf-8") if node.text is not None else ""
