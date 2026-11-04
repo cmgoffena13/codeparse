@@ -1,7 +1,8 @@
 # Agents Guide
 
 ## Important Notes
- - Simplifying code means less code.
+ - Simplifying code means less code. When asked to simplify: record the lines of code before and after to determine success.
+ - Do not write defensive code. Early returns and default values are frowned upon.
 
 ## Styling
  - DO NOT write comments. The user will add comments if necessary.

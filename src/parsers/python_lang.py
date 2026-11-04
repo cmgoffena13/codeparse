@@ -8,7 +8,7 @@ from tree_sitter import Node, Parser
 from src.assigner import GlobalIDAssigner
 from src.db import CodeDB
 from src.parsers.base import ParserBase
-from src.parsers.parser_utils import StackFrame
+from src.parsers.parser_utils import StackFrame, node_text
 
 _INHERIT_KINDS = frozenset({"method", "property", "variable"})
 
@@ -408,9 +408,7 @@ class PythonParser(ParserBase):
             current = value
         if current.type not in ("identifier", "dotted_name", "attribute"):
             return None
-        if current.text is None:
-            return None
-        return current.text.decode("utf-8")
+        return node_text(current)
 
     def _class_bases(self, node: Node) -> list[str]:
         resolved: list[str] = []
@@ -492,7 +490,7 @@ class PythonParser(ParserBase):
         source_line: int,
         source_column: int,
         ref_kind: str,
-        context: str,
+        context: str | None,
         key: tuple[str, str, int, int],
     ) -> None:
         source_symbol_id = self.stack[-1].symbol_id if self.stack else None
@@ -582,18 +580,19 @@ class PythonParser(ParserBase):
 
     @staticmethod
     def _call_is_literal_receiver_method(func_node: Node) -> bool:
-        if func_node.type != "attribute":
-            return False
         obj = func_node.child_by_field_name("object")
-        if obj is None:
-            return False
-        return obj.type in (
-            "string",
-            "integer",
-            "float",
-            "true",
-            "false",
-            "none",
+        return (
+            func_node.type == "attribute"
+            and obj is not None
+            and obj.type
+            in {
+                "string",
+                "integer",
+                "float",
+                "true",
+                "false",
+                "none",
+            }
         )
 
     def _should_skip_import_mapped_stdlib(self, root_id: str) -> bool:
@@ -646,8 +645,8 @@ class PythonParser(ParserBase):
                 name = symbol_data["name"]
             else:
                 name_node = node.child_by_field_name("name")
-                if name_node is not None and name_node.text is not None:
-                    name = name_node.text.decode("utf-8")
+                name = node_text(name_node)
+                if name is not None:
                     kind = self._kind_for_definition(node)
                     scope_path = self._qualify(name)
                     symbol_identity = scope_path
@@ -706,9 +705,7 @@ class PythonParser(ParserBase):
 
     @staticmethod
     def _is_optional_type_value(node: Node) -> bool:
-        if node.text is None:
-            return False
-        text = node.text.decode("utf-8")
+        text = node_text(node)
         return text in ("Optional", "typing.Optional", "t.Optional")
 
     def _annotation_type_name(self, type_node: Node | None) -> str | None:
@@ -721,9 +718,7 @@ class PythonParser(ParserBase):
         if node.type == "type" and node.named_child_count == 1:
             node = node.named_children[0]
         if node.type in ("identifier", "attribute", "dotted_name"):
-            if node.text is None:
-                return None
-            return node.text.decode("utf-8")
+            return node_text(node)
         if node.type == "subscript":
             value = node.child_by_field_name("value")
             if value is None:
@@ -734,9 +729,7 @@ class PythonParser(ParserBase):
                 if child == value:
                     continue
                 if child.type in ("identifier", "attribute", "dotted_name"):
-                    if child.text is None:
-                        return None
-                    return child.text.decode("utf-8")
+                    return node_text(child)
                 if child.type == "type":
                     return self._annotation_type_name(child)
             return None
@@ -754,9 +747,7 @@ class PythonParser(ParserBase):
                 if child.type == "type":
                     return self._annotation_type_name(child)
                 if child.type in ("identifier", "attribute", "dotted_name"):
-                    if child.text is None:
-                        return None
-                    return child.text.decode("utf-8")
+                    return node_text(child)
             return None
         return None
 
@@ -772,8 +763,8 @@ class PythonParser(ParserBase):
             param_name: str | None = None
             ann: Node | None = None
             for c in ch.children:
-                if c.type == "identifier" and param_name is None and c.text is not None:
-                    param_name = c.text.decode("utf-8")
+                if c.type == "identifier" and param_name is None:
+                    param_name = node_text(c)
                 elif c.type == "type":
                     ann = c
             if not param_name or param_name in ("self", "cls"):
@@ -793,10 +784,11 @@ class PythonParser(ParserBase):
             and not self.stack[-1].qualified_name.endswith(".__init__")
         ):
             target = node.child_by_field_name("left") or node.child_by_field_name("target")
-            if target is not None and target.type == "identifier" and target.text is not None:
+            if target is not None and target.type == "identifier":
+                decoded = node_text(target)
                 anno = self._annotation_type_name(node.child_by_field_name("type"))
-                if anno:
-                    self._name_types[target.text.decode("utf-8")] = anno
+                if decoded is not None and anno:
+                    self._name_types[decoded] = anno
             return symbols
 
         # target is usually in field 'left' for assignment/augmented_assignment
@@ -808,11 +800,12 @@ class PythonParser(ParserBase):
         # name is the source spelling for the DB (e.g. "self.llm"), matching references.
         symbol_leaf = ""
         name = ""
-        if target.type == "identifier" and target.text is not None:
-            decoded = target.text.decode("utf-8")
-            symbol_leaf = name = decoded
-        elif target.type == "attribute" and target.text is not None:
-            text = target.text.decode("utf-8")
+        if target.type == "identifier":
+            decoded = node_text(target)
+            if decoded is not None:
+                symbol_leaf = name = decoded
+        elif target.type == "attribute":
+            text = node_text(target) or ""
             if text.startswith(("self.", "cls.")):
                 symbol_leaf = text.split(".", 1)[1]
                 name = text
@@ -892,12 +885,11 @@ class PythonParser(ParserBase):
 
     def _process_node(self, node: Node, file_id: int) -> None:
         """Handle Imports and References."""
-        # --- IMPORTS ---
+
         if node.type in ("import_statement", "import_from_statement"):
             self._extract_import(node, file_id)
-            return  # Imports don't have children that are symbols
+            return  # NOTE: Imports don't have children that are symbols
 
-        # --- REFERENCES ---
         if node.type == "call":
             self._extract_reference(node, "call", file_id)
         elif node.type == "attribute":
@@ -923,10 +915,9 @@ class PythonParser(ParserBase):
         """
         name_node = node.child_by_field_name("name")
         body_node = node.child_by_field_name("body")
-        if not name_node or name_node.text is None:
+        name = node_text(name_node)
+        if name is None:
             return None
-
-        name = name_node.text.decode("utf-8")
         qualified_name = self._qualify(name)
         kind = self._kind_for_definition(node)
 
@@ -1035,12 +1026,11 @@ class PythonParser(ParserBase):
 
     def _extract_import(self, node: Node, file_id: int) -> None:
         """Extract Import Statement."""
-        text = node.text
-        if text is None or node.type not in ("import_from_statement", "import_statement"):
+        signature = node_text(node)
+        if signature is None or node.type not in ("import_from_statement", "import_statement"):
             return
 
         line_number = node.start_point.row + 1
-        signature = text.decode("utf-8")
         import_scope = "module" if not self.stack else "function"
         from_import = node.type == "import_from_statement"
 
@@ -1056,26 +1046,27 @@ class PythonParser(ParserBase):
                 (child for child in node.children if child.type == "relative_import"), None
             )
             if relative_node is not None:
-                if relative_node.text is None:
+                module_name = node_text(relative_node)
+                if module_name is None:
                     return
 
                 # "from .sib import Foo" -> import_type = "relative", module_name = ".sib"
                 # "from . import Foo" -> import_type = "relative", module_name = "."
                 import_type = "relative"
-                module_name = relative_node.text.decode("utf-8")
 
             if not module_name:
                 dotted = next(
                     (
                         child
                         for child in node.children
-                        if child.type == "dotted_name" and child.text is not None
+                        if child.type == "dotted_name" and node_text(child) is not None
                     ),
                     None,
                 )
                 # "from Foo import Bar" -> module_name = "Foo"
-                if dotted is not None and dotted.text is not None:
-                    module_name = dotted.text.decode("utf-8")
+                decoded = node_text(dotted)
+                if decoded is not None:
+                    module_name = decoded
 
         stored_path = module_name
         if import_type == "relative":
@@ -1091,16 +1082,15 @@ class PythonParser(ParserBase):
             if child.type == "aliased_import":
                 name_node = child.child_by_field_name("name")
                 alias_node = child.child_by_field_name("alias")
-                if alias_node is not None and alias_node.text is not None:
-                    alias = alias_node.text.decode("utf-8")
+                alias = node_text(alias_node)
             # "from Foo import *", commas, and parentheses are not names.
             elif child.type != "dotted_name":
                 continue
             # "from Foo import Bar" -> name = "Bar"
             # "import os" -> name = "os"
-            if name_node is None or name_node.text is None:
+            name = node_text(name_node)
+            if name is None:
                 continue
-            name = name_node.text.decode("utf-8")
             if from_import and child.type == "dotted_name":
                 # "from .sib import Foo": "sib" starts inside ".sib", so skip the module.
                 if relative_node is not None and child.start_byte < relative_node.end_byte:
@@ -1146,7 +1136,7 @@ class PythonParser(ParserBase):
             self._register_import_ref_binding(child_path, imported_symbol, alias, import_type)
 
     def _extract_identifier_reference(self, node: Node, file_id: int) -> None:
-        name = node.text.decode("utf-8") if node.text is not None else ""
+        name = node_text(node) or ""
         qualified = None
         if name and not self._identifier_is_skipped(node):
             qualified = self._var_qns.get(name)
@@ -1263,106 +1253,99 @@ class PythonParser(ParserBase):
         return found
 
     def _extract_reference(self, node: Node, ref_kind: str, file_id: int) -> None:
-        """Extract Reference (Call, Access, Type)."""
-
-        # Skip access nodes that are the function part of a call — the call already
-        # captures this reference (call is a stricter access).
-        if ref_kind == "access":
-            parent = node.parent
-            if (
-                parent is not None
-                and parent.type == "call"
-                and parent.child_by_field_name("function") == node
-            ):
-                return
+        """Extract Reference (Call, Access, Type Annotation)."""
+        parent = node.parent
+        # "obj.method()" -> skip this access. "obj.method" -> keep the access.
+        if (
+            ref_kind == "access"
+            and parent is not None
+            and parent.type == "call"
+            and parent.child_by_field_name("function") == node
+        ):
+            return
 
         target_name = ""
-
         if ref_kind == "call":
-            # func() -> target is 'func'
             func_node = node.child_by_field_name("function")
-            if func_node:
-                if self._call_is_literal_receiver_method(func_node):
-                    return
-                if func_node.text is None:
-                    return
-                target_name = func_node.text.decode("utf-8")
+            target_name = node_text(func_node)
+            if (
+                func_node is None
+                or target_name is None
+                or self._call_is_literal_receiver_method(func_node)
+            ):
+                return
+            # "func()" -> target_name = "func"
+
         elif ref_kind == "access":
-            # obj.attr -> target is full chain like "obj.attr" or "a.b.c"
-            attr_node = node.child_by_field_name("attribute")
-            obj_node = node.child_by_field_name("object")
-            if not attr_node or attr_node.text is None:
+            attribute_node = node.child_by_field_name("attribute")
+            object_node = node.child_by_field_name("object")
+            leaf_name = node_text(attribute_node)
+            if leaf_name is None:
                 return
+            object_text = node_text(object_node) or ""
+            # "obj.attr" -> target_name = "obj.attr"
+            target_name = f"{object_text}.{leaf_name}" if object_text else leaf_name
 
-            leaf_name = attr_node.text.decode("utf-8")
-            if obj_node is not None and obj_node.text is not None:
-                obj_text = obj_node.text.decode("utf-8")
-                target_name = f"{obj_text}.{leaf_name}" if obj_text else leaf_name
-            else:
-                target_name = leaf_name
         elif ref_kind == "type_annotation":
-            # x: Type -> normalize annotation target
-            if node.text is None:
+            target_name = node_text(node)
+            if target_name is None:
                 return
-            target_name = node.text.decode("utf-8").strip()
-            if target_name.endswith("]"):
-                if target_name.startswith("Optional["):
-                    target_name = target_name[len("Optional[") : -1].strip()
-                elif target_name.startswith("typing.Optional["):
-                    target_name = target_name[len("typing.Optional[") : -1].strip()
-            if "[" in target_name:
-                target_name = target_name.split("[", 1)[0].strip()
-
+            # "x: Optional[Foo]" -> target_name = "Foo"
+            target_name = target_name.strip()
+            for prefix in ("typing.Optional[", "Optional["):
+                if target_name.startswith(prefix) and target_name.endswith("]"):
+                    target_name = target_name[len(prefix) : -1].strip()
+                    break
+            target_name = target_name.split("[", 1)[0].strip()
         if not target_name:
             return
 
+        # Skip built-in names and standard library names.
         root_id = self._reference_root_identifier(target_name)
-        if ref_kind == "type_annotation":
-            if root_id in self.builtin_names:
-                return
-            if self._should_skip_import_mapped_stdlib(root_id):
-                return
-        else:
-            if root_id in self.builtin_names or root_id in self.std_module_names:
-                return
-            if self._should_skip_import_mapped_stdlib(root_id):
-                return
+        skipped = root_id in self.builtin_names or (
+            ref_kind != "type_annotation" and root_id in self.std_module_names
+        )
+        if skipped or self._should_skip_import_mapped_stdlib(root_id):
+            return
 
-        # Resolved qualified_name for self./cls. when parent class is on the stack.
         resolved_qualified = None
         receiver_root = ""
         linked_variable = False
         if target_name.startswith(("self.", "cls.")):
             suffix = target_name.split(".", 1)[1]
             first_seg, _, rest_after_first = suffix.partition(".")
-            for entry in reversed(self.stack):
-                if entry.kind != "class":
-                    continue
-                class_qn = entry.qualified_name
-                ctor_map = self._class_param_annos.get(class_qn)
-                if ctor_map and first_seg in ctor_map:
-                    type_qn = self._resolve_annotation_qn(ctor_map[first_seg])
+            class_entry = next(
+                (entry for entry in reversed(self.stack) if entry.kind == "class"), None
+            )
+            if class_entry is not None:
+                class_qn = class_entry.qualified_name
+                constructor_map = self._class_param_annos.get(class_qn)
+                if constructor_map and first_seg in constructor_map:
+                    type_qn = self._resolve_annotation_qn(constructor_map[first_seg])
                     resolved_qualified = (
                         f"{type_qn}.{rest_after_first}" if rest_after_first else type_qn
                     )
                 else:
                     resolved_qualified = f"{class_qn}.{suffix}"
-                break
-            else:
-                if self.stack:
-                    resolved_qualified = f"{self.stack[-1].qualified_name}.{suffix}"
+            elif self.stack:
+                resolved_qualified = f"{self.stack[-1].qualified_name}.{suffix}"
         else:
             root, sep, rest = target_name.partition(".")
             receiver_root = root
             if sep:
                 type_name = None
-                for entry in reversed(self.stack):
-                    if entry.kind not in ("function", "method"):
-                        continue
-                    param_map = self._func_param_annos.get(entry.qualified_name)
+                func_entry = next(
+                    (
+                        entry
+                        for entry in reversed(self.stack)
+                        if entry.kind in ("function", "method")
+                    ),
+                    None,
+                )
+                if func_entry is not None:
+                    param_map = self._func_param_annos.get(func_entry.qualified_name)
                     if param_map and root in param_map:
                         type_name = param_map[root]
-                    break
                 if type_name is None:
                     type_name = self._name_types.get(root)
                     linked_variable = type_name is not None and root in self._var_qns
@@ -1370,18 +1353,19 @@ class PythonParser(ParserBase):
                     type_qn = self._resolve_annotation_qn(type_name)
                     resolved_qualified = f"{type_qn}.{rest}" if rest else type_qn
 
-        if resolved_qualified is not None:
-            # class_qn / stack paths and param-rewritten QNs are already module-prefixed.
-            ref_symbol_qualified_name = resolved_qualified
-        else:
-            ref_symbol_qualified_name = self._resolve_ref_qn(target_name)
+        ref_symbol_qualified_name = (
+            resolved_qualified
+            if resolved_qualified is not None
+            else self._resolve_ref_qn(target_name)
+        )
 
         source_line = node.start_point.row + 1
         source_column = node.start_point.column
-        context = node.text.decode("utf-8") if node.text is not None else ""
+        context = node_text(node)
         rows = [(target_name, ref_symbol_qualified_name, ref_kind, context)]
         if ref_kind == "call" and linked_variable:
             rows.append((receiver_root, self._var_qns[receiver_root], "access", receiver_root))
+
         for name, qualified, kind, row_context in rows:
             self._record_symbol_reference(
                 file_id,
@@ -1393,4 +1377,3 @@ class PythonParser(ParserBase):
                 row_context,
                 (qualified, kind, source_line, source_column),
             )
-        return
