@@ -12,6 +12,7 @@ import xxhash
 from src.assigner import GlobalIDAssigner
 from src.db import TABLE_BATCH_MAP, CodeDB
 from src.git_utils import path_spec_for_indexing, relative_path_is_ignored
+from src.parsers.class_catalog import ClassCatalog
 from src.parsers.factory import FILE_EXTENSION_MAPPING, ParserFactory
 
 T = TypeVar("T")
@@ -58,7 +59,7 @@ class CodeProcessor:
 
         self.directories_snapshot = self.db.get_directories_snapshot()
         self.files_snapshot = self.db.get_files_snapshot()
-        self.symbol_catalog: dict = {"by_qn": {}, "subclasses": {}}
+        self.class_catalog = ClassCatalog()
 
     def _process_directories(self, directory_names: list[str], directory_path: Path) -> None:
         for directory_name in directory_names:
@@ -183,7 +184,7 @@ class CodeProcessor:
             parser = ParserFactory.get_parser(
                 FILE_EXTENSION_MAPPING[file_extension], self.assigner, self.db
             )
-            parser.catalog = self.symbol_catalog
+            parser.class_catalog = self.class_catalog
             module_qn = (
                 self._normalize_path(file_relative_path, language=lang) if lang == "python" else ""
             )
@@ -243,17 +244,11 @@ class CodeProcessor:
                     symbol["seen"] = False
                 self.db.delete_symbols(symbols)
 
-                for qualified_name, cataloged in list(self.symbol_catalog["by_qn"].items()):
-                    if cataloged.get("file_id") == file_id:
-                        self.symbol_catalog["by_qn"].pop(qualified_name, None)
-                        for children in self.symbol_catalog["subclasses"].values():
-                            children.pop(qualified_name, None)
+                self.class_catalog.drop_file(file_id)
 
     def cleanup_orphaned_inherited_symbols(self) -> None:
         for qualified_name in self.db.delete_orphaned_inherited_symbols():
-            self.symbol_catalog["by_qn"].pop(qualified_name, None)
-            for children in self.symbol_catalog["subclasses"].values():
-                children.pop(qualified_name, None)
+            self.class_catalog.drop(qualified_name)
 
     def _process_files(self, file_names: list[str], directory_path: Path, full: bool) -> None:
         for file_name in file_names:
