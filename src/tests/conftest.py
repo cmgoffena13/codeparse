@@ -1,3 +1,4 @@
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -25,6 +26,17 @@ def _isolate_code_parse_config(
     monkeypatch.setenv(
         "CODE_PARSE_CONFIG_DIR",
         str(tmp_path / "codeparse-config"),
+    )
+
+
+@pytest.fixture(autouse=True)
+def _git_controlled_tmp_path(tmp_path: Path) -> None:
+    subprocess.run(
+        ["git", "init", "-q"],  # noqa: S607
+        cwd=tmp_path,
+        capture_output=True,
+        check=True,
+        timeout=5,
     )
 
 

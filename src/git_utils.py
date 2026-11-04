@@ -1,7 +1,11 @@
+import os
+import subprocess
 from functools import lru_cache
 from pathlib import Path
 
 from pathspec import PathSpec
+
+_GIT_TIMEOUT_S = 5
 
 INDEX_ALWAYS_IGNORE_NAMES = frozenset(
     {
@@ -28,15 +32,38 @@ def _path_spec_for_root(gitignore_path: Path, _gitignore_mtime: float) -> PathSp
     return PathSpec.from_lines("gitignore", lines)
 
 
+def is_git_controlled(path: Path) -> bool:
+    env = os.environ.copy()
+    env.pop("GIT_DIR", None)
+    env.pop("GIT_WORK_TREE", None)
+    controlled = False
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],  # noqa: S607
+            cwd=path,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=_GIT_TIMEOUT_S,
+            env=env,
+        )
+        controlled = bool(result.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        controlled = False
+    return controlled
+
+
 def path_spec_for_indexing(root: Path) -> PathSpec:
-    """Load ``<root>/.gitignore`` (paths relative to ``root``). Raises if the file is missing."""
+    """Load ``<root>/.gitignore`` when ``root`` is inside a git work tree."""
     root = root.resolve()
     gitignore_path = root / ".gitignore"
-    if not gitignore_path.is_file():
-        raise FileNotFoundError(
-            f".gitignore not found at {gitignore_path}; are you in a git repository?"
-        )
-    return _path_spec_for_root(gitignore_path, gitignore_path.stat().st_mtime)
+    if not is_git_controlled(root):
+        raise FileNotFoundError(f"{root} is not a git repository; are you in a git repository?")
+    return (
+        _path_spec_for_root(gitignore_path, gitignore_path.stat().st_mtime)
+        if gitignore_path.is_file()
+        else PathSpec.from_lines("gitignore", [])
+    )
 
 
 def relative_path_is_ignored(

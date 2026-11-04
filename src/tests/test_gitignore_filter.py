@@ -52,9 +52,17 @@ def test_directory_only_trailing_slash(tmp_path: Path) -> None:
     assert not relative_path_is_ignored(Path("out"), False, spec)
 
 
-def test_path_spec_for_indexing_missing_file_raises(tmp_path: Path) -> None:
+def test_path_spec_for_indexing_outside_git_repo_raises(tmp_path: Path) -> None:
+    git_dir = tmp_path / ".git"
+    if git_dir.exists():
+        shutil.rmtree(git_dir)
     with pytest.raises(FileNotFoundError, match="are you in a git repository"):
         path_spec_for_indexing(tmp_path)
+
+
+def test_path_spec_for_indexing_without_gitignore(tmp_path: Path) -> None:
+    spec = path_spec_for_indexing(tmp_path)
+    assert not relative_path_is_ignored(Path("keep.py"), False, spec)
 
 
 def test_processor_prunes_ignored_dirs_and_files(tmp_path: Path) -> None:

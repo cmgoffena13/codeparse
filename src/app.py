@@ -4,6 +4,7 @@ from pathlib import Path
 
 from src.cli.commands import build_arg_parser, make_parser
 from src.db import remove_index_files
+from src.git_utils import is_git_controlled
 from src.utils import get_code_parse_config_dir, get_version
 
 
@@ -17,15 +18,12 @@ def _require_dir(path: Path) -> Path | None:
 
 def _require_indexable_root(path: Path) -> Path | None:
     root = _require_dir(path)
-    if root is None:
-        return None
-    gitignore = root / ".gitignore"
-    if not gitignore.is_file():
+    if root is not None and not is_git_controlled(root):
         print(
-            f".gitignore not found at {gitignore}; are you in a git repository?",
+            f"{root} is not a git repository; are you in a git repository?",
             file=sys.stderr,
         )
-        return None
+        root = None
     return root
 
 

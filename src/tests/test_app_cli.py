@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -67,21 +68,23 @@ def test_mcp_missing_directory_exits_one(
     assert "Not a directory" in err
 
 
-def test_mcp_missing_gitignore_exits_one(
+def test_mcp_outside_git_repo_exits_one(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
+    git_dir = tmp_path / ".git"
+    if git_dir.exists():
+        shutil.rmtree(git_dir)
     monkeypatch.setattr(sys, "argv", ["codeparse", "mcp", "--cwd", str(tmp_path)])
     assert main() == 1
     err = capsys.readouterr().err
-    assert ".gitignore not found" in err
+    assert "is not a git repository" in err
     assert "are you in a git repository?" in err
-    assert str(tmp_path.resolve() / ".gitignore") in err
+    assert str(tmp_path.resolve()) in err
 
 
 def test_main_starts_mcp_stdio(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / ".gitignore").write_text("# fixture\n", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["codeparse", "mcp", "--cwd", str(tmp_path)])
     fake_mcp = MagicMock()
     fake_server = MagicMock()
