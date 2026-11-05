@@ -67,16 +67,15 @@ def path_spec_for_indexing(root: Path) -> PathSpec:
 
 
 def relative_path_is_ignored(
-    relative: Path,
+    relative: str,
     is_directory: bool,
     spec: PathSpec,
 ) -> bool:
-    if relative.is_absolute():
+    if os.path.isabs(relative):  # noqa: PTH117
         raise ValueError("relative path must not be absolute")
-    for part in relative.parts:
+    for part in relative.split("/"):
         if part in INDEX_ALWAYS_IGNORE_NAMES:
             return True
-    rel_posix = relative.as_posix()
     if is_directory:
-        return spec.match_file(rel_posix + "/") or spec.match_file(rel_posix)
-    return spec.match_file(rel_posix)
+        return spec.match_file(relative + "/") or spec.match_file(relative)
+    return spec.match_file(relative)

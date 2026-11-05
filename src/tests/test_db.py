@@ -85,7 +85,7 @@ def test_delete_files_leaves_session_stats_for_that_file(tmp_path: Path) -> None
     db.connection.commit()
     snapshot = db.get_files_snapshot()
     for path, meta in snapshot.items():
-        meta["seen"] = path != Path("pkg/drop.py")
+        meta["seen"] = path != "pkg/drop.py"
 
     db.delete_files(snapshot)
 

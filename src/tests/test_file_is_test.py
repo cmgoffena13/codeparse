@@ -7,15 +7,15 @@ from src.processor import CodeProcessor, file_path_is_test
 
 
 def test_file_path_is_test_rules() -> None:
-    assert file_path_is_test(Path("tests/core/test_foo.py"))
-    assert file_path_is_test(Path("test_foo.py"))
-    assert file_path_is_test(Path("pkg/foo_test.py"))
-    assert file_path_is_test(Path("tests/conftest.py"))
-    assert file_path_is_test(Path("tests/helpers.py"))
+    assert file_path_is_test("tests/core/test_foo.py")
+    assert file_path_is_test("test_foo.py")
+    assert file_path_is_test("pkg/foo_test.py")
+    assert file_path_is_test("tests/conftest.py")
+    assert file_path_is_test("tests/helpers.py")
     # Package named test (not tests/) is not a suite root.
-    assert not file_path_is_test(Path("sqlmesh/core/test/definition.py"))
-    assert not file_path_is_test(Path("sqlmesh/dbt/test.py"))
-    assert not file_path_is_test(Path("sqlmesh/core/dialect.py"))
+    assert not file_path_is_test("sqlmesh/core/test/definition.py")
+    assert not file_path_is_test("sqlmesh/dbt/test.py")
+    assert not file_path_is_test("sqlmesh/core/dialect.py")
 
 
 def test_file_is_test_not_promoted_from_test_symbols(tmp_path: Path) -> None:

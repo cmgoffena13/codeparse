@@ -21,35 +21,35 @@ from src.processor import CodeProcessor
 def test_relative_path_rejects_absolute() -> None:
     spec = PathSpec.from_lines("gitignore", [])
     with pytest.raises(ValueError, match="relative path must not be absolute"):
-        relative_path_is_ignored(Path("/abs/foo.py"), False, spec)
+        relative_path_is_ignored("/abs/foo.py", False, spec)
 
 
 def test_always_ignore_path_segment() -> None:
     spec = PathSpec.from_lines("gitignore", [])
-    assert relative_path_is_ignored(Path(".git/HEAD"), False, spec)
-    assert relative_path_is_ignored(Path("src/.git"), True, spec)
+    assert relative_path_is_ignored(".git/HEAD", False, spec)
+    assert relative_path_is_ignored("src/.git", True, spec)
 
 
 def test_glob_and_negation_from_gitignore(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("*.log\n!important.log\n", encoding="utf-8")
     spec = path_spec_for_indexing(tmp_path)
-    assert relative_path_is_ignored(Path("noise.log"), False, spec)
-    assert not relative_path_is_ignored(Path("important.log"), False, spec)
+    assert relative_path_is_ignored("noise.log", False, spec)
+    assert not relative_path_is_ignored("important.log", False, spec)
 
 
 def test_root_anchored_pattern(tmp_path: Path) -> None:
     # Use `out` not `dist` — `dist` is in INDEX_ALWAYS_IGNORE_NAMES and would match any segment.
     (tmp_path / ".gitignore").write_text("/out\n", encoding="utf-8")
     spec = path_spec_for_indexing(tmp_path)
-    assert relative_path_is_ignored(Path("out"), True, spec)
-    assert not relative_path_is_ignored(Path("nested/out"), True, spec)
+    assert relative_path_is_ignored("out", True, spec)
+    assert not relative_path_is_ignored("nested/out", True, spec)
 
 
 def test_directory_only_trailing_slash(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("out/\n", encoding="utf-8")
     spec = path_spec_for_indexing(tmp_path)
-    assert relative_path_is_ignored(Path("out"), True, spec)
-    assert not relative_path_is_ignored(Path("out"), False, spec)
+    assert relative_path_is_ignored("out", True, spec)
+    assert not relative_path_is_ignored("out", False, spec)
 
 
 def test_path_spec_for_indexing_outside_git_repo_raises(tmp_path: Path) -> None:
@@ -62,7 +62,7 @@ def test_path_spec_for_indexing_outside_git_repo_raises(tmp_path: Path) -> None:
 
 def test_path_spec_for_indexing_without_gitignore(tmp_path: Path) -> None:
     spec = path_spec_for_indexing(tmp_path)
-    assert not relative_path_is_ignored(Path("keep.py"), False, spec)
+    assert not relative_path_is_ignored("keep.py", False, spec)
 
 
 def test_processor_prunes_ignored_dirs_and_files(tmp_path: Path) -> None:
@@ -122,5 +122,5 @@ def test_git_check_ignore_parity_glob(tmp_path: Path) -> None:
     assert r_ok.returncode != 0
 
     spec = path_spec_for_indexing(tmp_path)
-    assert relative_path_is_ignored(Path("a.tmp"), False, spec)
-    assert not relative_path_is_ignored(Path("keep.py"), False, spec)
+    assert relative_path_is_ignored("a.tmp", False, spec)
+    assert not relative_path_is_ignored("keep.py", False, spec)

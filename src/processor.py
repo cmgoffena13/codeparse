@@ -25,21 +25,26 @@ def file_has_main_guard(file_bytes: bytes) -> bool:
     return _MAIN_GUARD.search(file_bytes.decode("utf-8", errors="replace")) is not None
 
 
-def file_path_is_test(relative_path: Path) -> bool:
+def file_path_is_test(relative_path: str) -> bool:
     """True for conventional test *files*, not packages named ``test``.
 
     Matches ``tests/`` trees, ``test_*.py``, ``*_test.py``, and ``conftest.py``.
     A segment named ``test`` (e.g. ``sqlmesh/core/test/definition.py``) is not
     enough — that is product code.
     """
-    if "tests" in relative_path.parts:
+    parts = relative_path.split("/")
+    if "tests" in parts:
         return True
-    name = relative_path.name
+    name = parts[-1]
     if name == "conftest.py":
         return True
     if name.startswith("test_") and name.endswith(".py"):
         return True
     return name.endswith("_test.py")
+
+
+def _join_rel(dir_rel: str, name: str) -> str:
+    return name if not dir_rel else f"{dir_rel}/{name}"
 
 
 class CodeProcessor:
@@ -61,24 +66,24 @@ class CodeProcessor:
         self.files_snapshot = self.db.get_files_snapshot()
         self.class_catalog = ClassCatalog()
 
-    def _process_directories(self, directory_names: list[str], directory_path: Path) -> None:
+    def _process_directories(self, directory_names: list[str], dir_rel: str) -> None:
         for directory_name in directory_names:
-            directory_relative_path = (directory_path / directory_name).relative_to(self.root)
+            directory_relative_path = _join_rel(dir_rel, directory_name)
             if directory_relative_path in self.directories_snapshot:
                 self.directories_snapshot[directory_relative_path]["seen"] = True
                 continue
 
-            # NOTE: Assign a new ID for the directory.
             directory_id = self.assigner.reserve("directories", 1)[0]
-            parent_row = self.directories_snapshot.get(directory_relative_path.parent)
+            parent_key = dir_rel if dir_rel else None
+            parent_row = None if parent_key is None else self.directories_snapshot.get(parent_key)
             parent_id = None if parent_row is None else parent_row["id"]
-            depth = len(directory_relative_path.parts) - 1
+            depth = directory_relative_path.count("/")
             self.db_batches["directories"].append(
                 {
                     "id": directory_id,
                     "parent_id": parent_id,
                     "name": directory_name,
-                    "path": str(directory_relative_path),
+                    "path": directory_relative_path,
                     "depth": depth,
                 }
             )
@@ -87,7 +92,7 @@ class CodeProcessor:
                 "seen": True,
             }
 
-    def _python_import_path(self, relative: Path) -> Path:
+    def _python_import_path(self, relative: str) -> str:
         """Start the module path at the outermost package.
 
         A directory is a package when it contains ``__init__.py``. Leading
@@ -95,35 +100,43 @@ class CodeProcessor:
         ``src/fundamentals/xxx.py`` becomes ``fundamentals/xxx.py``. A path
         with no package keeps every directory.
         """
-        dirs = relative.parts[:-1]
+        parts = relative.split("/")
+        dirs = parts[:-1]
         for index in range(len(dirs)):
             package = self.root.joinpath(*dirs[: index + 1])
             if (package / "__init__.py").is_file():
-                return Path(*relative.parts[index:])
+                return "/".join(parts[index:])
         return relative
 
-    def _normalize_path(self, path: Path, language: str | None = None) -> str:
+    def _normalize_path(self, path: str, language: str | None = None) -> str:
         if language == "python":
             path = self._python_import_path(path)
-        posix = path.with_suffix("").as_posix().lower()
+        dot = path.rfind(".")
+        slash = path.rfind("/")
+        stem = path[:dot] if dot > slash else path
+        posix = stem.lower()
         if language == "python":
             posix = posix.replace("/", ".")
             posix = posix.removesuffix(".__init__")
         return posix
 
-    def _process_file(self, file_name: str, directory_path: Path, full: bool) -> None:
-        file_path = directory_path / file_name
-        file_relative_path = file_path.relative_to(self.root)
-        file_stat = file_path.lstat()
+    def _process_file(self, file_name: str, directory_path: str, dir_rel: str, full: bool) -> None:
+        file_relative_path = _join_rel(dir_rel, file_name)
+        file_abs = f"{directory_path}{os.sep}{file_name}"
+        try:
+            file_stat = os.lstat(file_abs)
+        except OSError:
+            self.files_skipped += 1
+            return
         mtime_ns = file_stat.st_mtime_ns
         size_bytes = file_stat.st_size
-        file_extension = file_relative_path.suffix
+        dot = file_name.rfind(".")
+        file_extension = file_name[dot:] if dot != -1 else ""
 
-        if not file_extension and not file_path.is_file():
+        if not file_extension and not os.path.isfile(file_abs):  # noqa: PTH113
             return
 
-        dir_path = file_path.parent.relative_to(self.root)
-        directory_id = None if str(dir_path) == "." else self.directories_snapshot[dir_path]["id"]
+        directory_id = None if not dir_rel else self.directories_snapshot[dir_rel]["id"]
 
         existed = file_relative_path in self.files_snapshot
         if existed:
@@ -159,7 +172,8 @@ class CodeProcessor:
             return
 
         try:
-            file_bytes = file_path.read_bytes()
+            with open(file_abs, "rb") as handle:  # noqa: PTH123
+                file_bytes = handle.read()
             file_hash = xxhash.xxh128(file_bytes).hexdigest()
             line_count = file_bytes.count(b"\n") + 1 if file_bytes else 0
         except OSError:
@@ -172,7 +186,7 @@ class CodeProcessor:
             "id": file_id,
             "directory_id": directory_id,
             "name": file_name,
-            "path": str(file_relative_path),
+            "path": file_relative_path,
             "normalized_path": self._normalize_path(file_relative_path, language=lang),
             "language": lang,
             "content_hash": file_hash,
@@ -283,9 +297,11 @@ class CodeProcessor:
         for qualified_name in self.db.delete_orphaned_inherited_symbols():
             self.class_catalog.drop(qualified_name)
 
-    def _process_files(self, file_names: list[str], directory_path: Path, full: bool) -> None:
+    def _process_files(
+        self, file_names: list[str], directory_path: str, dir_rel: str, full: bool
+    ) -> None:
         for file_name in file_names:
-            self._process_file(file_name, directory_path, full)
+            self._process_file(file_name, directory_path, dir_rel, full)
 
     def _insert_batch(self, final: bool = False) -> None:
         if not final and not any(
@@ -322,13 +338,18 @@ class CodeProcessor:
         self._reset_run_state()
         start_epoch = int(time.time())
         start_time = time.perf_counter()
-        for directory_path, directory_names, file_names in os.walk(self.root):
-            directory_path = Path(directory_path)
+        root_s = str(self.root)
+        for directory_path, directory_names, file_names in os.walk(root_s):
+            dir_rel = (
+                ""
+                if directory_path == root_s
+                else os.path.relpath(directory_path, root_s).replace(os.sep, "/")
+            )
             directory_names[:] = [
                 directory
                 for directory in directory_names
                 if not relative_path_is_ignored(
-                    (directory_path / directory).relative_to(self.root),
+                    _join_rel(dir_rel, directory),
                     is_directory=True,
                     spec=self._index_ignore_spec,
                 )
@@ -337,14 +358,14 @@ class CodeProcessor:
                 file
                 for file in file_names
                 if not relative_path_is_ignored(
-                    (directory_path / file).relative_to(self.root),
+                    _join_rel(dir_rel, file),
                     is_directory=False,
                     spec=self._index_ignore_spec,
                 )
             ]
 
-            self._process_directories(directory_names, directory_path)
-            self._process_files(file_names, directory_path, full)
+            self._process_directories(directory_names, dir_rel)
+            self._process_files(file_names, directory_path, dir_rel, full)
 
         self.cleanup_deleted_file_symbols()
         self.db.delete_files(self.files_snapshot)

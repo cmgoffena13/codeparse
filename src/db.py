@@ -103,21 +103,21 @@ class CodeDB:
             params = (last_incremental,)
         self.exec_tran(query, params)
 
-    def get_directories_snapshot(self) -> dict[Path, dict[str, Any]]:
+    def get_directories_snapshot(self) -> dict[str, dict[str, Any]]:
         cursor = self.connection.execute("SELECT id, path FROM directories")
-        return {Path(row["path"]): {"id": row["id"], "seen": False} for row in cursor}
+        return {row["path"]: {"id": row["id"], "seen": False} for row in cursor}
 
-    def delete_directories(self, directories: dict[Path, dict[str, Any]]) -> None:
+    def delete_directories(self, directories: dict[str, dict[str, Any]]) -> None:
         dir_ids = [d["id"] for d in directories.values() if not d["seen"]]
         self.delete_ids("directories", dir_ids)
 
-    def get_files_snapshot(self) -> dict[Path, dict[str, Any]]:
+    def get_files_snapshot(self) -> dict[str, dict[str, Any]]:
         cursor = self.connection.execute(
             "SELECT id, directory_id, path, content_hash, mtime_ns, size_bytes, "
             "line_count, symbol_count, is_test FROM files"
         )
         return {
-            Path(row["path"]): {
+            row["path"]: {
                 "id": row["id"],
                 "directory_id": row["directory_id"],
                 "seen": False,
@@ -131,7 +131,7 @@ class CodeDB:
             for row in cursor
         }
 
-    def delete_files(self, files: dict[Path, dict[str, Any]]) -> None:
+    def delete_files(self, files: dict[str, dict[str, Any]]) -> None:
         file_ids = [int(file["id"]) for file in files.values() if not file["seen"]]
         if file_ids:
             placeholders = ",".join("?" for _ in file_ids)
