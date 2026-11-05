@@ -900,6 +900,9 @@ class PythonParser(ParserBase):
                 "module": record_path.split(".")[0],
                 "import_path": record_path,
                 "imported_symbol": imported_symbol,
+                "imported_symbol_qualified_name": (
+                    f"{record_path}.{imported_symbol}" if imported_symbol else record_path
+                ),
                 "alias": alias,
                 "line_number": line_number,
                 "import_type": import_type,

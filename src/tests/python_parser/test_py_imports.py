@@ -12,8 +12,18 @@ def test_imports_spot_checks_from_fixture_file(python_parser, fixture_bytes):
     assert len(imports) == 3
     assert_imports_invariants(imports)
 
-    assert any(i["import_path"] == "json" and i["imported_symbol"] == "" for i in imports)
-    assert any(i["import_path"] == "pathlib" and i["imported_symbol"] == "Path" for i in imports)
+    assert any(
+        i["import_path"] == "json"
+        and i["imported_symbol"] == ""
+        and i["imported_symbol_qualified_name"] == "json"
+        for i in imports
+    )
+    assert any(
+        i["import_path"] == "pathlib"
+        and i["imported_symbol"] == "Path"
+        and i["imported_symbol_qualified_name"] == "pathlib.Path"
+        for i in imports
+    )
     assert any(i["import_type"] == "relative" for i in imports)
 
 

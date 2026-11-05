@@ -111,18 +111,16 @@ def get_file_symbols(file_path: str, ctx: Context) -> str:
     Return a nested symbol tree for one file with line numbers.
     Follow up with ``get_symbol`` for symbol definitions.
     """
-    path = file_path.strip()
-    return _processor(ctx).run_query(lambda db: run_file_symbols(db, path))
+    return _processor(ctx).run_query(lambda db: run_file_symbols(db, file_path))
 
 
 @mcp.tool()
 def get_file_imports(file_path: str, ctx: Context) -> str:
     """
     Return the import statements for one file with line numbers.
-    Use ``list_importers`` to find files that import this module.
+    Use ``list_importers`` with a dotted ``module_name`` to find dependents.
     """
-    path = file_path.strip()
-    return _processor(ctx).run_query(lambda db: run_file_imports(db, path))
+    return _processor(ctx).run_query(lambda db: run_file_imports(db, file_path))
 
 
 @mcp.tool()
@@ -159,9 +157,8 @@ def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Use ``get_symbol_references`` for detailed call, access, and type-annotation sites.
     """
-    name = qualified_name.strip()
     return _processor(ctx).run_query(
-        lambda db: run_symbol_context(db, name, include_tests=include_tests)
+        lambda db: run_symbol_context(db, qualified_name, include_tests=include_tests)
     )
 
 
@@ -180,9 +177,10 @@ def get_symbol_at_lines(
     ``line_end`` defaults to ``line_start`` if not provided.
     Excludes test references by default; set ``include_tests`` to include them.
     """
-    path = file_path.strip()
     return _processor(ctx).run_query(
-        lambda db: run_symbol_at_lines(db, path, line_start, line_end, include_tests=include_tests)
+        lambda db: run_symbol_at_lines(
+            db, file_path, line_start, line_end, include_tests=include_tests
+        )
     )
 
 
@@ -195,9 +193,8 @@ def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test references by default; set ``include_tests`` to include them.
     """
-    name = qualified_name.strip()
     return _processor(ctx).run_query(
-        lambda db: run_symbol_references(db, name, include_tests=include_tests)
+        lambda db: run_symbol_references(db, qualified_name, include_tests=include_tests)
     )
 
 
@@ -207,32 +204,24 @@ def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = Fal
     Return classes that directly inherit from a given class, grouped by file.
     Excludes test files by default; set ``include_tests`` to include them.
     """
-    name = qualified_name.strip()
     return _processor(ctx).run_query(
-        lambda db: run_list_subclasses(db, name, include_tests=include_tests)
+        lambda db: run_list_subclasses(db, qualified_name, include_tests=include_tests)
     )
 
 
 @mcp.tool()
 def list_importers(
+    module_name: str,
     ctx: Context,
-    file_path: str | None = None,
-    module_name: str | None = None,
     include_tests: bool = False,
 ) -> str:
     """
     Return a directory tree of files that import a module.
-    Pass ``file_path`` (repo-relative module file) OR ``module_name``
-    (dotted path like ``sqlglot`` or ``pydantic.core``), not both.
+    ``module_name`` is a dotted path like ``sqlglot`` or ``pydantic.core``.
     Excludes test files by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
-        lambda db: run_list_importers(
-            db,
-            file_path=file_path,
-            module_name=module_name,
-            include_tests=include_tests,
-        )
+        lambda db: run_list_importers(db, module_name, include_tests=include_tests)
     )
 
 

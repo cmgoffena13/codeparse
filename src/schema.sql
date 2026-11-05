@@ -114,7 +114,8 @@ CREATE TABLE IF NOT EXISTS imports (
     file_id               INTEGER NOT NULL REFERENCES files(id),
     module                TEXT NOT NULL,
     import_path           TEXT NOT NULL,                           
-    imported_symbol       TEXT NOT NULL DEFAULT '',                           
+    imported_symbol       TEXT NOT NULL DEFAULT '',
+    imported_symbol_qualified_name TEXT,
     alias                 TEXT,                           
     line_number           INTEGER NOT NULL,                        
     import_type           TEXT NOT NULL, 
@@ -123,7 +124,6 @@ CREATE TABLE IF NOT EXISTS imports (
     imported_file_id      INTEGER REFERENCES files(id),
     watermark             INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
-CREATE INDEX IF NOT EXISTS imports_file_id_index ON imports (file_id);
 CREATE INDEX IF NOT EXISTS imports_module_index ON imports (module);
 CREATE INDEX IF NOT EXISTS imports_import_path_index ON imports (import_path, watermark);
 CREATE INDEX IF NOT EXISTS imports_imported_file_id_index ON imports (imported_file_id);

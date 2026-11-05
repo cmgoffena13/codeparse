@@ -4,9 +4,8 @@ import xxhash
 import yaml
 
 DESCRIPTION = (
-    "Use when navigating a Python codebase: mapping repo structure, finding "
-    "entry points, locating symbols, tracing inheritance, or understanding how files and symbols "
-    "depend on each other."
+    "Use when navigating a Python codebase: find symbols, follow imports and "
+    "references, and map how files depend on each other."
 )
 
 _SKILL_BODY = """\
@@ -43,7 +42,7 @@ The information that is provided to you will determine the tool you should use.
 #### ``grep``
  - Use when the clue is specific text in file contents.
  - Use `-n` to get the line number and then use ``get_symbol_at_lines`` to get the symbol.
- - Use ``list_importers`` to find which files depend on a module; DO NOT grep for this.
+ - Use ``list_importers`` with a dotted ``module_name`` to find dependents; DO NOT grep for this.
  - Use ``get_file_imports`` to list a file's import statements; DO NOT grep for this.
  - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
  - Use ``list_subclasses`` to find subclasses of a class; DO NOT grep for this.

@@ -120,7 +120,7 @@ def test_client_tools_read_the_workspace(
             assert "TestChild" not in subclasses
 
             importers = _text(
-                await mcp_client.call_tool("list_importers", {"file_path": "pkg/base.py"})
+                await mcp_client.call_tool("list_importers", {"module_name": "pkg.base"})
             )
             assert "├── child.py" in importers
             assert "└── user.py" in importers

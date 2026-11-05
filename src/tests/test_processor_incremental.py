@@ -284,10 +284,12 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
     db.connection.execute(
         """
         INSERT INTO imports (
-            id, file_id, module, import_path, imported_symbol, line_number, import_type,
-            import_scope, signature
+            id, file_id, module, import_path, imported_symbol, imported_symbol_qualified_name,
+            line_number, import_type, import_scope, signature
         )
-        VALUES (900, ?, 'os', 'os.path', 'path', 1, 'absolute', 'module', 'import os.path')
+        VALUES (
+            900, ?, 'os', 'os.path', '', 'os.path', 1, 'absolute', 'module', 'import os.path'
+        )
         """,
         (file_id,),
     )

@@ -429,10 +429,11 @@ class CodeDB:
             self.connection.executemany(
                 """
                 INSERT OR REPLACE INTO imports
-                (id, file_id, module, import_path, imported_symbol, alias, line_number,
-                 import_type, import_scope, signature)
-                VALUES (:id, :file_id, :module, :import_path, :imported_symbol, :alias,
-                        :line_number, :import_type, :import_scope, :signature)
+                (id, file_id, module, import_path, imported_symbol, imported_symbol_qualified_name,
+                 alias, line_number, import_type, import_scope, signature)
+                VALUES (:id, :file_id, :module, :import_path, :imported_symbol,
+                        :imported_symbol_qualified_name, :alias, :line_number, :import_type,
+                        :import_scope, :signature)
                 """,
                 imports,
             )
@@ -440,10 +441,9 @@ class CodeDB:
     def ensure_external_symbols(self, assigner: _IDAssigner) -> None:
         import_rows = self.connection.execute(
             """
-            SELECT DISTINCT import_path, imported_symbol
+            SELECT DISTINCT imported_symbol_qualified_name, imported_symbol
             FROM imports
             WHERE import_type = 'absolute'
-              AND import_path != ''
               AND NOT EXISTS (
                   SELECT 1 FROM files AS f
                   WHERE f.normalized_path = imports.import_path
@@ -452,14 +452,8 @@ class CodeDB:
         ).fetchall()
         stubs_from_imports: dict[str, tuple[str, str | None, str]] = {}
         for row in import_rows:
-            import_path = row["import_path"]
-            imported_symbol = row["imported_symbol"]
-            if imported_symbol:
-                qualified_name = f"{import_path}.{imported_symbol}"
-                kind = "external"
-            else:
-                qualified_name = import_path
-                kind = "module"
+            qualified_name = row["imported_symbol_qualified_name"]
+            kind = "external" if row["imported_symbol"] else "module"
             if "." in qualified_name:
                 parent, _, name = qualified_name.rpartition(".")
             else:

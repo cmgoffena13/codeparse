@@ -50,7 +50,7 @@ def test_list_importers_notes_truncation(tmp_path: Path, monkeypatch: pytest.Mon
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        out = list_importers(db, "pkg/target.py", include_tests=False)
+        out = list_importers(db, "pkg.target", include_tests=False)
         assert out.startswith("Showing 1 of 2 files\n")
         assert "└── pkg/\n    └── a.py\n" in out
         assert "b.py" not in out
@@ -68,33 +68,13 @@ def test_list_importers_includes_relative_import(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        out = list_importers(db, "pkg/sib.py", include_tests=False)
+        out = list_importers(db, "pkg.sib", include_tests=False)
         assert "└── pkg/\n    └── caller.py\n" in out
     finally:
         db.close()
 
 
-def test_list_importers_accepts_absolute_path(tmp_path: Path) -> None:
-    (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
-    pkg = tmp_path / "pkg"
-    pkg.mkdir()
-    (pkg / "__init__.py").write_text("", encoding="utf-8")
-    (pkg / "target.py").write_text("def helper() -> int:\n    return 1\n", encoding="utf-8")
-    (pkg / "importer.py").write_text("from pkg.target import helper\n", encoding="utf-8")
-    db = CodeDB(tmp_path)
-    CodeProcessor(db, tmp_path).process()
-    try:
-        abs_target = str((tmp_path / "pkg" / "target.py").resolve())
-        out = list_importers(db, abs_target, include_tests=False)
-        assert out.startswith("Total Files: 1\n")
-        assert "└── pkg/\n    └── importer.py\n" in out
-        assert "Importers of" not in out
-        assert "Showing" not in out
-    finally:
-        db.close()
-
-
-def test_list_importers_by_module_name_finds_external_and_in_repo(tmp_path: Path) -> None:
+def test_list_importers_finds_external_and_in_repo(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -107,33 +87,30 @@ def test_list_importers_by_module_name_finds_external_and_in_repo(tmp_path: Path
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        by_module = list_importers(db, module_name="pkg.target", include_tests=False)
-        by_path = list_importers(db, file_path="pkg/target.py", include_tests=False)
-        assert by_module == by_path
-        assert "└── pkg/\n    └── importer.py\n" in by_module
+        out = list_importers(db, "pkg.target", include_tests=False)
+        assert out.startswith("Total Files: 1\n")
+        assert "└── pkg/\n    └── importer.py\n" in out
         assert "└── pkg/\n    └── importer.py\n" in list_importers(
-            db, module_name="pydantic", include_tests=False
+            db, "pydantic", include_tests=False
         )
         assert "└── pkg/\n    └── importer.py\n" in list_importers(
-            db, module_name="sqlglot", include_tests=False
+            db, "sqlglot", include_tests=False
         )
-        assert list_importers(db, module_name="missingpkg", include_tests=False) == (
+        assert list_importers(db, "pydantic.BaseModel", include_tests=False) == (
             "No importers found."
         )
+        assert list_importers(db, "missingpkg", include_tests=False) == "No importers found."
     finally:
         db.close()
 
 
-def test_list_importers_requires_file_path_xor_module_name(tmp_path: Path) -> None:
+def test_list_importers_rejects_blank_module_name(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test\n", encoding="utf-8")
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        assert list_importers(db, include_tests=False) == (
-            "Provide exactly one of file_path or module_name."
+        assert list_importers(db, "  ", include_tests=False) == (
+            "No module name given; pass a non-empty module_name."
         )
-        assert list_importers(
-            db, file_path="pkg/a.py", module_name="pkg.a", include_tests=False
-        ) == ("Provide exactly one of file_path or module_name.")
     finally:
         db.close()

@@ -182,16 +182,7 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "LIST IMPORTERS - FILE PATH",
-            _body(
-                await client.call_tool(
-                    "list_importers",
-                    {"file_path": "sqlmesh/core/dialect.py", "include_tests": True},
-                )
-            ),
-        )
-        _print_section(
-            "LIST IMPORTERS - MODULE NAME",
+            "LIST IMPORTERS",
             _body(
                 await client.call_tool(
                     "list_importers",
