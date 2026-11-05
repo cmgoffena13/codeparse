@@ -63,5 +63,7 @@ def test_class_catalog_stores_class_and_method_skips_function_and_drop_file() ->
     assert "pkg.Box" in catalog.by_qualified_name
     assert "pkg.Box.run" in catalog.by_qualified_name
     assert "pkg.helper" not in catalog.by_qualified_name
+    assert catalog.members_by_parent_id[1]["run"]["qualified_name"] == "pkg.Box.run"
     catalog.drop_file(10)
     assert catalog.by_qualified_name == {}
+    assert catalog.members_by_parent_id == {}

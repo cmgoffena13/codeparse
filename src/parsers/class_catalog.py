@@ -8,6 +8,7 @@ class ClassCatalog:
     def __init__(self) -> None:
         self.by_qualified_name: dict[str, dict] = {}
         self.subclasses: dict[str, dict[str, dict]] = {}
+        self.members_by_parent_id: dict[int, dict[str, dict]] = {}
 
     def put(self, symbol: dict, *, overwrite: bool = True) -> None:
         kind = symbol["kind"]
@@ -15,7 +16,16 @@ class ClassCatalog:
             qualified_name = symbol["qualified_name"]
             skip = (not overwrite) and qualified_name in self.by_qualified_name
             if not skip:
-                self.by_qualified_name[qualified_name] = {
+                prior = self.by_qualified_name.get(qualified_name)
+                if prior is not None and prior["kind"] in _INHERIT_KINDS:
+                    prior_parent = prior.get("parent_id")
+                    if prior_parent is not None:
+                        bucket = self.members_by_parent_id.get(prior_parent)
+                        if bucket is not None:
+                            bucket.pop(prior["name"], None)
+                            if not bucket:
+                                self.members_by_parent_id.pop(prior_parent, None)
+                stored = {
                     "id": symbol["id"],
                     "file_id": symbol["file_id"],
                     "parent_id": symbol.get("parent_id"),
@@ -38,6 +48,13 @@ class ClassCatalog:
                         symbol.get("base_qualified_names") or symbol.get("bases") or ()
                     ),
                 }
+                self.by_qualified_name[qualified_name] = stored
+                parent_id = stored["parent_id"]
+                if kind in _INHERIT_KINDS and parent_id is not None:
+                    members = self.members_by_parent_id
+                    if parent_id not in members:
+                        members[parent_id] = {}
+                    members[parent_id][stored["name"]] = stored
             if kind == "class":
                 stored = self.by_qualified_name[qualified_name]
                 self.register_class(
@@ -52,7 +69,15 @@ class ClassCatalog:
                 )
 
     def drop(self, qualified_name: str) -> None:
-        self.by_qualified_name.pop(qualified_name, None)
+        cataloged = self.by_qualified_name.pop(qualified_name, None)
+        if cataloged is not None and cataloged["kind"] in _INHERIT_KINDS:
+            parent_id = cataloged.get("parent_id")
+            if parent_id is not None:
+                bucket = self.members_by_parent_id.get(parent_id)
+                if bucket is not None:
+                    bucket.pop(cataloged["name"], None)
+                    if not bucket:
+                        self.members_by_parent_id.pop(parent_id, None)
         for children in self.subclasses.values():
             children.pop(qualified_name, None)
 
@@ -163,9 +188,8 @@ class ClassCatalog:
         if owner is not None and owner.get("kind", "class") == "class":
             owner_id = owner["id"]
             prefix = f"{class_qn}."
-            for symbol in self.by_qualified_name.values():
-                if symbol.get("parent_id") == owner_id and symbol["kind"] in _INHERIT_KINDS:
-                    by_name[symbol["name"]] = self._member_from_symbol(symbol)
+            for name, symbol in self.members_by_parent_id.get(owner_id, {}).items():
+                by_name[name] = self._member_from_symbol(symbol)
             for (qualified_name, kind), entry in symbols_snapshot.items():
                 leaf = qualified_name[len(prefix) :]
                 if (
@@ -182,11 +206,7 @@ class ClassCatalog:
 
     def _owned_names(self, class_id: int, symbols: list[dict]) -> set[str]:
         names = {symbol["name"] for symbol in symbols if symbol["parent_id"] == class_id}
-        names.update(
-            symbol["name"]
-            for symbol in self.by_qualified_name.values()
-            if symbol.get("parent_id") == class_id and symbol["kind"] in _INHERIT_KINDS
-        )
+        names.update(self.members_by_parent_id.get(class_id, {}))
         return names
 
     def _keep_inherited_snapshot(

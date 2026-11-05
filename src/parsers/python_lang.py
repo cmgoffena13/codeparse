@@ -11,6 +11,18 @@ from src.parsers.base import ParserBase
 from src.parsers.class_catalog import ClassCatalog
 from src.parsers.parser_utils import StackFrame, node_text
 
+_IMPORT_ANCESTORS = frozenset({"import_statement", "import_from_statement"})
+_TYPE_FIELD_ANCESTORS = frozenset(
+    {
+        "function_definition",
+        "async_function_definition",
+        "typed_parameter",
+        "typed_default_parameter",
+        "assignment",
+        "annotated_assignment",
+    }
+)
+
 
 class PythonParser(ParserBase):
     def __init__(
@@ -885,12 +897,28 @@ class PythonParser(ParserBase):
     def _identifier_is_skipped(self, node: Node) -> bool:
         parent = node.parent
         skipped = parent is not None and self._parent_skips_identifier(parent, node)
-        if not skipped:
-            skipped = (
-                self._node_is_under(node, ("import_statement", "import_from_statement"))
-                or self._node_is_in_type(node)
-                or self._node_is_class_base(node)
-            )
+        ancestor = parent
+        while ancestor is not None and not skipped:
+            ancestor_type = ancestor.type
+            if ancestor_type in _IMPORT_ANCESTORS:
+                skipped = True
+            elif ancestor_type == "class_definition":
+                bases = ancestor.child_by_field_name("superclasses")
+                skipped = (
+                    bases is not None
+                    and bases.start_byte <= node.start_byte
+                    and bases.end_byte >= node.end_byte
+                )
+            elif ancestor_type in _TYPE_FIELD_ANCESTORS:
+                for field_name in ("type", "return_type"):
+                    field = ancestor.child_by_field_name(field_name)
+                    if (
+                        field is not None
+                        and field.start_byte <= node.start_byte
+                        and field.end_byte >= node.end_byte
+                    ):
+                        skipped = True
+            ancestor = ancestor.parent
         return skipped
 
     def _parent_skips_identifier(self, parent: Node, node: Node) -> bool:
@@ -938,45 +966,6 @@ class PythonParser(ParserBase):
             or (parent.type == "as_pattern" and alias == node)
             or parent.type in ("global_statement", "nonlocal_statement")
         )
-
-    def _node_is_under(self, node: Node, types: tuple[str, ...]) -> bool:
-        found = False
-        parent = node.parent
-        while parent is not None and not found:
-            if parent.type in types:
-                found = True
-            parent = parent.parent
-        return found
-
-    def _node_is_class_base(self, node: Node) -> bool:
-        found = False
-        parent = node.parent
-        while parent is not None and not found:
-            if parent.type == "class_definition":
-                bases = parent.child_by_field_name("superclasses")
-                if (
-                    bases is not None
-                    and bases.start_byte <= node.start_byte
-                    and bases.end_byte >= node.end_byte
-                ):
-                    found = True
-            parent = parent.parent
-        return found
-
-    def _node_is_in_type(self, node: Node) -> bool:
-        found = False
-        parent = node.parent
-        while parent is not None and not found:
-            for field_name in ("type", "return_type"):
-                field = parent.child_by_field_name(field_name)
-                if (
-                    field is not None
-                    and field.start_byte <= node.start_byte
-                    and field.end_byte >= node.end_byte
-                ):
-                    found = True
-            parent = parent.parent
-        return found
 
     def _extract_reference(self, node: Node, ref_kind: str, file_id: int) -> None:
         """Extract Reference (Call, Access, Type Annotation)."""
