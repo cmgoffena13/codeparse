@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS imports (
     watermark             INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 CREATE INDEX IF NOT EXISTS imports_file_id_index ON imports (file_id);
+CREATE INDEX IF NOT EXISTS imports_module_index ON imports (module);
 CREATE INDEX IF NOT EXISTS imports_import_path_index ON imports (import_path, watermark);
 CREATE INDEX IF NOT EXISTS imports_imported_file_id_index ON imports (imported_file_id);
 
