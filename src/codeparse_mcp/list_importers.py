@@ -46,7 +46,7 @@ def list_importers(
     Pass exactly one of ``file_path`` (repo-relative module file) or
     ``module_name`` (dotted import path such as ``sqlglot`` or ``pkg.target``).
     ``file_path`` matches via ``imports.imported_file_id``; ``module_name``
-    matches ``imports.module`` (top-level) or ``import_path`` (dotted / prefix).
+    matches ``imports.module`` (top-level) or ``import_path`` (dotted).
 
     By default skips importer files marked ``is_test``.
     """
@@ -72,7 +72,7 @@ def list_importers(
             rows = list(
                 db.connection.execute(
                     _IMPORTERS_BY_MODULE_SQL.format(test_filter=test_filter),
-                    (module_arg, module_arg, module_arg),
+                    (module_arg, module_arg),
                 )
             )
             result = _format_importers([row["importer_path"] for row in rows])
