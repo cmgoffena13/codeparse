@@ -47,7 +47,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | --- | --- |
 | `install` | Register the MCP server in installed clients and write the skill. |
 | `uninstall` | Remove the codeparse MCP server, skill, and indexes. |
-| `update` | Replace the binary with the latest release and update the skill. |
+| `update` | Replace the binary with a release (`--version` optional) and update the skill. |
 | `mcp` | Start the MCP server. |
 | `reload` | Drop the index and reprocess the workspace ad-hoc |
 
