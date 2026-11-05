@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS symbol_references (
 );
 CREATE INDEX IF NOT EXISTS symbol_references_source_file_id_index ON symbol_references (source_file_id);
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_qualified_name_index ON symbol_references (ref_symbol_qualified_name);
+CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_id_index ON symbol_references (ref_symbol_id);
 
 CREATE TABLE IF NOT EXISTS imports (
     id                    INTEGER NOT NULL PRIMARY KEY,
