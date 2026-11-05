@@ -204,3 +204,50 @@ def test_symbol_references_none(tmp_path: Path) -> None:
         assert out == "No references found."
     finally:
         db.close()
+
+
+def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "target.py").write_text("class Thing:\n    pass\n", encoding="utf-8")
+    (pkg / "user.py").write_text(
+        "from pkg.target import Thing\n\n"
+        "def make() -> Thing:\n"
+        "    return Thing()\n\n"
+        "ALIAS = Thing\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process()
+    try:
+        all_kinds = get_symbol_references(db, "pkg.target.Thing", include_tests=False)
+        assert "## Calls" in all_kinds
+        assert "## Access" in all_kinds
+        assert "## Type Annotations" in all_kinds
+
+        calls = get_symbol_references(
+            db, "pkg.target.Thing", include_tests=False, reference_type="call"
+        )
+        assert "## Calls" in calls
+        assert "## Access" not in calls
+        assert "## Type Annotations" not in calls
+        assert "pkg.user.make" in calls
+
+        access = get_symbol_references(
+            db, "pkg.target.Thing", include_tests=False, reference_type="access"
+        )
+        assert "## Access" in access
+        assert "## Calls" not in access
+        assert "## Type Annotations" not in access
+
+        types = get_symbol_references(
+            db, "pkg.target.Thing", include_tests=False, reference_type="type"
+        )
+        assert "## Type Annotations" in types
+        assert "## Calls" not in types
+        assert "## Access" not in types
+        assert "pkg.user.make" in types
+    finally:
+        db.close()

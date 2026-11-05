@@ -7,6 +7,12 @@ from src.db import CodeDB
 
 _MAX_PER_KIND = 50
 
+_REFERENCE_TYPES = {
+    "call": "call",
+    "access": "access",
+    "type": "type_annotation",
+}
+
 _REFERENCES_SQL = """
 SELECT
     f.path AS source_path,
@@ -20,6 +26,7 @@ LEFT JOIN symbols AS src
     ON src.id = sr.source_symbol_id
 WHERE sr.ref_symbol_qualified_name = ?
 {test_filter}
+{kind_filter}
 ORDER BY sr.ref_kind, f.path, sr.source_line
 """
 
@@ -56,7 +63,13 @@ def _section_lines(heading: str, total: int, rows: list) -> list[str]:
     return lines_out
 
 
-def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
+def get_symbol_references(
+    db: CodeDB,
+    qualified_name: str,
+    *,
+    include_tests: bool,
+    reference_type: str | None = None,
+) -> str:
     """
     List reference sites for ``qualified_name``, grouped by ``ref_kind`` then file.
 
@@ -64,15 +77,24 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
     site has none and shows its line number instead. At most ``_MAX_PER_KIND`` rows
     are shown per kind. Test files
     are skipped unless ``include_tests`` is true.
+    ``reference_type`` may be ``call``, ``access``, or ``type`` to keep one kind.
     """
     key = qualified_name.strip()
     if not key:
         return "No symbol name given; pass a non-empty qualified_name."
 
+    params: list[str] = [key]
+    kind_filter = ""
+    if reference_type is not None:
+        kind_filter = "    AND sr.ref_kind = ?"
+        params.append(_REFERENCE_TYPES[reference_type])
     rows = list(
         db.connection.execute(
-            _REFERENCES_SQL.format(test_filter="" if include_tests else "    AND f.is_test = 0"),
-            (key,),
+            _REFERENCES_SQL.format(
+                test_filter="" if include_tests else "    AND f.is_test = 0",
+                kind_filter=kind_filter,
+            ),
+            params,
         )
     )
     if not rows:
@@ -83,7 +105,6 @@ def get_symbol_references(db: CodeDB, qualified_name: str, *, include_tests: boo
         by_kind[row["ref_kind"]].append(row)
 
     lines: list[str] = []
-
     covered = {k for k, _ in _REF_KIND_SECTIONS}
     for kind, heading in _REF_KIND_SECTIONS:
         items = by_kind.get(kind, [])

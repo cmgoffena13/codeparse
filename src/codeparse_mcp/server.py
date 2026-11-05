@@ -2,7 +2,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastmcp import Context, FastMCP
 
@@ -185,16 +185,27 @@ def get_symbol_at_lines(
 
 
 @mcp.tool()
-def get_symbol_references(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
+def get_symbol_references(
+    qualified_name: str,
+    ctx: Context,
+    include_tests: bool = False,
+    reference_type: Literal["call", "access", "type"] | None = None,
+) -> str:
     """
     Return reference sites (calls, accesses, type annotations) for a symbol, grouped by file
     and the symbol they happen in. A site with no enclosing symbol shows its line number.
 
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test references by default; set ``include_tests`` to include them.
+    Set ``reference_type`` to ``call``, ``access``, or ``type`` to return only one kind.
     """
     return _processor(ctx).run_query(
-        lambda db: run_symbol_references(db, qualified_name, include_tests=include_tests)
+        lambda db: run_symbol_references(
+            db,
+            qualified_name,
+            include_tests=include_tests,
+            reference_type=reference_type,
+        )
     )
 
 
