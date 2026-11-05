@@ -114,7 +114,9 @@ class CodeProcessor:
     def _process_file(self, file_name: str, directory_path: Path, full: bool) -> None:
         file_path = directory_path / file_name
         file_relative_path = file_path.relative_to(self.root)
-        file_last_modified = file_path.lstat().st_mtime
+        file_stat = file_path.lstat()
+        mtime_ns = file_stat.st_mtime_ns
+        size_bytes = file_stat.st_size
         file_extension = file_relative_path.suffix
 
         if not file_extension and not file_path.is_file():
@@ -125,13 +127,36 @@ class CodeProcessor:
 
         existed = file_relative_path in self.files_snapshot
         if existed:
-            file_id = self.files_snapshot[file_relative_path]["id"]
-            prior_hash = self.files_snapshot[file_relative_path]["content_hash"]
-            prior_symbol_count = self.files_snapshot[file_relative_path]["symbol_count"]
+            prior = self.files_snapshot[file_relative_path]
+            file_id = prior["id"]
+            prior_hash = prior["content_hash"]
+            prior_mtime_ns = prior["mtime_ns"]
+            prior_size_bytes = prior["size_bytes"]
+            prior_symbol_count = prior["symbol_count"]
+            prior_line_count = prior["line_count"]
+            prior_is_test = prior["is_test"]
         else:
             file_id = self.assigner.reserve("files", 1)[0]
             prior_hash = None
+            prior_mtime_ns = None
+            prior_size_bytes = None
             prior_symbol_count = 0
+            prior_line_count = 0
+            prior_is_test = False
+
+        if not full and existed and prior_mtime_ns == mtime_ns and prior_size_bytes == size_bytes:
+            self.files_snapshot[file_relative_path] = {
+                "id": file_id,
+                "directory_id": directory_id,
+                "seen": True,
+                "content_hash": prior_hash,
+                "mtime_ns": mtime_ns,
+                "size_bytes": size_bytes,
+                "line_count": prior_line_count,
+                "symbol_count": prior_symbol_count,
+                "is_test": prior_is_test,
+            }
+            return
 
         try:
             file_bytes = file_path.read_bytes()
@@ -151,25 +176,33 @@ class CodeProcessor:
             "normalized_path": self._normalize_path(file_relative_path, language=lang),
             "language": lang,
             "content_hash": file_hash,
+            "mtime_ns": mtime_ns,
+            "size_bytes": size_bytes,
             "line_count": line_count,
             "symbol_count": prior_symbol_count,
             "is_test": is_test,
         }
-        if not existed or prior_hash != file_hash:
+        if (
+            not existed
+            or prior_hash != file_hash
+            or prior_mtime_ns != mtime_ns
+            or prior_size_bytes != size_bytes
+        ):
             self.db_batches["files"].append(file_row)
         snap = {
             "id": file_id,
             "directory_id": directory_id,
             "seen": True,
             "content_hash": file_hash,
+            "mtime_ns": mtime_ns,
+            "size_bytes": size_bytes,
             "line_count": line_count,
             "symbol_count": prior_symbol_count,
             "is_test": is_test,
         }
         self.files_snapshot[file_relative_path] = snap
 
-        # NOTE: Two Gateway Checks for parsing: 1. Time 2. Content Hash.
-        if full or (file_last_modified > self.last_incremental and file_hash != prior_hash):
+        if full or file_hash != prior_hash:
             if file_extension not in FILE_EXTENSION_MAPPING:
                 self.files_skipped += 1
                 return

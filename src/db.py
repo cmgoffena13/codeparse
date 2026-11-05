@@ -113,8 +113,8 @@ class CodeDB:
 
     def get_files_snapshot(self) -> dict[Path, dict[str, Any]]:
         cursor = self.connection.execute(
-            "SELECT id, directory_id, path, content_hash, line_count, "
-            "symbol_count, is_test FROM files"
+            "SELECT id, directory_id, path, content_hash, mtime_ns, size_bytes, "
+            "line_count, symbol_count, is_test FROM files"
         )
         return {
             Path(row["path"]): {
@@ -122,6 +122,8 @@ class CodeDB:
                 "directory_id": row["directory_id"],
                 "seen": False,
                 "content_hash": row["content_hash"],
+                "mtime_ns": row["mtime_ns"],
+                "size_bytes": row["size_bytes"],
                 "line_count": row["line_count"],
                 "symbol_count": row["symbol_count"],
                 "is_test": bool(row["is_test"]),
@@ -329,10 +331,10 @@ class CodeDB:
                 """
                 INSERT OR REPLACE INTO files
                 (id, directory_id, name, path, normalized_path, language,
-                 content_hash, line_count, symbol_count, is_test)
+                 content_hash, mtime_ns, size_bytes, line_count, symbol_count, is_test)
                 VALUES (:id, :directory_id, :name, :path, :normalized_path,
-                        :language, :content_hash, :line_count, :symbol_count,
-                        :is_test)
+                        :language, :content_hash, :mtime_ns, :size_bytes,
+                        :line_count, :symbol_count, :is_test)
                 """,
                 files,
             )

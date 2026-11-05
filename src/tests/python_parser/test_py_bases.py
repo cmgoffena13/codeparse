@@ -42,8 +42,8 @@ def test_base_only_change_rewrites_symbol_bases(python_parser, tmp_db) -> None:
     symbols, imports, refs = python_parser.parse(1, first, module_qn="pkg.mod")
     tmp_db.connection.execute(
         """
-        INSERT INTO files (id, name, path, normalized_path, content_hash)
-        VALUES (1, 'mod.py', 'pkg/mod.py', 'pkg.mod', 'hash')
+        INSERT INTO files (id, name, path, normalized_path, content_hash, mtime_ns, size_bytes)
+        VALUES (1, 'mod.py', 'pkg/mod.py', 'pkg.mod', 'hash', 1, 1)
         """
     )
     tmp_db.bulk_insert(

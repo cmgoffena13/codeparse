@@ -8,9 +8,9 @@ def test_resolve_symbol_references_drops_unresolvable_type_annotations(tmp_db: C
             """
             INSERT INTO files (
                 id, directory_id, name, path, normalized_path, language,
-                content_hash, line_count
+                content_hash, mtime_ns, size_bytes, line_count
             )
-            VALUES (1, NULL, 'file.py', 'file.py', 'file', 'python', 'x', 1)
+            VALUES (1, NULL, 'file.py', 'file.py', 'file', 'python', 'x', 1, 1, 1)
             """
         )
 

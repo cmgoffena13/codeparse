@@ -56,9 +56,9 @@ def test_delete_files_leaves_session_stats_for_that_file(tmp_path: Path) -> None
     db = CodeDB(tmp_path)
     db.connection.execute(
         """
-        INSERT INTO files (id, name, path, normalized_path, content_hash)
-        VALUES (10, 'drop.py', 'pkg/drop.py', 'pkg.drop', 'abc'),
-               (11, 'keep.py', 'pkg/keep.py', 'pkg.keep', 'def')
+        INSERT INTO files (id, name, path, normalized_path, content_hash, mtime_ns, size_bytes)
+        VALUES (10, 'drop.py', 'pkg/drop.py', 'pkg.drop', 'abc', 1, 1),
+               (11, 'keep.py', 'pkg/keep.py', 'pkg.keep', 'def', 1, 1)
         """
     )
     db.connection.execute(

@@ -13,8 +13,8 @@ def _parse_with_shared_db(file_id: int, first: bytes, second: bytes):
 
         db.connection.execute(
             """
-            INSERT INTO files (id, name, path, normalized_path, content_hash)
-            VALUES (?, 'mod.py', 'mod.py', 'mod', 'hash')
+            INSERT INTO files (id, name, path, normalized_path, content_hash, mtime_ns, size_bytes)
+            VALUES (?, 'mod.py', 'mod.py', 'mod', 'hash', 1, 1)
             """,
             (file_id,),
         )

@@ -1,5 +1,6 @@
 """Integration tests: CodeProcessor + DB idempotency across repeated runs."""
 
+import os
 import sqlite3
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -79,10 +80,12 @@ def test_full_then_incremental_identical_counts(tmp_path: Path) -> None:
     after_full = _db_counts(tmp_path)
 
     db2 = CodeDB(tmp_path)
-    CodeProcessor(db2, tmp_path).process(full=False)
+    processor = CodeProcessor(db2, tmp_path)
+    processor.process(full=False)
     after_inc = _db_counts(tmp_path)
 
     assert after_full == after_inc
+    assert processor.files_indexed == 0
 
 
 def test_incremental_mutation_updates_counts_and_deletes(tmp_path: Path) -> None:
@@ -107,13 +110,40 @@ class Outer:
     )
 
     db2 = CodeDB(tmp_path)
-    CodeProcessor(db2, tmp_path).process(full=True)
+    processor = CodeProcessor(db2, tmp_path)
+    processor.process(full=False)
     after = _db_counts(tmp_path)
 
     # Files/symbols should remain stable; references should drop because the call is removed.
+    assert processor.files_indexed == 1
     assert after["files"] == before["files"]
     assert after["symbols"] == before["symbols"]
     assert after["symbol_references"] < before["symbol_references"]
+
+
+def test_incremental_utime_only_updates_mtime_without_reparse(tmp_path: Path) -> None:
+    _write_nested_fixture(tmp_path)
+
+    db1 = CodeDB(tmp_path)
+    CodeProcessor(db1, tmp_path).process(full=True)
+    before_mtime = db1.connection.execute(
+        "SELECT mtime_ns FROM files WHERE path = ?", ("pkg/mod.py",)
+    ).fetchone()["mtime_ns"]
+    before_refs = _db_counts(tmp_path)["symbol_references"]
+
+    mod = tmp_path / "pkg" / "mod.py"
+    os.utime(mod, ns=(before_mtime + 1_000_000_000, before_mtime + 1_000_000_000))
+
+    db2 = CodeDB(tmp_path)
+    processor = CodeProcessor(db2, tmp_path)
+    processor.process(full=False)
+    after_mtime = db2.connection.execute(
+        "SELECT mtime_ns FROM files WHERE path = ?", ("pkg/mod.py",)
+    ).fetchone()["mtime_ns"]
+
+    assert processor.files_indexed == 0
+    assert after_mtime == before_mtime + 1_000_000_000
+    assert _db_counts(tmp_path)["symbol_references"] == before_refs
 
 
 def test_same_name_symbols_in_two_files_both_survive(tmp_path: Path) -> None:

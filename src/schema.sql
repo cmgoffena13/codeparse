@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS files (
     path            TEXT UNIQUE NOT NULL,   
     normalized_path TEXT NOT NULL,             
     language        TEXT,                                          
-    content_hash    TEXT NOT NULL,                               
+    content_hash    TEXT NOT NULL,
+    mtime_ns        INTEGER NOT NULL,
+    size_bytes      INTEGER NOT NULL,
     line_count      INTEGER NOT NULL DEFAULT 0,
     symbol_count    INTEGER NOT NULL DEFAULT 0,
     is_test         BOOLEAN NOT NULL DEFAULT FALSE
