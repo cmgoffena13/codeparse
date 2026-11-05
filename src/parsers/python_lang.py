@@ -22,6 +22,36 @@ _TYPE_FIELD_ANCESTORS = frozenset(
         "annotated_assignment",
     }
 )
+_LEFT_SKIP_PARENTS = frozenset(
+    {
+        "assignment",
+        "annotated_assignment",
+        "augmented_assignment",
+        "for_statement",
+        "for_in_clause",
+    }
+)
+_NAME_SKIP_PARENTS = frozenset(
+    {
+        "function_definition",
+        "async_function_definition",
+        "class_definition",
+        "typed_parameter",
+        "typed_default_parameter",
+        "default_parameter",
+        "named_expression",
+        "keyword_argument",
+    }
+)
+_ALWAYS_SKIP_PARENTS = frozenset(
+    {
+        "parameters",
+        "list_splat_pattern",
+        "dictionary_splat_pattern",
+        "global_statement",
+        "nonlocal_statement",
+    }
+)
 
 
 class PythonParser(ParserBase):
@@ -55,6 +85,7 @@ class PythonParser(ParserBase):
         self._module_qn: str = ""
         self._is_package: bool = False
         self._file_id = 0
+        self._skip_access_depth = 0
         self.class_catalog = ClassCatalog()
 
     def parse(
@@ -68,6 +99,7 @@ class PythonParser(ParserBase):
         self._module_qn = module_qn
         self._is_package = is_package
         self._file_id = file_id
+        self._skip_access_depth = 0
         self._class_param_annos = {}
         self._func_param_annos = {}
         self._ref_root_module = {}
@@ -430,8 +462,23 @@ class PythonParser(ParserBase):
         children = (
             self._children_import_first(node) if node.type in ("module", "block") else node.children
         )
+        node_type = node.type
+        skip_all = node_type in _IMPORT_ANCESTORS
+        type_field = None
+        return_type_field = None
+        bases_field = None
+        if node_type in _TYPE_FIELD_ANCESTORS:
+            type_field = node.child_by_field_name("type")
+            return_type_field = node.child_by_field_name("return_type")
+        if node_type == "class_definition":
+            bases_field = node.child_by_field_name("superclasses")
         for child in children:
+            skip_child = skip_all or child in (type_field, return_type_field, bases_field)
+            if skip_child:
+                self._skip_access_depth += 1
             self._walk(child, file_id, file_bytes)
+            if skip_child:
+                self._skip_access_depth -= 1
 
         # 4. Pop from stack if we pushed
         if pushed_stack:
@@ -896,76 +943,24 @@ class PythonParser(ParserBase):
 
     def _identifier_is_skipped(self, node: Node) -> bool:
         parent = node.parent
-        skipped = parent is not None and self._parent_skips_identifier(parent, node)
-        ancestor = parent
-        while ancestor is not None and not skipped:
-            ancestor_type = ancestor.type
-            if ancestor_type in _IMPORT_ANCESTORS:
-                skipped = True
-            elif ancestor_type == "class_definition":
-                bases = ancestor.child_by_field_name("superclasses")
-                skipped = (
-                    bases is not None
-                    and bases.start_byte <= node.start_byte
-                    and bases.end_byte >= node.end_byte
-                )
-            elif ancestor_type in _TYPE_FIELD_ANCESTORS:
-                for field_name in ("type", "return_type"):
-                    field = ancestor.child_by_field_name(field_name)
-                    if (
-                        field is not None
-                        and field.start_byte <= node.start_byte
-                        and field.end_byte >= node.end_byte
-                    ):
-                        skipped = True
-            ancestor = ancestor.parent
-        return skipped
+        return self._skip_access_depth > 0 or (
+            parent is not None and self._parent_skips_identifier(parent, node)
+        )
 
     def _parent_skips_identifier(self, parent: Node, node: Node) -> bool:
-        left = parent.child_by_field_name("left")
-        name = parent.child_by_field_name("name")
-        attribute = parent.child_by_field_name("attribute")
-        function = parent.child_by_field_name("function")
-        alias = parent.child_by_field_name("alias")
-        binding_left = (
-            parent.type
-            in (
-                "assignment",
-                "annotated_assignment",
-                "augmented_assignment",
-                "for_statement",
-                "for_in_clause",
-            )
-            and left == node
-        )
-        definition_name = (
-            parent.type
-            in (
-                "function_definition",
-                "async_function_definition",
-                "class_definition",
-                "typed_parameter",
-                "typed_default_parameter",
-                "default_parameter",
-                "named_expression",
-            )
-            and name == node
-        )
-        pattern_name = parent.type in (
-            "parameters",
-            "list_splat_pattern",
-            "dictionary_splat_pattern",
-        )
-        return (
-            binding_left
-            or definition_name
-            or pattern_name
-            or (parent.type == "attribute" and attribute == node)
-            or (parent.type == "keyword_argument" and name == node)
-            or (parent.type == "call" and function == node)
-            or (parent.type == "as_pattern" and alias == node)
-            or parent.type in ("global_statement", "nonlocal_statement")
-        )
+        parent_type = parent.type
+        skipped = parent_type in _ALWAYS_SKIP_PARENTS
+        if parent_type in _LEFT_SKIP_PARENTS:
+            skipped = parent.child_by_field_name("left") == node
+        elif parent_type in _NAME_SKIP_PARENTS:
+            skipped = parent.child_by_field_name("name") == node
+        elif parent_type == "attribute":
+            skipped = parent.child_by_field_name("attribute") == node
+        elif parent_type == "call":
+            skipped = parent.child_by_field_name("function") == node
+        elif parent_type == "as_pattern":
+            skipped = parent.child_by_field_name("alias") == node
+        return skipped
 
     def _extract_reference(self, node: Node, ref_kind: str, file_id: int) -> None:
         """Extract Reference (Call, Access, Type Annotation)."""
