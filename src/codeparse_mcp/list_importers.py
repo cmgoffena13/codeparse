@@ -5,8 +5,8 @@ from src.db import CodeDB
 
 _MAX_IMPORTER_FILES = 100
 
-_IMPORTERS_SQL = """
-SELECT DISTINCT 
+_IMPORTERS_BY_PATH_SQL = """
+SELECT DISTINCT
 f.path AS importer_path
 FROM imports AS i
 INNER JOIN files AS f
@@ -18,46 +18,80 @@ WHERE target.path = ?
 ORDER BY f.path
 """
 
+_IMPORTERS_BY_MODULE_SQL = """
+SELECT DISTINCT
+f.path AS importer_path
+FROM imports AS i
+INNER JOIN files AS f
+    ON f.id = i.file_id
+WHERE (
+    i.module = ?
+    OR i.import_path = ?
+)
+{test_filter}
+ORDER BY f.path
+"""
 
-def list_importers(db: CodeDB, file_path: str, *, include_tests: bool) -> str:
+
+def list_importers(
+    db: CodeDB,
+    file_path: str | None = None,
+    *,
+    module_name: str | None = None,
+    include_tests: bool,
+) -> str:
     """
-    List files that import the module at ``file_path`` as a directory tree.
+    List files that import a module as a directory tree.
 
-    ``file_path`` is a repo-relative file path (e.g. ``pkg/mod.py``). Matching
-    is by ``imports.imported_file_id``.
+    Pass exactly one of ``file_path`` (repo-relative module file) or
+    ``module_name`` (dotted import path such as ``sqlglot`` or ``pkg.target``).
+    ``file_path`` matches via ``imports.imported_file_id``; ``module_name``
+    matches ``imports.module`` (top-level) or ``import_path`` (dotted / prefix).
 
     By default skips importer files marked ``is_test``.
     """
-    result = ""
-    try:
-        path = normalize_repo_file_path(file_path, db.root)
-    except ValueError as exc:
-        result = str(exc)
-    else:
-        rows = list(
-            db.connection.execute(
-                _IMPORTERS_SQL.format(test_filter="" if include_tests else "  AND f.is_test = 0"),
-                (path,),
-            )
-        )
-        if not rows:
-            result = "No importers found."
+    path_arg = None if file_path is None else file_path.strip() or None
+    module_arg = None if module_name is None else module_name.strip() or None
+    result = "Provide exactly one of file_path or module_name."
+    if (path_arg is None) != (module_arg is None):
+        test_filter = "" if include_tests else "  AND f.is_test = 0"
+        if path_arg is not None:
+            try:
+                path = normalize_repo_file_path(path_arg, db.root)
+            except ValueError as exc:
+                result = str(exc)
+            else:
+                rows = list(
+                    db.connection.execute(
+                        _IMPORTERS_BY_PATH_SQL.format(test_filter=test_filter),
+                        (path,),
+                    )
+                )
+                result = _format_importers([row["importer_path"] for row in rows])
         else:
-            paths = [row["importer_path"] for row in rows]
-            result = _format_importers(paths)
+            rows = list(
+                db.connection.execute(
+                    _IMPORTERS_BY_MODULE_SQL.format(test_filter=test_filter),
+                    (module_arg, module_arg, module_arg),
+                )
+            )
+            result = _format_importers([row["importer_path"] for row in rows])
     return result
 
 
 def _format_importers(paths: list[str]) -> str:
-    total = len(paths)
-    shown = paths[:_MAX_IMPORTER_FILES]
-    lines_out = _tree_lines(_tree(shown), "")
-    header = f"Total Files: {total}"
-    if total > _MAX_IMPORTER_FILES:
-        header = f"Showing {len(shown)} of {total} files"
-    lines_out.insert(0, header)
-    lines_out.insert(1, "")
-    return "\n".join(lines_out).rstrip() + "\n"
+    result = "No importers found."
+    if paths:
+        total = len(paths)
+        shown = paths[:_MAX_IMPORTER_FILES]
+        lines_out = _tree_lines(_tree(shown), "")
+        header = f"Total Files: {total}"
+        if total > _MAX_IMPORTER_FILES:
+            header = f"Showing {len(shown)} of {total} files"
+        lines_out.insert(0, header)
+        lines_out.insert(1, "")
+        result = "\n".join(lines_out).rstrip() + "\n"
+    return result
 
 
 def _tree(paths: list[str]) -> dict:

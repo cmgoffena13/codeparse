@@ -214,14 +214,25 @@ def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = Fal
 
 
 @mcp.tool()
-def list_importers(file_path: str, ctx: Context, include_tests: bool = False) -> str:
+def list_importers(
+    ctx: Context,
+    file_path: str | None = None,
+    module_name: str | None = None,
+    include_tests: bool = False,
+) -> str:
     """
-    Return a directory tree of files that import a given module file.
+    Return a directory tree of files that import a module.
+    Pass ``file_path`` (repo-relative module file) OR ``module_name``
+    (dotted path like ``sqlglot`` or ``pydantic.core``), not both.
     Excludes test files by default; set ``include_tests`` to include them.
     """
-    path = file_path.strip()
     return _processor(ctx).run_query(
-        lambda db: run_list_importers(db, path, include_tests=include_tests)
+        lambda db: run_list_importers(
+            db,
+            file_path=file_path,
+            module_name=module_name,
+            include_tests=include_tests,
+        )
     )
 
 
