@@ -22,6 +22,7 @@ SELECT
     line_count,
     symbol_count
 FROM files
+WHERE id != 0
 """
 
 # Paths under one directory.
@@ -45,6 +46,7 @@ SELECT
     symbol_count
 FROM files
 WHERE path >= ? AND path < ?
+  AND id != 0
 """
 
 

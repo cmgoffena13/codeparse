@@ -37,6 +37,11 @@ CREATE TABLE IF NOT EXISTS files (
     is_test         BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS files_normalized_path_index ON files (normalized_path);
+INSERT OR IGNORE INTO files (
+    id, name, path, normalized_path, content_hash, mtime_ns, size_bytes
+) VALUES (
+    0, 'EXTERNAL_PACKAGES', 'EXTERNAL_PACKAGES', 'EXTERNAL_PACKAGES', 'EXTERNAL_PACKAGES', 0, 0
+);
 
 CREATE TABLE IF NOT EXISTS entry_points (
     id              INTEGER NOT NULL PRIMARY KEY REFERENCES files(id),

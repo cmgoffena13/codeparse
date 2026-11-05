@@ -18,6 +18,7 @@ FROM files AS f
 LEFT JOIN directories AS d
     ON d.id = f.directory_id
 WHERE f.is_test = 0
+  AND f.id != 0
 GROUP BY d.path
 HAVING SUM(f.symbol_count) > 0
 ORDER BY symbol_count DESC, d.path

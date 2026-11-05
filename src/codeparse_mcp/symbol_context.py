@@ -1,5 +1,5 @@
 from src.codeparse_mcp.format_utils import bullet
-from src.db import CodeDB
+from src.db import EXTERNAL_PACKAGES_PATH, CodeDB
 
 _SYMBOL_ROW_SQL = """
 SELECT
@@ -126,23 +126,26 @@ def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) 
     line_start = int(row["line_start"])
     line_end = int(row["line_end"])
 
-    abs_path = db.root / path
     body_lines: list[str] = []
-    try:
-        raw_lines = abs_path.read_text(encoding="utf-8", errors="replace").splitlines()
-        if line_start < 1:
-            body_lines.append("    (invalid line_start)")
-        else:
-            chunk = raw_lines[line_start - 1 : line_end]
-            if not chunk:
-                body_lines.append("    (no lines in range)")
+    if path == EXTERNAL_PACKAGES_PATH:
+        body_lines.append("    (external stub; no source in workspace)")
+    else:
+        abs_path = db.root / path
+        try:
+            raw_lines = abs_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if line_start < 1:
+                body_lines.append("    (invalid line_start)")
             else:
-                gutter = _definition_gutter_width(line_start, len(chunk))
-                for index, ln in enumerate(chunk):
-                    lineno = line_start + index
-                    body_lines.append(f"L{lineno:<{gutter}} | {ln}")
-    except OSError as e:
-        body_lines.append(f"    (could not read source file: {e})")
+                chunk = raw_lines[line_start - 1 : line_end]
+                if not chunk:
+                    body_lines.append("    (no lines in range)")
+                else:
+                    gutter = _definition_gutter_width(line_start, len(chunk))
+                    for index, ln in enumerate(chunk):
+                        lineno = line_start + index
+                        body_lines.append(f"L{lineno:<{gutter}} | {ln}")
+        except OSError as e:
+            body_lines.append(f"    (could not read source file: {e})")
 
     lines: list[str] = [f"File: {path}"]
     if row["is_inherited"]:

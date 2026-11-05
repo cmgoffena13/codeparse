@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src.db import CodeDB
+from src.db import EXTERNAL_PACKAGES_PATH, CodeDB
 
 
 def test_delete_ids_rejects_unknown_table(tmp_path: Path) -> None:
@@ -36,6 +36,29 @@ def test_recreate_schema_drops_session_stats_before_their_parents(tmp_path: Path
         "session_stats_files",
         "session_stats_tool_outputs",
     } <= names
+    db.close()
+
+
+def test_schema_seeds_external_packages_file_outside_files_snapshot(tmp_path: Path) -> None:
+    db = CodeDB(tmp_path)
+    row = db.connection.execute(
+        "SELECT id, name, path, normalized_path FROM files WHERE path = ?",
+        (EXTERNAL_PACKAGES_PATH,),
+    ).fetchone()
+    assert row is not None
+    assert row["id"] == 0
+    assert row["name"] == EXTERNAL_PACKAGES_PATH
+    assert row["normalized_path"] == EXTERNAL_PACKAGES_PATH
+    assert EXTERNAL_PACKAGES_PATH not in db.get_files_snapshot()
+    db.recreate_schema()
+    assert (
+        db.connection.execute(
+            "SELECT id FROM files WHERE path = ?",
+            (EXTERNAL_PACKAGES_PATH,),
+        ).fetchone()["id"]
+        == 0
+    )
+    assert EXTERNAL_PACKAGES_PATH not in db.get_files_snapshot()
     db.close()
 
 
@@ -90,7 +113,8 @@ def test_delete_files_leaves_session_stats_for_that_file(tmp_path: Path) -> None
     db.delete_files(snapshot)
 
     assert {row["path"] for row in db.connection.execute("SELECT path FROM files")} == {
-        "pkg/keep.py"
+        EXTERNAL_PACKAGES_PATH,
+        "pkg/keep.py",
     }
     assert [
         row["file_id"] for row in db.connection.execute("SELECT file_id FROM session_stats_files")

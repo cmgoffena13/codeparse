@@ -1,8 +1,11 @@
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from src.utils import db_path_for_index_root, get_code_parse_config_dir
+
+EXTERNAL_PACKAGES_PATH = "EXTERNAL_PACKAGES"
+EXTERNAL_PACKAGES_FILE_ID = 0
 
 TABLE_BATCH_MAP = {
     "directories",
@@ -12,6 +15,10 @@ TABLE_BATCH_MAP = {
     "symbol_references",
     "entry_points",
 }
+
+
+class _IDAssigner(Protocol):
+    def reserve(self, table: str, count: int) -> tuple[int, ...]: ...
 
 
 def index_workspace_paths() -> list[tuple[Path, Path]]:
@@ -114,7 +121,8 @@ class CodeDB:
     def get_files_snapshot(self) -> dict[str, dict[str, Any]]:
         cursor = self.connection.execute(
             "SELECT id, directory_id, path, content_hash, mtime_ns, size_bytes, "
-            "line_count, symbol_count, is_test FROM files"
+            "line_count, symbol_count, is_test FROM files WHERE id != ?",
+            (EXTERNAL_PACKAGES_FILE_ID,),
         )
         return {
             row["path"]: {
@@ -234,6 +242,10 @@ class CodeDB:
             return
         with self.connection:
             ids_placeholder = ",".join(["?"] * len(symbol_ids))
+            self.connection.execute(
+                f"DELETE FROM symbol_references WHERE ref_symbol_id IN ({ids_placeholder})",  # noqa: S608
+                symbol_ids,
+            )
             self.connection.execute(
                 f"DELETE FROM symbol_bases WHERE symbol_id IN ({ids_placeholder})",  # noqa: S608
                 symbol_ids,
@@ -424,6 +436,91 @@ class CodeDB:
                 """,
                 imports,
             )
+
+    def ensure_external_symbols(self, assigner: _IDAssigner) -> None:
+        import_rows = self.connection.execute(
+            """
+            SELECT DISTINCT import_path, imported_symbol
+            FROM imports
+            WHERE import_type = 'absolute'
+              AND import_path != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM files AS f
+                  WHERE f.normalized_path = imports.import_path
+              )
+            """
+        ).fetchall()
+        stubs_from_imports: dict[str, tuple[str, str | None, str]] = {}
+        for row in import_rows:
+            import_path = row["import_path"]
+            imported_symbol = row["imported_symbol"]
+            if imported_symbol:
+                qualified_name = f"{import_path}.{imported_symbol}"
+                kind = "external"
+            else:
+                qualified_name = import_path
+                kind = "module"
+            if "." in qualified_name:
+                parent, _, name = qualified_name.rpartition(".")
+            else:
+                parent, name = None, qualified_name
+            stubs_from_imports[qualified_name] = (name, parent, kind)
+
+        snapshot = self.get_symbols_snapshot(EXTERNAL_PACKAGES_FILE_ID)
+        stubs_by_qn = {qualified_name: entry for (qualified_name, _kind), entry in snapshot.items()}
+
+        stub_rows: list[dict[str, Any]] = []
+        fts_rows: list[tuple[int, str, str | None]] = []
+
+        for qualified_name, (name, parent, kind) in stubs_from_imports.items():
+            if qualified_name in stubs_by_qn:
+                stubs_by_qn[qualified_name]["seen"] = True
+            else:
+                stub_rows.append(
+                    {
+                        "qualified_name": qualified_name,
+                        "name": name,
+                        "parent": parent,
+                        "kind": kind,
+                    }
+                )
+        self.delete_symbols(snapshot)
+        if stub_rows:
+            ids = assigner.reserve("symbols", len(stub_rows))
+            for symbol_id, stub in zip(ids, stub_rows, strict=True):
+                stub["id"] = symbol_id
+                stub["file_id"] = EXTERNAL_PACKAGES_FILE_ID
+                stub["parent_id"] = None
+                stub["line_start"] = 0
+                stub["line_end"] = 0
+                stub["line_count"] = 0
+                stub["signature"] = ""
+                stub["docstring"] = None
+                stub["modifiers"] = None
+                stub["language"] = "python"
+                stub["is_test"] = False
+                stub["is_inherited"] = False
+                fts_rows.append((symbol_id, stub["name"], stub["parent"]))
+            with self.connection:
+                self.connection.executemany(
+                    """
+                    INSERT INTO symbols
+                    (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
+                     line_end, line_count, signature, docstring, modifiers, language,
+                     is_test, is_inherited)
+                    VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
+                            :line_start, :line_end, :line_count, :signature,
+                            :docstring, :modifiers, :language, :is_test, :is_inherited)
+                    """,
+                    stub_rows,
+                )
+                self.connection.executemany(
+                    """
+                    INSERT INTO symbols_fts (rowid, name, parent)
+                    VALUES (?, ?, ?)
+                    """,
+                    fts_rows,
+                )
 
     def resolve_symbol_references(self) -> None:
         with self.connection:

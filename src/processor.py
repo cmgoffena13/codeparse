@@ -313,6 +313,7 @@ class CodeProcessor:
         self.db_batches = self._new_batches()
 
     def _bulk_operations(self, now: int, last_incremental: int) -> None:
+        self.db.ensure_external_symbols(self.assigner)
         self.db.resolve_symbol_references()
         self.db.resolve_imports(now, last_incremental)
 
