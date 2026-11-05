@@ -27,9 +27,9 @@ def test_normalize_rejects_outside_root(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir()
     outside = tmp_path / "other" / "x.py"
-    with pytest.raises(ValueError, match="outside the workspace root"):
+    with pytest.raises(ValueError, match="outside the workspace ROOT"):
         normalize_repo_file_path(str(outside), root)
-    with pytest.raises(ValueError, match="outside the workspace root"):
+    with pytest.raises(ValueError, match="outside the workspace ROOT"):
         normalize_repo_file_path("../other/x.py", root)
 
 

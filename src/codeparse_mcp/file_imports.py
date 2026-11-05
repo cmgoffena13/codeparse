@@ -23,7 +23,7 @@ def get_file_imports(db: CodeDB, file_path: str) -> str:
     Return import statements for one file.
 
     Imports use a padded ``L{n}`` gutter. ``file_path`` is normalized to a POSIX
-    path relative to the workspace root (e.g. ``pkg/mod.py``).
+    path relative to the workspace ROOT (e.g. ``pkg/mod.py``).
     """
     error, file_row = load_indexed_file(db, file_path)
     result = error

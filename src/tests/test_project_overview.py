@@ -80,7 +80,7 @@ def test_project_overview_directories_and_entry_points(indexed_project: Path) ->
     assert out.startswith("Directories - Top 10\n")
     assert "Legend:" not in out
     assert "  • pkg (29L, 8S, 6F)" in out
-    assert any(line.startswith("  • root (") for line in out.splitlines())
+    assert any(line.startswith("  • ROOT (") for line in out.splitlines())
     assert not any(line.startswith("  • None ") for line in out.splitlines())
     assert out.index("  • pkg (") < out.index("  • other (")
 

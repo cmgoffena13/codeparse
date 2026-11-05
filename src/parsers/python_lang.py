@@ -753,7 +753,7 @@ class PythonParser(ParserBase):
                 raw = statement.text.decode("utf-8", errors="replace")
                 try:
                     docstring = ast.literal_eval(raw)
-                except (ValueError, SyntaxError):
+                except ValueError, SyntaxError:
                     docstring = raw.strip("\"'")
 
         # NOTE: Extract Qualified Base Class Names.

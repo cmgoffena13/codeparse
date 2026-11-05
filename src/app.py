@@ -93,7 +93,7 @@ def main() -> int:
     if args.command == "update":
         from src.cli.upgrade import upgrade
 
-        return upgrade()
+        return upgrade(version=args.release_version)
     if args.command == "mcp":
         root = _require_indexable_root(args.cwd)
         if root is None:

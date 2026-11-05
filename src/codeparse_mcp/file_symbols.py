@@ -49,7 +49,7 @@ def get_file_symbols(db: CodeDB, file_path: str) -> str:
     Return a nested symbol tree for one file.
 
     Symbols use ``L{start}[-{end}]  kind  qualified_name``. ``file_path`` is
-    normalized to a POSIX path relative to the workspace root (e.g. ``pkg/mod.py``).
+    normalized to a POSIX path relative to the workspace ROOT (e.g. ``pkg/mod.py``).
     """
     error, file_row = load_indexed_file(db, file_path)
     result = error

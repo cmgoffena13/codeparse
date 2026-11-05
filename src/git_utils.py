@@ -48,7 +48,7 @@ def is_git_controlled(path: Path) -> bool:
             env=env,
         )
         controlled = bool(result.stdout.strip())
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         controlled = False
     return controlled
 
