@@ -31,7 +31,7 @@ def _run_reload(root: Path) -> int:
     from src.db import CodeDB
     from src.processor import CodeProcessor
 
-    db = CodeDB(root)
+    db = CodeDB(root, apply_schema=False)
     try:
         db.recreate_schema()
         processor: CodeProcessor = CodeProcessor(db, root)

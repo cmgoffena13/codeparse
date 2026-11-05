@@ -46,14 +46,15 @@ def remove_index_files() -> None:
 
 
 class CodeDB:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, apply_schema: bool = True):
         self.root = root.resolve()
         self.db_file = db_path_for_index_root(self.root)
         self.connection = sqlite3.connect(str(self.db_file), check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self.connection_closed = False
-        self._apply_schema()
-        self._store_index_root()
+        if apply_schema:
+            self._apply_schema()
+            self._store_index_root()
 
     def _store_index_root(self) -> None:
         self.exec_tran(
