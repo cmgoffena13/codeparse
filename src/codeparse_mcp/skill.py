@@ -4,8 +4,8 @@ import xxhash
 import yaml
 
 DESCRIPTION = (
-    "Use when navigating a Python codebase: find symbols, follow imports and "
-    "references, and map how files depend on each other."
+    "Use when navigating a Python codebase for efficient code navigation: "
+    "find symbols, follow imports and references, and map how files depend on each other."
 )
 
 _SKILL_BODY = """\
@@ -30,7 +30,7 @@ The information that is provided to you will determine the tool you should use.
 1. Use ``get_symbol_at_lines`` to get the symbol definition that covers those lines.
 
 ## You are NOT given the file name or symbol's qualified name. 
-1. Investigate the codebase using ``get_project_overview`` and keywords. 
+1. Investigate the codebase using ``get_entry_points`` and keywords. 
 2. Use ``get_file_symbols`` to get a file's nested symbol tree.
 3. Use ``get_symbol`` to get the symbol definition. 
 
@@ -55,7 +55,7 @@ The information that is provided to you will determine the tool you should use.
 # RESOURCES
 
 ## ``stats://codeparse/sessions``
- - Only use when the question is about codeparse cost or decision quality.
+ - Only use when the question is about codeparse sessions, cost, or decision quality.
 """
 
 
