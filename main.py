@@ -209,8 +209,8 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "PROJECT OVERVIEW",
-            _body(await client.call_tool("get_project_overview")),
+            "ENTRY POINTS",
+            _body(await client.call_tool("get_entry_points")),
         )
         report = "No session stats recorded.\n"
         for _ in range(50):

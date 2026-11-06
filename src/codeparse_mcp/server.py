@@ -91,7 +91,7 @@ def _processor(ctx: Context) -> CodeProcessor:
 @mcp.tool()
 def get_entry_points(ctx: Context) -> str:
     """
-    Returns all project entry points.
+    Returns all project entry points with line and symbol counts (lines L, symbols S).
     """
     return _processor(ctx).run_query(run_get_entry_points)
 
