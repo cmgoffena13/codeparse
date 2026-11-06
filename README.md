@@ -27,9 +27,10 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `get_directory_tree` | Return the directory tree. |
 | `get_file_symbols` | Return the symbol tree of one file. |
 | `get_file_imports` | Return the import statements of one file. |
-| `get_symbol` | Return one symbol's definition and its reference counts. |
+| `get_symbol` | Return one symbol's definition with reference and invoke counts. |
 | `get_symbol_at_lines` | Return the symbol that covers a line range in a file. |
 | `get_symbol_references` | Return the call, access, and/or type-annotation sites for one symbol. |
+| `get_symbol_invokes` | Return the symbols calls, accesses, and/or type-annotates. Opposite direction of `get_symbol_references` |
 | `search_symbols` | Full Text Search symbol names. |
 | `list_subclasses` | Return the classes that directly inherit from a class. |
 | `list_importers` | Return the files that import a module. |

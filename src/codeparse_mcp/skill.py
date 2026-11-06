@@ -45,6 +45,7 @@ The information that is provided to you will determine the tool you should use.
  - Use ``list_importers`` with a dotted ``module_name`` to find dependents; DO NOT grep for this.
  - Use ``get_file_imports`` to list a file's import statements; DO NOT grep for this.
  - Use ``get_symbol_references`` to find reference sites of an exact symbol; DO NOT grep for this.
+ - Use ``get_symbol_invokes`` to find symbols that an exact symbol invokes; DO NOT grep for this.
  - Use ``list_subclasses`` to find subclasses of a class; DO NOT grep for this.
 
 #### ``search_symbols``

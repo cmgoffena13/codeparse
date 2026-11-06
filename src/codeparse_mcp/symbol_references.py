@@ -39,7 +39,13 @@ _REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
 
 def _section_lines(heading: str, total: int, rows: list) -> list[str]:
     by_file: OrderedDict[str, list[tuple[int, str | None]]] = OrderedDict()
+    seen = set()
+    count = {}
     for r in rows:
+        count[r["source_qualified_name"]] = count.get(r["source_qualified_name"], 0) + 1
+        if r["source_qualified_name"] in seen:
+            continue
+        seen.add(r["source_qualified_name"])
         by_file.setdefault(r["source_path"], []).append(
             (int(r["source_line"]), r["source_qualified_name"])
         )
@@ -56,7 +62,9 @@ def _section_lines(heading: str, total: int, rows: list) -> list[str]:
             lines_out.append("")
         lines_out.append(path)
         for line_n, qn in sites:
-            if qn:
+            if qn and count[qn] > 1:
+                lines_out.append(bullet(qn + f" ({count[qn]})"))
+            elif qn:
                 lines_out.append(bullet(qn))
             else:
                 lines_out.append(bullet(f"L{line_n}  (no symbol)"))

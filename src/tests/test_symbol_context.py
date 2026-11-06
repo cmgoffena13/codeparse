@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.codeparse_mcp.symbol_context import get_symbol_context
+from src.codeparse_mcp.symbol_invokes import get_symbol_invokes
 from src.codeparse_mcp.symbol_references import get_symbol_references
 from src.db import CodeDB
 from src.processor import CodeProcessor
@@ -72,6 +73,9 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "Lines:" not in method
         assert "Symbol:" not in method
         assert method.index("File:") < method.index("def run(")
+        assert "## Invokes (1)" in method
+        assert "Calls: 1" in method
+        assert method.index("## References") < method.index("## Invokes")
     finally:
         db.close()
 
@@ -202,6 +206,26 @@ def test_symbol_references_none(tmp_path: Path) -> None:
     try:
         out = get_symbol_references(db, "pkg.target.missing", include_tests=False)
         assert out == "No references found."
+    finally:
+        db.close()
+
+
+def test_symbol_invokes_lists_callees(tmp_path: Path) -> None:
+    root = _index(tmp_path)
+    db = CodeDB(root)
+    try:
+        out = get_symbol_invokes(db, "pkg.target.Worker.run")
+        assert "## Calls" in out
+        assert "pkg.target.helper" in out
+        assert "pkg/target.py" in out
+        assert "No invokes found." not in out
+
+        none = get_symbol_invokes(db, "pkg.target.helper")
+        assert none == "No invokes found."
+
+        calls = get_symbol_invokes(db, "pkg.target.Worker.run", reference_type="call")
+        assert "## Calls" in calls
+        assert "## Access" not in calls
     finally:
         db.close()
 

@@ -26,6 +26,15 @@ WHERE sr.ref_symbol_qualified_name = ?
 GROUP BY f.is_test, sr.ref_kind
 """
 
+_INVOKE_KIND_COUNTS_SQL = """
+SELECT sr.ref_kind, COUNT(*) AS n
+FROM symbol_references AS sr
+INNER JOIN symbols AS src
+    ON src.id = sr.source_symbol_id
+WHERE src.qualified_name = ?
+GROUP BY sr.ref_kind
+"""
+
 _INHERITED_MEMBERS_SQL = """
 SELECT
     inherited.kind AS member_kind,
@@ -104,15 +113,27 @@ def _reference_sections(db: CodeDB, qualified_name: str, *, include_tests: bool)
     return lines
 
 
+def _invoke_sections(db: CodeDB, qualified_name: str) -> list[str]:
+    counts: dict[str, int] = {}
+    for row in db.connection.execute(_INVOKE_KIND_COUNTS_SQL, (qualified_name,)):
+        counts[row["ref_kind"]] = int(row["n"])
+    total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
+    lines: list[str] = []
+    if total:
+        lines.extend(["", f"## Invokes ({total})", ""])
+        lines.extend(_kind_count_lines(counts))
+    return lines
+
+
 def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     """
-    Return symbol metadata, reference totals, and source for the symbol span.
+    Return symbol metadata, reference totals, invoke totals, and source for the symbol span.
 
     Test references are omitted unless ``include_tests`` is true.
 
     ``qualified_name`` must equal ``symbols.qualified_name`` (module-prefixed for
-    Python). Bare names do not match. Use ``get_symbol_references`` for the
-    individual call / access / type-annotation sites.
+    Python). Bare names do not match. Use ``get_symbol_references`` for incoming
+    sites and ``get_symbol_invokes`` for outgoing targets.
     """
     key = qualified_name.strip()
     if not key:
@@ -155,5 +176,6 @@ def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) 
     lines.extend(body_lines)
     lines.extend(_inherited_member_sections(db, int(row["symbol_id"])))
     lines.extend(_reference_sections(db, key, include_tests=include_tests))
+    lines.extend(_invoke_sections(db, key))
 
     return "\n".join(lines) + "\n"

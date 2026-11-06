@@ -19,6 +19,7 @@ from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_sessi
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_symbol_at_lines
 from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
+from src.codeparse_mcp.symbol_invokes import get_symbol_invokes as run_symbol_invokes
 from src.codeparse_mcp.symbol_references import (
     get_symbol_references as run_symbol_references,
 )
@@ -151,11 +152,12 @@ def search_symbols(
 def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return the symbol definition with line numbers, inherited members,
-    and aggregated reference counts (calls, accesses, type annotations).
+    aggregated reference counts, and invoke counts (calls, accesses, type annotations).
 
     Excludes test references by default; set ``include_tests`` to include them.
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Use ``get_symbol_references`` for detailed call, access, and type-annotation sites.
+    Use ``get_symbol_references`` for incoming sites and
+    ``get_symbol_invokes`` for outgoing targets.
     """
     return _processor(ctx).run_query(
         lambda db: run_symbol_context(db, qualified_name, include_tests=include_tests)
@@ -204,6 +206,28 @@ def get_symbol_references(
             db,
             qualified_name,
             include_tests=include_tests,
+            reference_type=reference_type,
+        )
+    )
+
+
+@mcp.tool()
+def get_symbol_invokes(
+    qualified_name: str,
+    ctx: Context,
+    reference_type: Literal["call", "access", "type"] | None = None,
+) -> str:
+    """
+    Return symbols that a symbol invokes (calls, accesses, type annotations), grouped by
+    target file. The opposite direction of ``get_symbol_references``.
+
+    References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
+    Set ``reference_type`` to ``call``, ``access``, or ``type`` to return only one kind.
+    """
+    return _processor(ctx).run_query(
+        lambda db: run_symbol_invokes(
+            db,
+            qualified_name,
             reference_type=reference_type,
         )
     )

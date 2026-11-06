@@ -21,6 +21,7 @@ _TOOLS = {
     "get_symbol",
     "get_symbol_at_lines",
     "get_symbol_references",
+    "get_symbol_invokes",
     "search_symbols",
 }
 

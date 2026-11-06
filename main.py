@@ -135,11 +135,11 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "SYMBOL CONTEXT",
+            "SYMBOL",
             _body(
                 await client.call_tool(
                     "get_symbol",
-                    {"qualified_name": "sqlmesh.core.context.Context"},
+                    {"qualified_name": "sqlmesh.core.context.GenericContext"},
                 )
             ),
         )
@@ -178,6 +178,15 @@ async def _print_tools() -> None:
                         "qualified_name": ("sqlmesh.core.context.Context"),
                         "include_tests": False,
                     },
+                )
+            ),
+        )
+        _print_section(
+            "SYMBOL INVOKES",
+            _body(
+                await client.call_tool(
+                    "get_symbol_invokes",
+                    {"qualified_name": "sqlmesh.core.context.GenericContext"},
                 )
             ),
         )
