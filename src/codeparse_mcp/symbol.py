@@ -125,7 +125,7 @@ def _invoke_sections(db: CodeDB, qualified_name: str) -> list[str]:
     return lines
 
 
-def get_symbol_context(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
+def get_symbol(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     """
     Return symbol metadata, reference totals, invoke totals, and source for the symbol span.
 

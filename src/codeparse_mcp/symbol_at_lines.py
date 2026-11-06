@@ -2,7 +2,7 @@
 
 from src.codeparse_mcp.format_utils import bullet, line_span
 from src.codeparse_mcp.paths import normalize_repo_file_path
-from src.codeparse_mcp.symbol_context import get_symbol_context
+from src.codeparse_mcp.symbol import get_symbol
 from src.db import CodeDB
 
 _SYMBOL_AT_LINES_SQL = """
@@ -76,7 +76,7 @@ def _format_hits(db: CodeDB, chosen, *, include_tests: bool) -> str:
     if len(chosen) == 1:
         name = str(chosen[0]["qualified_name"])
         inherited = bool(chosen[0]["is_inherited"])
-        body = get_symbol_context(db, name, include_tests=include_tests)
+        body = get_symbol(db, name, include_tests=include_tests)
         rest = body.split("\n", 1)[1]
         text = rest if inherited else f"Symbol: {name}\n{rest}"
     else:

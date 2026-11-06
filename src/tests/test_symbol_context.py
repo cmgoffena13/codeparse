@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from src.codeparse_mcp.symbol_context import get_symbol_context
+from src.codeparse_mcp.symbol import get_symbol
 from src.codeparse_mcp.symbol_invokes import get_symbol_invokes
 from src.codeparse_mcp.symbol_references import get_symbol_references
 from src.db import CodeDB
@@ -44,7 +44,7 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        out = get_symbol_context(db, "pkg.target.helper", include_tests=False)
+        out = get_symbol(db, "pkg.target.helper", include_tests=False)
         assert "## Code Definition" not in out
         assert "Legend:" not in out
         assert "Kind:" not in out
@@ -52,7 +52,7 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "## References (3)" in out
         assert "Calls: 3" in out
         assert "Test References" not in out
-        with_tests = get_symbol_context(db, "pkg.target.helper", include_tests=True)
+        with_tests = get_symbol(db, "pkg.target.helper", include_tests=True)
         assert "## Test References (1)" in with_tests
         assert "Calls: 1" in with_tests
         assert with_tests.index("## References") < with_tests.index("## Test References")
@@ -66,7 +66,7 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "tests/test_target.py" not in out
         assert "## Calls" not in out
 
-        method = get_symbol_context(db, "pkg.target.Worker.run", include_tests=False)
+        method = get_symbol(db, "pkg.target.Worker.run", include_tests=False)
         assert "Parent:" not in method
         assert "Language:" not in method
         assert "Kind:" not in method
@@ -98,8 +98,8 @@ def test_symbol_context_marks_inherited_file(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process(full=True)
     try:
-        inherited = get_symbol_context(db, "child.Context.plan", include_tests=False)
-        defined = get_symbol_context(db, "base.GenericContext.plan", include_tests=False)
+        inherited = get_symbol(db, "child.Context.plan", include_tests=False)
+        defined = get_symbol(db, "base.GenericContext.plan", include_tests=False)
         assert "File: base.py\n" in inherited
         assert "File: base.py (inherited)" not in inherited
         assert "Symbol: base.GenericContext.plan (inherited)" in inherited
@@ -143,7 +143,7 @@ def test_symbol_context_lists_inherited_members_before_references(tmp_path: Path
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process(full=True)
     try:
-        out = get_symbol_context(db, "child.Context", include_tests=False)
+        out = get_symbol(db, "child.Context", include_tests=False)
         assert "## Inherits (3)" in out
         assert "Methods (1)" in out
         assert "## Methods" not in out
@@ -159,12 +159,8 @@ def test_symbol_context_lists_inherited_members_before_references(tmp_path: Path
         assert "Methods (0)" not in out
         assert out.index("## Inherits (3)") < out.index("Methods (1)")
         assert out.index("## Inherits (3)") < out.index("## References")
-        assert "## Inherits" not in get_symbol_context(
-            db, "base.GenericContext", include_tests=False
-        )
-        assert "## Inherits" not in get_symbol_context(
-            db, "child.Context.plan", include_tests=False
-        )
+        assert "## Inherits" not in get_symbol(db, "base.GenericContext", include_tests=False)
+        assert "## Inherits" not in get_symbol(db, "child.Context.plan", include_tests=False)
     finally:
         db.close()
 

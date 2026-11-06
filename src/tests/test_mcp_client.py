@@ -17,7 +17,7 @@ _TOOLS = {
     "get_directory_tree",
     "get_file_imports",
     "get_file_symbols",
-    "get_project_overview",
+    "get_entry_points",
     "get_symbol",
     "get_symbol_at_lines",
     "get_symbol_references",
@@ -63,12 +63,6 @@ def test_client_tools_read_the_workspace(
 
     async def run() -> None:
         async with mcp_client:
-            overview = _text(await mcp_client.call_tool("get_project_overview"))
-            assert overview.startswith("Directories - Top 10\n")
-            assert "Legend:" not in overview
-            assert "pkg/cli.py" in overview
-            assert "tests/test_child.py" not in overview
-
             tree = _text(await mcp_client.call_tool("get_directory_tree", {"path": "pkg"}))
             assert "child.py" in tree
             assert "tests/test_child.py" not in tree

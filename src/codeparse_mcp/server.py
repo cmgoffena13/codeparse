@@ -7,21 +7,21 @@ from typing import Any, Literal
 from fastmcp import Context, FastMCP
 
 from src.codeparse_mcp.directory_tree import get_directory_tree as run_directory_tree
-from src.codeparse_mcp.file_imports import get_file_imports as run_file_imports
-from src.codeparse_mcp.file_symbols import get_file_symbols as run_file_symbols
+from src.codeparse_mcp.entry_points import (
+    get_entry_points as run_get_entry_points,
+)
+from src.codeparse_mcp.file_imports import get_file_imports as run_get_file_imports
+from src.codeparse_mcp.file_symbols import get_file_symbols as run_get_file_symbols
 from src.codeparse_mcp.list_importers import list_importers as run_list_importers
 from src.codeparse_mcp.list_subclasses import list_subclasses as run_list_subclasses
-from src.codeparse_mcp.project_overview import (
-    get_project_overview as run_project_overview,
-)
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
 from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_session_stats_report
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
-from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_symbol_at_lines
-from src.codeparse_mcp.symbol_context import get_symbol_context as run_symbol_context
-from src.codeparse_mcp.symbol_invokes import get_symbol_invokes as run_symbol_invokes
+from src.codeparse_mcp.symbol import get_symbol as run_get_symbol
+from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_get_symbol_at_lines
+from src.codeparse_mcp.symbol_invokes import get_symbol_invokes as run_get_symbol_invokes
 from src.codeparse_mcp.symbol_references import (
-    get_symbol_references as run_symbol_references,
+    get_symbol_references as run_get_symbol_references,
 )
 from src.db import CodeDB
 from src.processor import CodeProcessor
@@ -89,12 +89,11 @@ def _processor(ctx: Context) -> CodeProcessor:
 
 
 @mcp.tool()
-def get_project_overview(ctx: Context) -> str:
+def get_entry_points(ctx: Context) -> str:
     """
-    Return the top ten directories by symbol count and all project entry points.
-    Directories are (lines L, symbols S, files F) and entry points are (lines L, symbols S).
+    Returns all project entry points.
     """
-    return _processor(ctx).run_query(run_project_overview)
+    return _processor(ctx).run_query(run_get_entry_points)
 
 
 @mcp.tool()
@@ -112,7 +111,7 @@ def get_file_symbols(file_path: str, ctx: Context) -> str:
     Return a nested symbol tree for one file with line numbers.
     Follow up with ``get_symbol`` for symbol definitions.
     """
-    return _processor(ctx).run_query(lambda db: run_file_symbols(db, file_path))
+    return _processor(ctx).run_query(lambda db: run_get_file_symbols(db, file_path))
 
 
 @mcp.tool()
@@ -121,7 +120,7 @@ def get_file_imports(file_path: str, ctx: Context) -> str:
     Return the import statements for one file with line numbers.
     Use ``list_importers`` with a dotted ``module_name`` to find dependents.
     """
-    return _processor(ctx).run_query(lambda db: run_file_imports(db, file_path))
+    return _processor(ctx).run_query(lambda db: run_get_file_imports(db, file_path))
 
 
 @mcp.tool()
@@ -160,7 +159,7 @@ def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -
     ``get_symbol_invokes`` for outgoing targets.
     """
     return _processor(ctx).run_query(
-        lambda db: run_symbol_context(db, qualified_name, include_tests=include_tests)
+        lambda db: run_get_symbol(db, qualified_name, include_tests=include_tests)
     )
 
 
@@ -180,7 +179,7 @@ def get_symbol_at_lines(
     Excludes test references by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
-        lambda db: run_symbol_at_lines(
+        lambda db: run_get_symbol_at_lines(
             db, file_path, line_start, line_end, include_tests=include_tests
         )
     )
@@ -202,7 +201,7 @@ def get_symbol_references(
     Set ``reference_type`` to ``call``, ``access``, or ``type`` to return only one kind.
     """
     return _processor(ctx).run_query(
-        lambda db: run_symbol_references(
+        lambda db: run_get_symbol_references(
             db,
             qualified_name,
             include_tests=include_tests,
@@ -225,7 +224,7 @@ def get_symbol_invokes(
     Set ``reference_type`` to ``call``, ``access``, or ``type`` to return only one kind.
     """
     return _processor(ctx).run_query(
-        lambda db: run_symbol_invokes(
+        lambda db: run_get_symbol_invokes(
             db,
             qualified_name,
             reference_type=reference_type,

@@ -6,25 +6,6 @@ from pathlib import Path
 from src.codeparse_mcp.format_utils import bullet, file_label
 from src.db import CodeDB
 
-_TOP_DIRECTORIES = 10
-
-_DIRECTORIES_SQL = """
-SELECT
-    d.path,
-    COUNT(f.id) AS file_count,
-    SUM(f.line_count) AS line_count,
-    SUM(f.symbol_count) AS symbol_count
-FROM files AS f
-LEFT JOIN directories AS d
-    ON d.id = f.directory_id
-WHERE f.is_test = 0
-  AND f.id != 0
-GROUP BY d.path
-HAVING SUM(f.symbol_count) > 0
-ORDER BY symbol_count DESC, d.path
-LIMIT ?
-"""
-
 _PYTHON_ENTRY_POINTS_SQL = """
 SELECT
     f.path,
@@ -114,31 +95,16 @@ def _entry_point_lines(db: CodeDB) -> list[str]:
     return lines or ["No entry points."]
 
 
-def get_project_overview(db: CodeDB) -> str:
+def get_entry_points(db: CodeDB) -> str:
     """
     Top directories by symbol count, plus entry points from ``pyproject.toml``
     scripts, ``app.py`` / ``main.py``, and ``if __name__ == "__main__"``.
 
     Counts use files that sit directly in each directory. Test files are skipped.
     """
-    directories = list(db.connection.execute(_DIRECTORIES_SQL, (_TOP_DIRECTORIES,)).fetchall())
     entry_points = _entry_point_lines(db)
 
-    lines = [
-        "Directories - Top 10",
-        "",
-    ]
-    if directories:
-        for row in directories:
-            symbols = int(row["symbol_count"])
-            line_count = int(row["line_count"])
-            files = int(row["file_count"])
-            directory = row["path"] or "ROOT"
-            lines.append(bullet(f"{directory} ({line_count}L, {symbols}S, {files}F)"))
-    else:
-        lines.append("No directories found.")
-
-    lines.extend(["", "Entrypoints", ""])
+    lines = [""]
     lines.extend(entry_points)
 
     return "\n".join(lines).rstrip() + "\n"

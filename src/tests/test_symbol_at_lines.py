@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
+from src.codeparse_mcp.symbol import get_symbol
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines
-from src.codeparse_mcp.symbol_context import get_symbol_context
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -41,31 +41,31 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
         assert get_symbol_at_lines(
             db, "pkg/target.py", 1, None, include_tests=False
         ) == _with_symbol_header(
-            get_symbol_context(db, "pkg.target.helper", include_tests=False), "pkg.target.helper"
+            get_symbol(db, "pkg.target.helper", include_tests=False), "pkg.target.helper"
         )
         shown = get_symbol_at_lines(db, "pkg/target.py", 1, None, include_tests=True)
         assert "Test References" in shown
         assert get_symbol_at_lines(
             db, "pkg/target.py", 7, None, include_tests=False
         ) == _with_symbol_header(
-            get_symbol_context(db, "pkg.target.Worker.run", include_tests=False),
+            get_symbol(db, "pkg.target.Worker.run", include_tests=False),
             "pkg.target.Worker.run",
         )
         assert get_symbol_at_lines(
             db, "pkg/target.py", 6, 7, include_tests=False
         ) == _with_symbol_header(
-            get_symbol_context(db, "pkg.target.Worker.run", include_tests=False),
+            get_symbol(db, "pkg.target.Worker.run", include_tests=False),
             "pkg.target.Worker.run",
         )
         assert get_symbol_at_lines(
             db, "pkg/target.py", 5, 7, include_tests=False
         ) == _with_symbol_header(
-            get_symbol_context(db, "pkg.target.Worker", include_tests=False), "pkg.target.Worker"
+            get_symbol(db, "pkg.target.Worker", include_tests=False), "pkg.target.Worker"
         )
         assert get_symbol_at_lines(
             db, "pkg/target.py", 2, 3, include_tests=False
         ) == _with_symbol_header(
-            get_symbol_context(db, "pkg.target.helper", include_tests=False), "pkg.target.helper"
+            get_symbol(db, "pkg.target.helper", include_tests=False), "pkg.target.helper"
         )
         assert get_symbol_at_lines(db, "pkg/target.py", 2, 5, include_tests=False) == (
             "Multiple symbols found:\n  • pkg.target.helper — L1-2\n  • pkg.target.Worker — L5-7\n"

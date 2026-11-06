@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from src.codeparse_mcp.directory_tree import get_directory_tree
-from src.codeparse_mcp.project_overview import get_project_overview
+from src.codeparse_mcp.entry_points import get_entry_points
 from src.codeparse_mcp.search_symbols import search_symbols
-from src.codeparse_mcp.symbol_context import get_symbol_context
+from src.codeparse_mcp.symbol import get_symbol
 from src.db import EXTERNAL_PACKAGES_FILE_ID, EXTERNAL_PACKAGES_PATH, CodeDB
 from src.processor import CodeProcessor
 
@@ -115,7 +115,7 @@ def test_directory_tree_and_overview_hide_external_packages(tmp_path: Path) -> N
     CodeProcessor(db, tmp_path).process(full=True)
 
     tree = get_directory_tree(db, None)
-    overview = get_project_overview(db)
+    overview = get_entry_points(db)
     assert EXTERNAL_PACKAGES_PATH not in tree
     assert EXTERNAL_PACKAGES_PATH not in overview
     db.close()
@@ -130,7 +130,7 @@ def test_get_symbol_reports_external_stub_without_source(tmp_path: Path) -> None
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process(full=True)
 
-    out = get_symbol_context(db, "sqlglot.Exp", include_tests=False)
+    out = get_symbol(db, "sqlglot.Exp", include_tests=False)
     assert f"File: {EXTERNAL_PACKAGES_PATH}" in out
     assert "(external stub; no source in workspace)" in out
     assert "could not read source file" not in out

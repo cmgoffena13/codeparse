@@ -23,7 +23,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 
 | Tool | Description |
 | --- | --- |
-| `get_project_overview` | Return the largest directories and the project entry points. |
+| `get_entry_points` | Return the project entry points. |
 | `get_directory_tree` | Return the directory tree. |
 | `get_file_symbols` | Return the symbol tree of one file. |
 | `get_file_imports` | Return the import statements of one file. |

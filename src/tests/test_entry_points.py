@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.codeparse_mcp.project_overview import get_project_overview
+from src.codeparse_mcp.entry_points import get_entry_points
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -58,48 +58,6 @@ def indexed_project(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_project_overview_directories_and_entry_points(indexed_project: Path) -> None:
-    db = CodeDB(indexed_project)
-    try:
-        out = get_project_overview(db)
-        stored = [
-            row["path"]
-            for row in db.connection.execute(
-                """
-                SELECT f.path
-                FROM entry_points AS e
-                JOIN files AS f ON f.id = e.id
-                ORDER BY f.path
-                """
-            )
-        ]
-    finally:
-        db.close()
-
-    assert stored == ["pkg/app.py", "pkg/cli.py", "pkg/main.py"]
-    assert out.startswith("Directories - Top 10\n")
-    assert "Legend:" not in out
-    assert "  • pkg (29L, 8S, 6F)" in out
-    assert any(line.startswith("  • ROOT (") for line in out.splitlines())
-    assert not any(line.startswith("  • None ") for line in out.splitlines())
-    assert out.index("  • pkg (") < out.index("  • other (")
-
-    script_at = out.index("  • pkg/cli.py")
-    app_at = out.index("  • pkg/app.py")
-    main_at = out.index("  • pkg/main.py")
-    assert "pkg.cli.main" not in out
-    assert "not.a.module" not in out
-    assert script_at < app_at < main_at
-    assert out.count("pkg/main.py") == 1
-    assert out.count("pkg/cli.py") == 1
-    assert any(
-        line.startswith("  • pkg/cli.py (") and "L" in line and line.rstrip().endswith("S)")
-        for line in out.splitlines()
-    )
-    assert "tests/main.py" not in out
-    assert "pkg/worker.py" not in out
-
-
 def test_project_overview_reads_pyproject_only(
     indexed_project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -113,7 +71,7 @@ def test_project_overview_reads_pyproject_only(
     db = CodeDB(indexed_project)
     monkeypatch.setattr(Path, "read_text", _read_text)
     try:
-        out = get_project_overview(db)
+        out = get_entry_points(db)
     finally:
         db.close()
     assert "pkg/cli.py" in out
@@ -129,7 +87,7 @@ def test_main_guard_tracks_content_and_deletion(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         CodeProcessor(db, tmp_path).process()
-        assert "run.py" in get_project_overview(db)
+        assert "run.py" in get_entry_points(db)
         assert (
             db.connection.execute("SELECT has_main_guard FROM entry_points").fetchone()[
                 "has_main_guard"
@@ -139,7 +97,7 @@ def test_main_guard_tracks_content_and_deletion(tmp_path: Path) -> None:
 
         script.write_text("def run() -> None:\n    pass\n", encoding="utf-8")
         CodeProcessor(db, tmp_path).process()
-        assert "run.py" not in get_project_overview(db)
+        assert "run.py" not in get_entry_points(db)
         assert db.connection.execute("SELECT COUNT(*) AS c FROM entry_points").fetchone()["c"] == 0
 
         script.unlink()
