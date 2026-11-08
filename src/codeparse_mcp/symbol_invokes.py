@@ -1,4 +1,4 @@
-"""Outgoing call / access / type-annotation targets from a symbol."""
+"""Outgoing call / access targets from a symbol."""
 
 from collections import OrderedDict, defaultdict
 from typing import Literal
@@ -11,7 +11,6 @@ _MAX_PER_KIND = 50
 _REFERENCE_TYPES = {
     "call": "call",
     "access": "access",
-    "type": "type_annotation",
 }
 
 _INVOKES_SQL = """
@@ -25,6 +24,7 @@ INNER JOIN symbols AS src
 INNER JOIN files AS f
     ON f.id = sr.ref_symbol_file_id
 WHERE src.qualified_name = ?
+  AND sr.ref_kind != 'type_annotation'
 {kind_filter}
 ORDER BY sr.ref_kind, f.path, sr.ref_symbol_qualified_name
 """
@@ -32,7 +32,6 @@ ORDER BY sr.ref_kind, f.path, sr.ref_symbol_qualified_name
 _REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
     ("call", "## Calls"),
     ("access", "## Access"),
-    ("type_annotation", "## Type Annotations"),
 )
 
 
@@ -67,14 +66,13 @@ def get_symbol_invokes(
     db: CodeDB,
     qualified_name: str,
     *,
-    reference_type: Literal["call", "access", "type"] | None = None,
+    reference_type: Literal["call", "access"] | None = None,
 ) -> str:
     """
     List symbols that ``qualified_name`` invokes, grouped by ``ref_kind`` then file.
 
-    At most ``_MAX_PER_KIND`` rows are shown per kind. Targets in test files are
-    skipped unless ``include_tests`` is true.
-    ``reference_type`` may be ``call``, ``access``, or ``type`` to keep one kind.
+    At most ``_MAX_PER_KIND`` rows are shown per kind.
+    ``reference_type`` may be ``call`` or ``access`` to keep one kind.
     """
     key = qualified_name.strip()
     if not key:

@@ -245,14 +245,13 @@ def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
         all_kinds = get_symbol_references(db, "pkg.target.Thing", include_tests=False)
         assert "## Calls" in all_kinds
         assert "## Access" in all_kinds
-        assert "## Type Annotations" in all_kinds
+        assert "## Type Annotations" not in all_kinds
 
         calls = get_symbol_references(
             db, "pkg.target.Thing", include_tests=False, reference_type="call"
         )
         assert "## Calls" in calls
         assert "## Access" not in calls
-        assert "## Type Annotations" not in calls
         assert "pkg.user.make" in calls
 
         access = get_symbol_references(
@@ -260,14 +259,10 @@ def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
         )
         assert "## Access" in access
         assert "## Calls" not in access
-        assert "## Type Annotations" not in access
 
-        types = get_symbol_references(
-            db, "pkg.target.Thing", include_tests=False, reference_type="type"
-        )
-        assert "## Type Annotations" in types
-        assert "## Calls" not in types
-        assert "## Access" not in types
-        assert "pkg.user.make" in types
+        invokes = get_symbol_invokes(db, "pkg.user.make")
+        assert "## Calls" in invokes
+        assert "## Type Annotations" not in invokes
+        assert "Type Annotations:" not in get_symbol(db, "pkg.user.make", include_tests=False)
     finally:
         db.close()

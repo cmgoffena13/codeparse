@@ -151,7 +151,7 @@ def search_symbols(
 def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return the symbol definition with line numbers, inherited members,
-    aggregated reference counts, and invoke counts (calls, accesses, type annotations).
+    aggregated reference counts, and invoke counts (calls, accesses).
 
     Excludes test references by default; set ``include_tests`` to include them.
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
@@ -190,15 +190,15 @@ def get_symbol_references(
     qualified_name: str,
     ctx: Context,
     include_tests: bool = False,
-    reference_type: Literal["call", "access", "type"] | None = None,
+    reference_type: Literal["call", "access"] | None = None,
 ) -> str:
     """
-    Return reference sites (calls, accesses, type annotations) for a symbol, grouped by file
+    Return reference sites (calls, accesses) for a symbol, grouped by file
     and the symbol they happen in. A site with no enclosing symbol shows its line number.
 
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test references by default; set ``include_tests`` to include them.
-    Set ``reference_type`` to ``call``, ``access``, or ``type`` to return only one kind.
+    Set ``reference_type`` to ``call`` or ``access`` to return only one kind.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol_references(
@@ -214,14 +214,14 @@ def get_symbol_references(
 def get_symbol_invokes(
     qualified_name: str,
     ctx: Context,
-    reference_type: Literal["call", "access", "type"] | None = None,
+    reference_type: Literal["call", "access"] | None = None,
 ) -> str:
     """
-    Return symbols that a symbol invokes (calls, accesses, type annotations), grouped by
+    Return symbols that a symbol invokes (calls, accesses), grouped by
     target file. The opposite direction of ``get_symbol_references``.
 
     References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Set ``reference_type`` to ``call``, ``access``, or ``type`` to return only one kind.
+    Set ``reference_type`` to ``call`` or ``access`` to return only one kind.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol_invokes(

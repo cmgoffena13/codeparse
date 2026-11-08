@@ -23,6 +23,7 @@ FROM symbol_references AS sr
 INNER JOIN files AS f
     ON f.id = sr.source_file_id
 WHERE sr.ref_symbol_qualified_name = ?
+  AND sr.ref_kind != 'type_annotation'
 GROUP BY f.is_test, sr.ref_kind
 """
 
@@ -32,6 +33,7 @@ FROM symbol_references AS sr
 INNER JOIN symbols AS src
     ON src.id = sr.source_symbol_id
 WHERE src.qualified_name = ?
+  AND sr.ref_kind != 'type_annotation'
 GROUP BY sr.ref_kind
 """
 
@@ -50,7 +52,6 @@ ORDER BY member_qualified_name
 _REF_KIND_LABELS: tuple[tuple[str, str], ...] = (
     ("call", "Calls"),
     ("access", "Access"),
-    ("type_annotation", "Type Annotations"),
 )
 
 _INHERITED_KIND_LABELS: tuple[tuple[str, str], ...] = (

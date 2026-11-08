@@ -1,4 +1,4 @@
-"""Call / access / type-annotation sites for a symbol."""
+"""Call / access sites for a symbol."""
 
 from collections import OrderedDict, defaultdict
 
@@ -10,7 +10,6 @@ _MAX_PER_KIND = 50
 _REFERENCE_TYPES = {
     "call": "call",
     "access": "access",
-    "type": "type_annotation",
 }
 
 _REFERENCES_SQL = """
@@ -25,6 +24,7 @@ INNER JOIN files AS f
 LEFT JOIN symbols AS src
     ON src.id = sr.source_symbol_id
 WHERE sr.ref_symbol_qualified_name = ?
+  AND sr.ref_kind != 'type_annotation'
 {test_filter}
 {kind_filter}
 ORDER BY sr.ref_kind, f.path, sr.source_line
@@ -33,7 +33,6 @@ ORDER BY sr.ref_kind, f.path, sr.source_line
 _REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
     ("call", "## Calls"),
     ("access", "## Access"),
-    ("type_annotation", "## Type Annotations"),
 )
 
 
@@ -85,7 +84,7 @@ def get_symbol_references(
     site has none and shows its line number instead. At most ``_MAX_PER_KIND`` rows
     are shown per kind. Test files
     are skipped unless ``include_tests`` is true.
-    ``reference_type`` may be ``call``, ``access``, or ``type`` to keep one kind.
+    ``reference_type`` may be ``call`` or ``access`` to keep one kind.
     """
     key = qualified_name.strip()
     if not key:
