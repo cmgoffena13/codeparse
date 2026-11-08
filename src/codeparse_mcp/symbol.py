@@ -103,9 +103,9 @@ def _reference_sections(db: CodeDB, qualified_name: str, *, include_tests: bool)
     for row in db.connection.execute(_REF_KIND_COUNTS_SQL, (qualified_name,)):
         bucket = tests if row["is_test"] else production
         bucket[row["ref_kind"]] = int(row["n"])
-    sections = [("References", production)]
+    sections = [("Dependents", production)]
     if include_tests:
-        sections.append(("Test References", tests))
+        sections.append(("Test Dependents", tests))
     lines: list[str] = []
     for title, counts in sections:
         total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
@@ -121,20 +121,21 @@ def _invoke_sections(db: CodeDB, qualified_name: str) -> list[str]:
     total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
     lines: list[str] = []
     if total:
-        lines.extend(["", f"## Invokes ({total})", ""])
+        lines.extend(["", f"## Dependencies ({total})", ""])
         lines.extend(_kind_count_lines(counts))
     return lines
 
 
 def get_symbol(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     """
-    Return symbol metadata, reference totals, invoke totals, and source for the symbol span.
+    Return symbol metadata, dependent totals, dependency totals, and source for the
+    symbol span.
 
-    Test references are omitted unless ``include_tests`` is true.
+    Test dependents are omitted unless ``include_tests`` is true.
 
     ``qualified_name`` must equal ``symbols.qualified_name`` (module-prefixed for
-    Python). Bare names do not match. Use ``get_symbol_references`` for incoming
-    sites and ``get_symbol_invokes`` for outgoing targets.
+    Python). Bare names do not match. Use ``get_symbol_links`` for dependents or
+    dependencies.
     """
     key = qualified_name.strip()
     if not key:

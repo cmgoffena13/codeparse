@@ -4,6 +4,7 @@ from pathlib import Path
 
 from src.codeparse_mcp.symbol import get_symbol
 from src.codeparse_mcp.symbol_invokes import get_symbol_invokes
+from src.codeparse_mcp.symbol_links import get_symbol_links
 from src.codeparse_mcp.symbol_references import get_symbol_references
 from src.db import CodeDB
 from src.processor import CodeProcessor
@@ -49,13 +50,13 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "Legend:" not in out
         assert "Kind:" not in out
         assert "Lines:" not in out
-        assert "## References (3)" in out
+        assert "## Dependents (3)" in out
         assert "Calls: 3" in out
-        assert "Test References" not in out
+        assert "Test Dependents" not in out
         with_tests = get_symbol(db, "pkg.target.helper", include_tests=True)
-        assert "## Test References (1)" in with_tests
+        assert "## Test Dependents (1)" in with_tests
         assert "Calls: 1" in with_tests
-        assert with_tests.index("## References") < with_tests.index("## Test References")
+        assert with_tests.index("## Dependents") < with_tests.index("## Test Dependents")
         assert "Access:" not in out
         assert "Type Annotations:" not in out
         assert "Parent:" not in out
@@ -73,9 +74,9 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert "Lines:" not in method
         assert "Symbol:" not in method
         assert method.index("File:") < method.index("def run(")
-        assert "## Invokes (1)" in method
+        assert "## Dependencies (1)" in method
         assert "Calls: 1" in method
-        assert method.index("## References") < method.index("## Invokes")
+        assert method.index("## Dependents") < method.index("## Dependencies")
     finally:
         db.close()
 
@@ -158,7 +159,7 @@ def test_symbol_context_lists_inherited_members_before_references(tmp_path: Path
         assert "  • child.Context.plan" not in out
         assert "Methods (0)" not in out
         assert out.index("## Inherits (3)") < out.index("Methods (1)")
-        assert out.index("## Inherits (3)") < out.index("## References")
+        assert out.index("## Inherits (3)") < out.index("## Dependents")
         assert "## Inherits" not in get_symbol(db, "base.GenericContext", include_tests=False)
         assert "## Inherits" not in get_symbol(db, "child.Context.plan", include_tests=False)
     finally:
@@ -222,6 +223,73 @@ def test_symbol_invokes_lists_callees(tmp_path: Path) -> None:
         calls = get_symbol_invokes(db, "pkg.target.Worker.run", reference_type="call")
         assert "## Calls" in calls
         assert "## Access" not in calls
+    finally:
+        db.close()
+
+
+def test_symbol_links_directions(tmp_path: Path) -> None:
+    root = _index(tmp_path)
+    db = CodeDB(root)
+    try:
+        dependents = get_symbol_links(db, "pkg.target.helper", include_tests=False)
+        defaulted = get_symbol_links(
+            db, "pkg.target.helper", direction="dependents", include_tests=False
+        )
+        assert dependents == defaulted
+        assert "## Calls" in dependents
+        assert "pkg/user.py" in dependents
+        assert "tests/test_target.py" not in dependents
+
+        dependencies = get_symbol_links(
+            db,
+            "pkg.target.Worker.run",
+            direction="dependencies",
+            include_tests=False,
+        )
+        assert "pkg.target.helper" in dependencies
+        assert "pkg/target.py" in dependencies
+
+        calls_only = get_symbol_links(
+            db,
+            "pkg.target.helper",
+            direction="dependents",
+            include_tests=False,
+            reference_type="call",
+        )
+        assert "## Calls" in calls_only
+        assert "## Access" not in calls_only
+    finally:
+        db.close()
+
+
+def test_symbol_invokes_includes_test_targets(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "prod.py").write_text(
+        "from tests.helpers import spooky\n\n\ndef run() -> int:\n    return spooky()\n",
+        encoding="utf-8",
+    )
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "helpers.py").write_text(
+        "def spooky() -> int:\n    return 1\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process()
+    try:
+        shown = get_symbol_invokes(db, "pkg.prod.run")
+        assert "tests.helpers.spooky" in shown
+        assert "tests/helpers.py" in shown
+        via_links = get_symbol_links(
+            db,
+            "pkg.prod.run",
+            direction="dependencies",
+            include_tests=False,
+        )
+        assert "tests.helpers.spooky" in via_links
     finally:
         db.close()
 

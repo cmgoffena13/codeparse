@@ -170,10 +170,10 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "SYMBOL REFERENCES",
+            "SYMBOL LINKS (dependents)",
             _body(
                 await client.call_tool(
-                    "get_symbol_references",
+                    "get_symbol_links",
                     {
                         "qualified_name": ("sqlmesh.core.context.Context"),
                         "include_tests": False,
@@ -182,11 +182,14 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "SYMBOL INVOKES",
+            "SYMBOL LINKS (dependencies)",
             _body(
                 await client.call_tool(
-                    "get_symbol_invokes",
-                    {"qualified_name": "sqlmesh.core.context.GenericContext"},
+                    "get_symbol_links",
+                    {
+                        "qualified_name": "sqlmesh.core.context.GenericContext",
+                        "direction": "dependencies",
+                    },
                 )
             ),
         )

@@ -30,7 +30,7 @@ def list_importers(
 
     ``module_name`` is a dotted path such as ``sqlglot`` or ``pkg.target``.
     Matches ``import_path`` or top-level ``module``.
-    Use ``get_symbol_references`` for symbol-level import/use sites.
+    Use ``get_symbol_links`` for symbol-level import/use sites.
 
     By default skips importer files marked ``is_test``.
     """

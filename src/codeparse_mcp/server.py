@@ -19,10 +19,7 @@ from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_sessi
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
 from src.codeparse_mcp.symbol import get_symbol as run_get_symbol
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_get_symbol_at_lines
-from src.codeparse_mcp.symbol_invokes import get_symbol_invokes as run_get_symbol_invokes
-from src.codeparse_mcp.symbol_references import (
-    get_symbol_references as run_get_symbol_references,
-)
+from src.codeparse_mcp.symbol_links import get_symbol_links as run_get_symbol_links
 from src.db import CodeDB
 from src.processor import CodeProcessor
 from src.utils import get_code_parse_config_dir
@@ -152,12 +149,12 @@ def search_symbols(
 def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return the symbol definition with line numbers, inherited members,
-    aggregated reference counts, and invoke counts (calls, accesses).
+    aggregated dependent counts, and dependency counts (calls, accesses).
 
-    Excludes test references by default; set ``include_tests`` to include them.
-    References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Use ``get_symbol_references`` for incoming sites and
-    ``get_symbol_invokes`` for outgoing targets.
+    Excludes test dependents by default; set ``include_tests`` to include them.
+    Links do not follow multi-hop attribute access (obj.field.method) and untyped locals.
+    Use ``get_symbol_links`` for dependents (``direction="dependents"``) or
+    dependencies (``direction="dependencies"``).
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol(db, qualified_name, include_tests=include_tests)
@@ -177,7 +174,7 @@ def get_symbol_at_lines(
     A range inside no single symbol returns each symbol and its line span.
 
     ``line_end`` defaults to ``line_start`` if not provided.
-    Excludes test references by default; set ``include_tests`` to include them.
+    Excludes test dependents by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol_at_lines(
@@ -187,47 +184,31 @@ def get_symbol_at_lines(
 
 
 @mcp.tool()
-def get_symbol_references(
+def get_symbol_links(
     qualified_name: str,
     ctx: Context,
+    direction: Literal["dependents", "dependencies"] = "dependents",
+    reference_type: Literal["call", "access"] | None = None,
     include_tests: bool = False,
-    reference_type: Literal["call", "access"] | None = None,
 ) -> str:
     """
-    Return reference sites (calls, accesses) for a symbol, grouped by file
-    and the symbol they happen in. A site with no enclosing symbol shows its line number.
+    Return linked symbols for ``qualified_name``.
 
-    References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Excludes test references by default; set ``include_tests`` to include them.
+    ``direction="dependents"`` lists who references it; ``direction="dependencies"``
+    lists what it invokes. Grouped by file. A dependent site with no enclosing symbol
+    shows its line number.
+
+    Links do not follow multi-hop attribute access (obj.field.method) and untyped locals.
+    For dependents, excludes test files by default; set ``include_tests`` to include them.
+    ``include_tests`` does not filter dependencies.
     Set ``reference_type`` to ``call`` or ``access`` to return only one kind.
     """
     return _processor(ctx).run_query(
-        lambda db: run_get_symbol_references(
+        lambda db: run_get_symbol_links(
             db,
             qualified_name,
+            direction=direction,
             include_tests=include_tests,
-            reference_type=reference_type,
-        )
-    )
-
-
-@mcp.tool()
-def get_symbol_invokes(
-    qualified_name: str,
-    ctx: Context,
-    reference_type: Literal["call", "access"] | None = None,
-) -> str:
-    """
-    Return symbols that a symbol invokes (calls, accesses), grouped by
-    target file. The opposite direction of ``get_symbol_references``.
-
-    References do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Set ``reference_type`` to ``call`` or ``access`` to return only one kind.
-    """
-    return _processor(ctx).run_query(
-        lambda db: run_get_symbol_invokes(
-            db,
-            qualified_name,
             reference_type=reference_type,
         )
     )
