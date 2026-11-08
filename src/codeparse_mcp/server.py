@@ -11,7 +11,7 @@ from src.codeparse_mcp.entry_points import (
     get_entry_points as run_get_entry_points,
 )
 from src.codeparse_mcp.file_imports import get_file_imports as run_get_file_imports
-from src.codeparse_mcp.file_symbols import get_file_symbols as run_get_file_symbols
+from src.codeparse_mcp.file_symbol_tree import get_file_symbol_tree as run_get_file_symbol_tree
 from src.codeparse_mcp.list_importers import list_importers as run_list_importers
 from src.codeparse_mcp.list_subclasses import list_subclasses as run_list_subclasses
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
@@ -104,12 +104,12 @@ def get_directory_tree(ctx: Context, path: str | None = None) -> str:
 
 
 @mcp.tool()
-def get_file_symbols(file_path: str, ctx: Context) -> str:
+def get_file_symbol_tree(file_path: str, ctx: Context) -> str:
     """
     Return a nested symbol tree for one file with line numbers.
     Follow up with ``get_symbol`` for symbol definitions.
     """
-    return _processor(ctx).run_query(lambda db: run_get_file_symbols(db, file_path))
+    return _processor(ctx).run_query(lambda db: run_get_file_symbol_tree(db, file_path))
 
 
 @mcp.tool()

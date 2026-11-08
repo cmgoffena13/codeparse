@@ -44,7 +44,7 @@ def _symbol_branch_lines(
     return lines
 
 
-def get_file_symbols(db: CodeDB, file_path: str) -> str:
+def get_file_symbol_tree(db: CodeDB, file_path: str) -> str:
     """
     Return a nested symbol tree for one file.
 

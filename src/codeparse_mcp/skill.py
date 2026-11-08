@@ -20,7 +20,7 @@ _SKILL_BODY = """\
 The information that is provided to you will determine the tool you should use.
 
 ## You are given the file name.
-1. Use ``get_file_symbols`` to get a file's nested symbol tree.
+1. Use ``get_file_symbol_tree`` to get a file's nested symbol tree.
 2. Use ``get_symbol`` to get the symbol definition.
 
 ## You are given the file name and symbol's qualified name.
@@ -31,7 +31,7 @@ The information that is provided to you will determine the tool you should use.
 
 ## You are NOT given the file name or symbol's qualified name. 
 1. Investigate the codebase using ``get_entry_points`` and keywords. 
-2. Use ``get_file_symbols`` to get a file's nested symbol tree.
+2. Use ``get_file_symbol_tree`` to get a file's nested symbol tree.
 3. Use ``get_symbol`` to get the symbol definition. 
 
 ### Investigate the codebase using keywords

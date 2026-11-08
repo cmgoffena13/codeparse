@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from src.codeparse_mcp.paths import normalize_repo_file_path
 from src.utils import db_path_for_index_root
 
-_FILE_TOOLS = frozenset({"get_file_symbols", "get_file_imports"})
+_FILE_TOOLS = frozenset({"get_file_symbol_tree", "get_file_imports"})
 _TRACKED_TOOLS = frozenset({"get_symbol", "get_symbol_at_lines"}) | _FILE_TOOLS
 
 _SYMBOL_FILE_SQL = """

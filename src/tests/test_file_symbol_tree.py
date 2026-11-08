@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.codeparse_mcp.file_symbols import get_file_symbols
+from src.codeparse_mcp.file_symbol_tree import get_file_symbol_tree
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -33,11 +33,11 @@ def _index(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_file_symbols_omits_imports(tmp_path: Path) -> None:
+def test_file_symbol_tree_omits_imports(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        out = get_file_symbols(db, "pkg/mod.py")
+        out = get_file_symbol_tree(db, "pkg/mod.py")
         assert "## Imports" not in out
         assert "## Symbols" not in out
         assert "from pkg.other import helper" not in out
@@ -54,17 +54,17 @@ def test_file_symbols_omits_imports(tmp_path: Path) -> None:
         db.close()
 
 
-def test_file_symbols_reports_missing_file(tmp_path: Path) -> None:
+def test_file_symbol_tree_reports_missing_file(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        assert get_file_symbols(db, "pkg/missing.py") == "No file matches 'pkg/missing.py'."
-        assert get_file_symbols(db, "") == "file_path is empty"
+        assert get_file_symbol_tree(db, "pkg/missing.py") == "No file matches 'pkg/missing.py'."
+        assert get_file_symbol_tree(db, "") == "file_path is empty"
     finally:
         db.close()
 
 
-def test_file_symbols_labels_property_methods(tmp_path: Path) -> None:
+def test_file_symbol_tree_labels_property_methods(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
     (tmp_path / "mod.py").write_text(
         "class Box:\n"
@@ -79,7 +79,7 @@ def test_file_symbols_labels_property_methods(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         CodeProcessor(db, tmp_path).process()
-        out = get_file_symbols(db, "mod.py")
+        out = get_file_symbol_tree(db, "mod.py")
         assert "property  mod.Box.size" in out
         assert "method  mod.Box.grow" in out
     finally:
