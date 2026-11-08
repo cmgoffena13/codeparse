@@ -161,12 +161,16 @@ def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
     header = "| file | tool_calls | latest_file_tokens | tool_output_tokens | tokens_saved |"
     rule = "| --- | --- | --- | --- | --- |"
     assert (
+        "Tokens saved: low = vs reading each file once; "
+        "high = vs re-reading it on every tool call.\n"
+    ) in report
+    assert (
         f"window-a - {started_a}\n"
         f"{header}\n"
         f"{rule}\n"
         "| pkg/other.py | 1 | 2 | 1 | 1 |\n"
-        "| pkg/target.py | 2 | 20 | 4 | 16 |\n"
-        "| 2 files | 3 | 22 | 5 | 17 |\n"
+        "| pkg/target.py | 2 | 20 | 4 | 16..36 |\n"
+        "| 2 files | 3 | 22 | 5 | 17..37 |\n"
     ) in report
     assert (
         f"window-b - {started_b}\n"

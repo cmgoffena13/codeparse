@@ -121,6 +121,17 @@ def _tokens(length: int) -> int:
     return length // 4
 
 
+def _tokens_saved_range(calls: int, latest: int, output: int) -> tuple[int, int]:
+    return latest - output, calls * latest - output
+
+
+def _format_tokens_saved(low: int, high: int) -> str:
+    result = str(low)
+    if low != high:
+        result = f"{low}..{high}"
+    return result
+
+
 def load_session_files(root: Path) -> list[FileToolStats]:
     grouped: dict[tuple[str, str], FileToolStats] = {}
     connection = _connect(root)
@@ -165,6 +176,12 @@ def format_session_stats_report(root: Path) -> str:
             connection.close()
     if not rows:
         lines.append("No session stats recorded.")
+    else:
+        lines.append(
+            "Tokens saved: low = vs reading each file once; "
+            "high = vs re-reading it on every tool call."
+        )
+        lines.append("")
     header = "| file | tool_calls | latest_file_tokens | tool_output_tokens | tokens_saved |"
     rule = "| --- | --- | --- | --- | --- |"
     current_session = ""
@@ -172,18 +189,21 @@ def format_session_stats_report(root: Path) -> str:
     session_calls = 0
     session_latest = 0
     session_output = 0
+    session_saved_low = 0
+    session_saved_high = 0
     for row in rows:
         session_id = str(row["session_id"])
         calls = int(row["tool_call_count"])
         latest = int(row["current_file_tokens"])
         output = int(row["output_tokens"])
+        saved_low, saved_high = _tokens_saved_range(calls, latest, output)
         if session_id != current_session:
             if current_session:
-                saved = session_latest - session_output
                 noun = "file" if session_files == 1 else "files"
                 total = (
                     f"| {session_files} {noun} | {session_calls} | "
-                    f"{session_latest} | {session_output} | {saved} |"
+                    f"{session_latest} | {session_output} | "
+                    f"{_format_tokens_saved(session_saved_low, session_saved_high)} |"
                 )
                 lines.append(total)
                 lines.append("")
@@ -192,6 +212,8 @@ def format_session_stats_report(root: Path) -> str:
             session_calls = 0
             session_latest = 0
             session_output = 0
+            session_saved_low = 0
+            session_saved_high = 0
             started = time.strftime(
                 "%Y-%m-%d %H:%M:%S",
                 time.localtime(int(row["session_start_time"])),
@@ -203,13 +225,18 @@ def format_session_stats_report(root: Path) -> str:
         session_calls += calls
         session_latest += latest
         session_output += output
-        lines.append(f"| {row['path']} | {calls} | {latest} | {output} | {latest - output} |")
+        session_saved_low += saved_low
+        session_saved_high += saved_high
+        lines.append(
+            f"| {row['path']} | {calls} | {latest} | {output} | "
+            f"{_format_tokens_saved(saved_low, saved_high)} |"
+        )
     if current_session:
-        saved = session_latest - session_output
         noun = "file" if session_files == 1 else "files"
         total = (
             f"| {session_files} {noun} | {session_calls} | "
-            f"{session_latest} | {session_output} | {saved} |"
+            f"{session_latest} | {session_output} | "
+            f"{_format_tokens_saved(session_saved_low, session_saved_high)} |"
         )
         lines.append(total)
     return "\n".join(lines) + "\n"

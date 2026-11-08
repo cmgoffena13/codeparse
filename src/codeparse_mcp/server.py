@@ -76,7 +76,8 @@ def codeparse_skill() -> str:
     name="codeparse/sessions",
     description=(
         "Per MCP session (id + start time), a markdown table of files with "
-        "tool_calls, latest_file_tokens, tool_output_tokens, and tokens_saved."
+        "tool_calls, latest_file_tokens, tool_output_tokens, and tokens_saved "
+        "as a low-high range (once vs every re-read)."
     ),
     mime_type="text/markdown",
 )
