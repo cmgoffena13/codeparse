@@ -58,7 +58,7 @@ Ten questions found in `eval/tasks.json` are evaluated against the [SQLMesh](htt
 
 | Model | Baseline Avg Tokens | CodeParse Avg Tokens | Token Reduction |
 | --- | --- | --- | --- |
-| Grok 4.7 High Fast | 393,530 | 265,867 | -32% |
+| Grok 4.7 High Fast | 185,371 | 119,572 | -35% |
 | Opus 5.5 Medium | ... | ... | ... |
 
 
