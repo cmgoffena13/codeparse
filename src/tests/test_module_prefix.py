@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from src.codeparse_mcp.list_importers import list_importers
+from src.codeparse_mcp.import_relations import get_import_relations
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -34,7 +34,10 @@ def test_src_layout_strips_non_package_prefix(tmp_path: Path) -> None:
             "SELECT qualified_name FROM symbols WHERE name = 'y'"
         ).fetchone()
         assert symbol["qualified_name"] == "fundamentals.xxx.y"
-        assert "└── use.py\n" in list_importers(db, "fundamentals.xxx", include_tests=False)
+        out = get_import_relations(db, "fundamentals.xxx", include_tests=False)
+        assert "fundamentals.xxx.y (" in out
+        assert "use.py" in out
+        assert "• " in out
     finally:
         db.close()
 
@@ -64,7 +67,10 @@ def test_relative_import_under_src_omits_src(tmp_path: Path) -> None:
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "sib.py").write_text("class Foo:\n    pass\n", encoding="utf-8")
-    (package / "caller.py").write_text("from .sib import Foo\n", encoding="utf-8")
+    (package / "caller.py").write_text(
+        "from .sib import Foo\n\n\ndef make() -> Foo:\n    return Foo()\n",
+        encoding="utf-8",
+    )
     db = _index(tmp_path)
     try:
         row = db.connection.execute(
@@ -76,9 +82,9 @@ def test_relative_import_under_src_omits_src(tmp_path: Path) -> None:
         ).fetchone()
         assert row["import_type"] == "relative"
         assert row["import_path"] == "fundamentals.sib"
-        assert "└── src/\n    └── fundamentals/\n        └── caller.py\n" in list_importers(
-            db, "fundamentals.sib", include_tests=False
-        )
+        out = get_import_relations(db, "fundamentals.sib", include_tests=False)
+        assert "fundamentals.sib.Foo (" in out
+        assert "src/fundamentals/caller.py" in out
     finally:
         db.close()
 

@@ -10,9 +10,8 @@ from src.codeparse_mcp.directory_tree import get_directory_tree as run_directory
 from src.codeparse_mcp.entry_points import (
     get_entry_points as run_get_entry_points,
 )
-from src.codeparse_mcp.file_imports import get_file_imports as run_get_file_imports
 from src.codeparse_mcp.file_symbol_tree import get_file_symbol_tree as run_get_file_symbol_tree
-from src.codeparse_mcp.list_importers import list_importers as run_list_importers
+from src.codeparse_mcp.import_relations import get_import_relations as run_get_import_relations
 from src.codeparse_mcp.list_subclasses import list_subclasses as run_list_subclasses
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
 from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_session_stats_report
@@ -110,15 +109,6 @@ def get_file_symbol_tree(file_path: str, ctx: Context) -> str:
     Follow up with ``get_symbol`` for symbol definitions.
     """
     return _processor(ctx).run_query(lambda db: run_get_file_symbol_tree(db, file_path))
-
-
-@mcp.tool()
-def get_file_imports(file_path: str, ctx: Context) -> str:
-    """
-    Return the import statements for one file with line numbers.
-    Use ``list_importers`` with a dotted ``module_name`` to find dependents.
-    """
-    return _processor(ctx).run_query(lambda db: run_get_file_imports(db, file_path))
 
 
 @mcp.tool()
@@ -226,18 +216,30 @@ def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = Fal
 
 
 @mcp.tool()
-def list_importers(
-    module_name: str,
+def get_import_relations(
+    target: str,
     ctx: Context,
+    direction: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
 ) -> str:
     """
-    Return a directory tree of files that import a module.
-    ``module_name`` is a dotted path like ``sqlglot`` or ``pydantic.core``.
-    Excludes test files by default; set ``include_tests`` to include them.
+    Return call/access relations for a dotted module path.
+
+    Resolves ``target`` as an internal directory, internal file, or external
+    package. ``direction="dependents"`` lists who uses its symbols;
+    ``direction="dependencies"`` lists what its files use.
+
+    External package dependencies are not available.
+    For dependents, excludes test site files by default; set ``include_tests``
+    to include them. ``include_tests`` does not filter dependencies.
     """
     return _processor(ctx).run_query(
-        lambda db: run_list_importers(db, module_name, include_tests=include_tests)
+        lambda db: run_get_import_relations(
+            db,
+            target,
+            direction=direction,
+            include_tests=include_tests,
+        )
     )
 
 

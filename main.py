@@ -123,12 +123,6 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "FILE IMPORTS",
-            _body(
-                await client.call_tool("get_file_imports", {"file_path": "sqlmesh/core/dialect.py"})
-            ),
-        )
-        _print_section(
             "SEARCH SYMBOLS",
             _body(
                 await client.call_tool(
@@ -197,11 +191,52 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "LIST IMPORTERS",
+            "IMPORT RELATIONS (external dependents)",
             _body(
                 await client.call_tool(
-                    "list_importers",
-                    {"module_name": "sqlglot.dialects.athena", "include_tests": True},
+                    "get_import_relations",
+                    {
+                        "target": "sqlglot.dialects.athena",
+                        "direction": "dependents",
+                        "include_tests": True,
+                    },
+                )
+            ),
+        )
+        _print_section(
+            "IMPORT RELATIONS (external dependencies)",
+            _body(
+                await client.call_tool(
+                    "get_import_relations",
+                    {
+                        "target": "sqlglot.dialects.athena",
+                        "direction": "dependencies",
+                    },
+                )
+            ),
+        )
+        _print_section(
+            "IMPORT RELATIONS (internal dependents)",
+            _body(
+                await client.call_tool(
+                    "get_import_relations",
+                    {
+                        "target": "sqlmesh.core.dialect",
+                        "direction": "dependents",
+                        "include_tests": False,
+                    },
+                )
+            ),
+        )
+        _print_section(
+            "IMPORT RELATIONS (internal dependencies)",
+            _body(
+                await client.call_tool(
+                    "get_import_relations",
+                    {
+                        "target": "sqlmesh.core.dialect",
+                        "direction": "dependencies",
+                    },
                 )
             ),
         )

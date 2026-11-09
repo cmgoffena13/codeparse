@@ -42,8 +42,7 @@ The information that is provided to you will determine the tool you should use.
 #### ``grep``
  - Use when the clue is specific text in file contents.
  - Use `-n` to get the line number and then use ``get_symbol_at_lines`` to get the symbol.
- - Use ``list_importers`` with a dotted ``module_name`` to find dependents; DO NOT grep for this.
- - Use ``get_file_imports`` to list a file's import statements; DO NOT grep for this.
+ - Use ``get_import_relations`` for module dependents or dependencies; DO NOT grep for this.
  - Use ``get_symbol_links`` for dependents or dependencies of an exact symbol; DO NOT grep for this.
  - Use ``list_subclasses`` to find subclasses of a class; DO NOT grep for this.
 
