@@ -198,7 +198,6 @@ async def _print_tools() -> None:
                     {
                         "target": "re",
                         "relation": "dependents",
-                        "include_tests": True,
                     },
                 )
             ),
@@ -224,7 +223,6 @@ async def _print_tools() -> None:
                     {
                         "target": "sqlmesh.core",
                         "relation": "dependents",
-                        "include_tests": False,
                     },
                 )
             ),
