@@ -200,7 +200,7 @@ def get_symbol_relations(
 def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return classes that directly inherit from a given class, grouped by file.
-    Excludes test file symbols by default; set ``include_tests`` to include them.
+    Excludes test file classes by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_list_subclasses(db, qualified_name, include_tests=include_tests)
