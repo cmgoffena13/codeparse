@@ -84,7 +84,11 @@ def _source_parent(module: str, source_qn: str, sources: OrderedDict[str, None])
     return parent
 
 
-def _source_tree_lines(module: str, sources: OrderedDict[str, None]) -> list[str]:
+def _source_tree_lines(
+    module: str,
+    sources: OrderedDict[str, None],
+    targets_by_source: (OrderedDict[str, OrderedDict[tuple[str, str], int]] | None) = None,
+) -> list[str]:
     children: dict[str | None, list[str]] = {}
     for source_qn in sources:
         parent = _source_parent(module, source_qn, sources)
@@ -101,20 +105,21 @@ def _source_tree_lines(module: str, sources: OrderedDict[str, None]) -> list[str
             connector = "└─ " if is_last else "├─ "
             continuation = "   " if is_last else "│  "
             lines.append(f"{prefix}{connector}{node}")
+            if targets_by_source is not None and node in targets_by_source:
+                for (target_qn, kind), count in targets_by_source[node].items():
+                    lines.append(f"{prefix}{continuation}   • {target_qn} ({kind}) ({count})")
             lines.extend(branch(node, prefix + continuation))
         return lines
 
     return branch(None, "  ")
 
 
-def _format_rows(rows: list) -> str:
-    truncated = len(rows) > _MAX_ROWS
-    shown = rows[:_MAX_ROWS]
+def _format_dependencies(rows: list) -> str:
     by_target: OrderedDict[tuple[str, str], OrderedDict[str, OrderedDict[str, None]]] = (
         OrderedDict()
     )
     counts: dict[tuple[str, str], int] = {}
-    for row in shown:
+    for row in rows:
         kind = row["ref_kind"][0].upper()
         key = (row["target_qualified_name"], kind)
         path = row["source_path"]
@@ -133,10 +138,38 @@ def _format_rows(rows: list) -> str:
         for path, sources in files.items():
             lines.append(f"• {path}")
             lines.extend(_source_tree_lines(_module_from_path(path), sources))
-
-    if truncated:
-        lines.extend(["", f"… truncated to {_MAX_ROWS} references"])
     return "\n".join(lines).strip() + "\n"
+
+
+def _format_dependents(rows: list) -> str:
+    by_file: OrderedDict[str, OrderedDict[str, OrderedDict[tuple[str, str], int]]] = OrderedDict()
+    for row in rows:
+        path = row["source_path"]
+        source_qn = row["source_qualified_name"] or "(module)"
+        kind = row["ref_kind"][0].upper()
+        key = (row["target_qualified_name"], kind)
+        sources = by_file.setdefault(path, OrderedDict())
+        targets = sources.setdefault(source_qn, OrderedDict())
+        targets[key] = targets.get(key, 0) + 1
+
+    lines: list[str] = []
+    for file_index, (path, sources) in enumerate(by_file.items()):
+        if file_index > 0:
+            lines.append("")
+        lines.append(f"• {path}")
+        source_keys = OrderedDict((source_qn, None) for source_qn in sources)
+        lines.extend(_source_tree_lines(_module_from_path(path), source_keys, sources))
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_rows(rows: list, *, relation: Literal["dependents", "dependencies"]) -> str:
+    truncated = len(rows) > _MAX_ROWS
+    shown = rows[:_MAX_ROWS]
+    body = _format_dependencies(shown) if relation == "dependencies" else _format_dependents(shown)
+    result = body
+    if truncated:
+        result = body.rstrip("\n") + f"\n\n… truncated to {_MAX_ROWS} relations\n"
+    return result
 
 
 def _query_rows(db: CodeDB, scope_filter: str, params: list, include_tests: bool) -> list:
@@ -200,7 +233,7 @@ def get_import_relations(
                 [EXTERNAL_PACKAGES_FILE_ID, module, module_like],
                 include_tests,
             )
-            result = _format_rows(rows) if rows else "No import relations found."
+            result = _format_rows(rows, relation=relation) if rows else "No import relations found."
         elif not file_ids:
             result = "No import relations found."
         elif relation == "dependencies":
@@ -210,7 +243,7 @@ def get_import_relations(
                 list(file_ids),
                 include_tests=True,
             )
-            result = _format_rows(rows) if rows else "No import relations found."
+            result = _format_rows(rows, relation=relation) if rows else "No import relations found."
         else:
             rows = _query_rows(
                 db,
@@ -218,5 +251,5 @@ def get_import_relations(
                 list(file_ids),
                 include_tests,
             )
-            result = _format_rows(rows) if rows else "No import relations found."
+            result = _format_rows(rows, relation=relation) if rows else "No import relations found."
     return result

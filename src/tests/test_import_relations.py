@@ -29,9 +29,9 @@ def test_import_relations_internal_file_dependents(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_import_relations(db, "pkg.target", include_tests=False)
-        assert "pkg.target.helper (C) (" in out
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.run" in out or "  ├─ pkg.user.run" in out
+        assert "• pkg.target.helper (C) (" in out
         assert "tests/test_user.py" not in out
         assert "pkg.mod_extra" not in out
     finally:
@@ -72,9 +72,9 @@ def test_import_relations_directory_dependents(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_import_relations(db, "pkg.lib", include_tests=False)
-        assert "pkg.lib.b.beta (C) (" in out
         assert "• pkg/caller.py" in out
         assert "  └─ pkg.caller.go" in out or "  ├─ pkg.caller.go" in out
+        assert "• pkg.lib.b.beta (C) (" in out
     finally:
         db.close()
 
@@ -107,9 +107,10 @@ def test_import_relations_external_dependents(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_import_relations(db, "sqlglot", include_tests=False)
-        assert "sqlglot.Exp (C) (" in out
         assert "• app.py" in out
         assert "  └─ app.run" in out or "  ├─ app.run" in out
+        assert "• sqlglot.Exp (C) (" in out
+        assert out.index("• app.py") < out.index("• sqlglot.Exp (C) (")
     finally:
         db.close()
 
@@ -131,9 +132,9 @@ def test_import_relations_module_level_aggregates_without_lines(tmp_path: Path) 
     CodeProcessor(db, tmp_path).process()
     try:
         out = get_import_relations(db, "pkg.target", include_tests=False)
-        assert "pkg.target.helper (C) (3)" in out
         assert "• pkg/user.py" in out
         assert "  └─ (module)" in out
+        assert "• pkg.target.helper (C) (3)" in out
         assert "L3" not in out
         assert "L4" not in out
         assert "L5" not in out
@@ -161,9 +162,9 @@ def test_import_relations_groups_by_used_symbol(tmp_path: Path) -> None:
     CodeProcessor(db, tmp_path).process()
     try:
         out = get_import_relations(db, "pkg.target", include_tests=False)
-        assert "pkg.target.helper (C) (1)" in out
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.Box.run" in out
+        assert "• pkg.target.helper (C) (1)" in out
         assert "  └─ pkg.user.Box\n" not in out
     finally:
         db.close()
@@ -191,10 +192,10 @@ def test_import_relations_nests_only_real_source_symbols(tmp_path: Path) -> None
     CodeProcessor(db, tmp_path).process()
     try:
         out = get_import_relations(db, "pkg.target", include_tests=False)
-        assert "pkg.target.helper (C) (2)" in out
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.outer" in out
         assert "     └─ pkg.user.outer.inner" in out
+        assert "• pkg.target.helper (C) (" in out
     finally:
         db.close()
 

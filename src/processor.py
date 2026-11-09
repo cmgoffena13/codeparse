@@ -59,6 +59,7 @@ class CodeProcessor:
 
         self.files_skipped: int = 0
         self.files_indexed: int = 0
+        self._added_external_qns: set[str] = set()
         # One SQLite connection + mutable snapshots: serialize index + reads.
         self._lock = threading.RLock()
 
@@ -236,7 +237,7 @@ class CodeProcessor:
                 self._normalize_path(file_relative_path, language=lang) if lang == "python" else ""
             )
             is_package = lang == "python" and file_name == "__init__.py"
-            symbols, imports, references = parser.parse(
+            symbols, references = parser.parse(
                 file_id,
                 file_bytes,
                 module_qn=module_qn,
@@ -246,13 +247,13 @@ class CodeProcessor:
             file_row["symbol_count"] = n
             snap["symbol_count"] = n
             self.db_batches["symbols"].extend(symbols)
-            self.db_batches["imports"].extend(imports)
             self.db_batches["symbol_references"].extend(references)
+            self.db_batches["external_symbols"].extend(parser.external_symbols)
             self.files_indexed += 1
             self._insert_batch()
 
     def _new_batches(self) -> dict[str, list[dict]]:
-        return {table: [] for table in TABLE_BATCH_MAP}
+        return {table: [] for table in TABLE_BATCH_MAP} | {"external_symbols": []}
 
     def _record_entry_point(
         self,
@@ -309,17 +310,21 @@ class CodeProcessor:
         ):
             return
 
+        external_symbols = self.db_batches["external_symbols"]
         self.db.bulk_insert(self.db_batches)
+        self.db.insert_external_symbols(external_symbols)
+        self._added_external_qns.update(row["qualified_name"] for row in external_symbols)
         self.db_batches = self._new_batches()
 
-    def _bulk_operations(self, now: int, last_incremental: int) -> None:
-        self.db.ensure_external_symbols(self.assigner)
+    def _bulk_operations(self) -> None:
+        self.db.prune_indexed_external_symbols()
+        self.db.create_external_stubs(self._added_external_qns, self.assigner)
         self.db.resolve_symbol_references()
-        self.db.resolve_imports(now, last_incremental)
 
     def _reset_run_state(self) -> None:
         self.files_skipped = 0
         self.files_indexed = 0
+        self._added_external_qns = set()
         for entry in self.directories_snapshot.values():
             entry["seen"] = False
         for entry in self.files_snapshot.values():
@@ -337,7 +342,6 @@ class CodeProcessor:
 
     def _process_unlocked(self, full: bool = False) -> None:
         self._reset_run_state()
-        start_epoch = int(time.time())
         start_time = time.perf_counter()
         root_s = str(self.root)
         for directory_path, directory_names, file_names in os.walk(root_s):
@@ -390,7 +394,7 @@ class CodeProcessor:
             self.last_incremental = end_epoch
 
         self.db.set_watermark(self.last_full_parse, self.last_incremental)
-        self._bulk_operations(start_epoch, self.last_incremental)
+        self._bulk_operations()
 
         duration_ms = round((time.perf_counter() - start_time) * 1000)
         indexed = (

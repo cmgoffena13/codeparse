@@ -45,10 +45,3 @@ def assert_symbols_invariants(symbols: list[dict]) -> None:
     assert len(ids) == len(set(ids)), "symbols ids must be unique"
     names = [s["qualified_name"] for s in symbols]
     assert len(names) == len(set(names)), "symbols qualified_name must be unique per file"
-
-
-def assert_imports_invariants(imports: list[dict]) -> None:
-    ids = [i["id"] for i in imports]
-    assert len(ids) == len(set(ids)), "imports ids must be unique"
-    keys = {(i["import_path"], i["imported_symbol"]) for i in imports}
-    assert len(keys) == len(imports), "imports must be unique per (import_path, imported_symbol)"

@@ -13,7 +13,6 @@ class ParserBase:
         self.symbols_snapshot = {}
         self.stack: list[StackFrame] = []
         self.symbols: list[dict] = []
-        self.imports: list[dict] = []
         self.symbol_references_staging: list[dict] = []
 
     def parse(
@@ -22,5 +21,5 @@ class ParserBase:
         file_bytes: bytes,
         module_qn: str = "",
         is_package: bool = False,
-    ) -> tuple[list[dict], list[dict], list[dict]]:
+    ) -> tuple[list[dict], list[dict]]:
         raise NotImplementedError

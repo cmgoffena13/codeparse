@@ -4,8 +4,23 @@ from src.codeparse_mcp.directory_tree import get_directory_tree
 from src.codeparse_mcp.entry_points import get_entry_points
 from src.codeparse_mcp.search_symbols import search_symbols
 from src.codeparse_mcp.symbol import get_symbol
-from src.db import EXTERNAL_PACKAGES_FILE_ID, EXTERNAL_PACKAGES_PATH, CodeDB
+from src.db import (
+    EXTERNAL_PACKAGES_FILE_ID,
+    EXTERNAL_PACKAGES_PATH,
+    CodeDB,
+    _ref_qn_is_indexed,
+)
 from src.processor import CodeProcessor
+
+
+def test_ref_qn_is_indexed_matches_module_and_children() -> None:
+    indexed = {"pkg", "pkg.mod", "other"}
+    assert _ref_qn_is_indexed("pkg", indexed)
+    assert _ref_qn_is_indexed("pkg.mod", indexed)
+    assert _ref_qn_is_indexed("pkg.mod.Helper", indexed)
+    assert _ref_qn_is_indexed("pkg.sibling.Foo", indexed)
+    assert not _ref_qn_is_indexed("sqlglot.Exp", indexed)
+    assert not _ref_qn_is_indexed("pkgx.mod", indexed)
 
 
 def test_external_import_stub_joins_symbol_references(tmp_path: Path) -> None:
@@ -155,7 +170,8 @@ def test_search_symbols_finds_external_stub(tmp_path: Path) -> None:
 def test_module_and_from_import_same_qn_insert_one_stub(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
     (tmp_path / "app.py").write_text(
-        "import collections.abc\nfrom collections import abc\n",
+        "import collections.abc\nfrom collections import abc\n\n"
+        "def run() -> None:\n    abc\n    collections.abc\n",
         encoding="utf-8",
     )
     db = CodeDB(tmp_path)
@@ -172,4 +188,122 @@ def test_module_and_from_import_same_qn_insert_one_stub(tmp_path: Path) -> None:
     )
     assert len(rows) == 1
     assert rows[0]["file_id"] == EXTERNAL_PACKAGES_FILE_ID
+    db.close()
+
+
+def test_unreferenced_external_import_does_not_create_stub(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text(
+        "from sqlglot import Exp\n\ndef run() -> None:\n    pass\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 0
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM external_symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 0
+    )
+    db.close()
+
+
+def test_referenced_external_writes_ledger_row(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text(
+        "from sqlglot import Exp\n\ndef run() -> None:\n    Exp()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    rows = list(
+        db.connection.execute(
+            """
+            SELECT es.qualified_name, f.path
+            FROM external_symbols AS es
+            INNER JOIN files AS f ON f.id = es.file_id
+            WHERE es.qualified_name = 'sqlglot.Exp'
+            """
+        )
+    )
+    assert len(rows) == 1
+    assert rows[0]["path"] == "app.py"
+    db.close()
+
+
+def test_shared_external_stub_survives_when_one_file_drops_ref(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    a = tmp_path / "a.py"
+    b = tmp_path / "b.py"
+    a.write_text(
+        "from sqlglot import Exp\n\ndef run_a() -> None:\n    Exp()\n",
+        encoding="utf-8",
+    )
+    b.write_text(
+        "from sqlglot import Exp\n\ndef run_b() -> None:\n    Exp()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    processor = CodeProcessor(db, tmp_path)
+    processor.process(full=True)
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 1
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM external_symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 2
+    )
+
+    a.write_text("def run_a() -> None:\n    pass\n", encoding="utf-8")
+    processor.process()
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 1
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM external_symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 1
+    )
+    db.close()
+
+
+def test_file_delete_orphans_external_stub(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    app = tmp_path / "app.py"
+    app.write_text(
+        "from sqlglot import Exp\n\ndef run() -> None:\n    Exp()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    processor = CodeProcessor(db, tmp_path)
+    processor.process(full=True)
+    app.unlink()
+    processor.process()
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 0
+    )
+    assert (
+        db.connection.execute(
+            "SELECT COUNT(*) AS c FROM external_symbols WHERE qualified_name = 'sqlglot.Exp'"
+        ).fetchone()["c"]
+        == 0
+    )
     db.close()

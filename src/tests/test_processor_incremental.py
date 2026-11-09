@@ -38,7 +38,6 @@ def _db_counts(tmp: Path) -> dict:
             "symbol_references": conn.execute(
                 "SELECT COUNT(*) AS c FROM symbol_references"
             ).fetchone()["c"],
-            "imports": conn.execute("SELECT COUNT(*) AS c FROM imports").fetchone()["c"],
             "symbol_count_sum": conn.execute(
                 "SELECT COALESCE(SUM(symbol_count), 0) AS s FROM files"
             ).fetchone()["s"],
@@ -281,18 +280,6 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
         VALUES (1, 'get_symbol', 'run.run', 2, 4)
         """
     )
-    db.connection.execute(
-        """
-        INSERT INTO imports (
-            id, file_id, module, import_path, imported_symbol, imported_symbol_qualified_name,
-            line_number, import_type, import_scope, signature
-        )
-        VALUES (
-            900, ?, 'os', 'os.path', '', 'os.path', 1, 'absolute', 'module', 'import os.path'
-        )
-        """,
-        (file_id,),
-    )
     db.connection.commit()
 
     script.unlink()
@@ -326,13 +313,6 @@ def test_deleting_an_entry_point_file_does_not_error(tmp_path: Path) -> None:
             "SELECT COUNT(*) AS c FROM symbols WHERE qualified_name = 'keep.keep'"
         ).fetchone()["c"]
         == 1
-    )
-    assert (
-        db.connection.execute(
-            "SELECT COUNT(*) AS c FROM imports WHERE file_id = ?",
-            (file_id,),
-        ).fetchone()["c"]
-        == 0
     )
     assert (
         db.connection.execute(

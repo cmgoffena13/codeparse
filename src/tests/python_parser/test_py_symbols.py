@@ -1,5 +1,4 @@
 from src.tests.python_parser._assertions import (
-    assert_imports_invariants,
     assert_symbol_references_invariants,
     assert_symbols_invariants,
     index_symbols,
@@ -9,13 +8,11 @@ from src.tests.python_parser._assertions import (
 
 def test_python_fixture_file_parses_symbols_imports_and_references(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("file.py")
-    symbols, imports, references = python_parser.parse(1, file_bytes)
+    symbols, references = python_parser.parse(1, file_bytes)
 
     assert len(symbols) == 12
-    assert len(imports) == 3
     assert len(references) == 4
     assert_symbols_invariants(symbols)
-    assert_imports_invariants(imports)
     assert_symbol_references_invariants(references)
 
     qn = {symbol_key(s) for s in symbols}
@@ -75,7 +72,7 @@ def test_docstring_is_only_the_first_statement(python_parser):
         b'def one_liner(): "inline"\n\n'
         b'def returned():\n    return "not a docstring"\n'
     )
-    symbols, _, _ = python_parser.parse(1, source)
+    symbols, _ = python_parser.parse(1, source)
     by_qn = index_symbols(symbols)
     assert by_qn["documented"]["docstring"] == "real"
     assert by_qn["later_string"]["docstring"] is None
@@ -87,7 +84,7 @@ def test_docstring_is_only_the_first_statement(python_parser):
 def test_python_module_qn_prefixes_root_symbols(python_parser, fixture_bytes):
     """When module_qn is set, root symbols are prefixed; nested keep parent chain."""
     file_bytes = fixture_bytes("file.py")
-    symbols, _imports, _references = python_parser.parse(1, file_bytes, module_qn="pkg.mod")
+    symbols, _references = python_parser.parse(1, file_bytes, module_qn="pkg.mod")
 
     assert_symbols_invariants(symbols)
     qn = {symbol_key(s) for s in symbols}
@@ -115,13 +112,11 @@ def test_python_module_qn_prefixes_root_symbols(python_parser, fixture_bytes):
 
 def test_python_fixture_another_file_has_fakeclass_call_reference(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("another_file.py")
-    symbols, imports, references = python_parser.parse(2, file_bytes)
+    symbols, references = python_parser.parse(2, file_bytes)
 
     assert len(symbols) == 4
-    assert len(imports) == 1
     assert len(references) == 2
     assert_symbols_invariants(symbols)
-    assert_imports_invariants(imports)
     assert_symbol_references_invariants(references)
 
     by_qn = index_symbols(symbols)

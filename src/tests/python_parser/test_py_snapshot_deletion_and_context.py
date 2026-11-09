@@ -28,12 +28,10 @@ def _parse_with_shared_db(file_id: int, first: bytes, second: bytes):
                 "files": [],
                 "entry_points": [],
                 "symbols": a[0],
-                "imports": a[1],
-                "symbol_references": a[2],
+                "symbol_references": a[1],
             }
         )
         db.resolve_symbol_references()
-        db.resolve_imports(0, 0)
 
         # New run against populated DB
         assigner2 = GlobalIDAssigner(db)
@@ -55,7 +53,7 @@ def a():
     return 1
 """
 
-    (sym1, _imp1, ref1), (sym2, _imp2, ref2) = _parse_with_shared_db(99, first, second)
+    (sym1, ref1), (sym2, ref2) = _parse_with_shared_db(99, first, second)
 
     assert len(sym1) == 2
     assert len(ref1) == 1
@@ -76,7 +74,7 @@ def f(
     return a, b
 """
 
-    (_sym1, _imp1, ref1), (_sym2, _imp2, ref2) = _parse_with_shared_db(100, first, first)
+    (_sym1, ref1), (_sym2, ref2) = _parse_with_shared_db(100, first, first)
 
     assert len(ref1) == len(ref2)
     keys1 = {

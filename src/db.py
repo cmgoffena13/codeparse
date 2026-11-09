@@ -11,10 +11,15 @@ TABLE_BATCH_MAP = {
     "directories",
     "files",
     "symbols",
-    "imports",
     "symbol_references",
     "entry_points",
 }
+
+
+def _ref_qn_is_indexed(qualified_name: str, indexed_paths: set[str]) -> bool:
+    parts = qualified_name.split(".")
+    prefixes = [".".join(parts[:index]) for index in range(1, len(parts) + 1)]
+    return any(prefix in indexed_paths for prefix in prefixes)
 
 
 class _IDAssigner(Protocol):
@@ -67,6 +72,7 @@ class CodeDB:
         self.connection.executescript(path.read_text(encoding="utf-8"))
 
     def _apply_schema(self):
+        self.connection.execute("DROP TABLE IF EXISTS imports")
         self._script("schema.sql")
 
     def recreate_schema(self) -> None:
@@ -145,7 +151,22 @@ class CodeDB:
         if file_ids:
             placeholders = ",".join("?" for _ in file_ids)
             parameters = tuple(file_ids)
+            orphan_qns = [
+                row["qualified_name"]
+                for row in self.connection.execute(
+                    f"""
+                    SELECT DISTINCT qualified_name
+                    FROM external_symbols
+                    WHERE file_id IN ({placeholders})
+                    """,  # noqa: S608
+                    parameters,
+                )
+            ]
             with self.connection:
+                self.connection.execute(
+                    f"DELETE FROM external_symbols WHERE file_id IN ({placeholders})",  # noqa: S608
+                    parameters,
+                )
                 self.connection.execute(
                     f"""
                     DELETE FROM symbols_fts
@@ -158,13 +179,10 @@ class CodeDB:
                     parameters,
                 )
                 self.connection.execute(
-                    f"DELETE FROM imports WHERE file_id IN ({placeholders})",  # noqa: S608
-                    parameters,
-                )
-                self.connection.execute(
                     f"DELETE FROM files WHERE id IN ({placeholders})",  # noqa: S608
                     parameters,
                 )
+            self._delete_orphan_external_stubs(orphan_qns)
 
     def get_symbols_snapshot(self, file_id: int) -> dict[tuple[str, str], dict[str, Any]]:
         # NOTE: combine symbol_bases and symbols into a single query
@@ -299,37 +317,12 @@ class CodeDB:
         ]
         self.delete_ids("symbol_references", symbol_reference_ids)
 
-    def get_imports_snapshot(self, file_id: int) -> dict[tuple[str, str], dict[str, Any]]:
-        query = """
-        SELECT
-        id,
-        import_path,
-        imported_symbol,
-        line_number
-        FROM imports
-        WHERE file_id = ?
-        """
-        cursor = self.connection.execute(query, (file_id,))
-        return {
-            (row["import_path"], row["imported_symbol"]): {
-                "id": row["id"],
-                "line_number": row["line_number"],
-                "seen": False,
-            }
-            for row in cursor
-        }
-
-    def delete_imports(self, imports_snapshot: dict[tuple[str, str], dict[str, Any]]) -> None:
-        import_ids = [i["id"] for i in imports_snapshot.values() if not i["seen"]]
-        self.delete_ids("imports", import_ids)
-
     def bulk_insert(self, db_batches: dict[str, list[dict[str, Any]]]) -> None:
         directories = db_batches["directories"]
         files = db_batches["files"]
         entry_points = db_batches["entry_points"]
         symbols = db_batches["symbols"]
         symbol_references = db_batches["symbol_references"]
-        imports = db_batches["imports"]
         with self.connection:
             self.connection.executemany(
                 """
@@ -427,95 +420,170 @@ class CodeDB:
                 symbol_references,
             )
 
-            self.connection.executemany(
-                """
-                INSERT OR REPLACE INTO imports
-                (id, file_id, module, import_path, imported_symbol, imported_symbol_qualified_name,
-                 alias, line_number, import_type, import_scope, signature)
-                VALUES (:id, :file_id, :module, :import_path, :imported_symbol,
-                        :imported_symbol_qualified_name, :alias, :line_number, :import_type,
-                        :import_scope, :signature)
-                """,
-                imports,
+    def _indexed_module_paths(self) -> set[str]:
+        rows = self.connection.execute(
+            "SELECT normalized_path FROM files WHERE id != ?",
+            (EXTERNAL_PACKAGES_FILE_ID,),
+        )
+        return {row["normalized_path"] for row in rows}
+
+    def get_external_symbols_snapshot(self, file_id: int) -> dict[str, dict[str, Any]]:
+        rows = self.connection.execute(
+            "SELECT qualified_name FROM external_symbols WHERE file_id = ?",
+            (file_id,),
+        )
+        return {row["qualified_name"]: {"seen": False} for row in rows}
+
+    def delete_unseen_external_symbols(
+        self, file_id: int, snapshot: dict[str, dict[str, Any]]
+    ) -> None:
+        deleted_qns = [qn for qn, entry in snapshot.items() if not entry["seen"]]
+        if deleted_qns:
+            with self.connection:
+                self.connection.executemany(
+                    "DELETE FROM external_symbols WHERE file_id = ? AND qualified_name = ?",
+                    [(file_id, qn) for qn in deleted_qns],
+                )
+            self._delete_orphan_external_stubs(deleted_qns)
+
+    def _delete_orphan_external_stubs(self, candidate_qns: list[str]) -> None:
+        if candidate_qns:
+            placeholders = ",".join("?" for _ in candidate_qns)
+            orphan_ids = [
+                row["id"]
+                for row in self.connection.execute(
+                    f"""
+                    SELECT s.id
+                    FROM symbols AS s
+                    WHERE s.file_id = ?
+                      AND s.qualified_name IN ({placeholders})
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM external_symbols AS es
+                          WHERE es.qualified_name = s.qualified_name
+                      )
+                    """,  # noqa: S608
+                    (EXTERNAL_PACKAGES_FILE_ID, *candidate_qns),
+                )
+            ]
+            if orphan_ids:
+                snapshot = {
+                    (f"orphan-{symbol_id}", "external"): {"id": symbol_id, "seen": False}
+                    for symbol_id in orphan_ids
+                }
+                self.delete_symbols(snapshot)
+
+    def insert_external_symbols(self, rows: list[dict[str, Any]]) -> None:
+        if rows:
+            with self.connection:
+                self.connection.executemany(
+                    """
+                    INSERT OR IGNORE INTO external_symbols (file_id, qualified_name)
+                    VALUES (:file_id, :qualified_name)
+                    """,
+                    rows,
+                )
+
+    def prune_indexed_external_symbols(self) -> None:
+        indexed = self._indexed_module_paths()
+        rows = list(self.connection.execute("SELECT file_id, qualified_name FROM external_symbols"))
+        to_delete = [
+            (row["file_id"], row["qualified_name"])
+            for row in rows
+            if _ref_qn_is_indexed(row["qualified_name"], indexed)
+        ]
+        if to_delete:
+            with self.connection:
+                self.connection.executemany(
+                    "DELETE FROM external_symbols WHERE file_id = ? AND qualified_name = ?",
+                    to_delete,
+                )
+            self._delete_orphan_external_stubs([qn for _file_id, qn in to_delete])
+
+    def create_external_stubs(self, qualified_names: set[str], assigner: _IDAssigner) -> None:
+        if not qualified_names:
+            return
+        qns = list(qualified_names)
+        placeholders = ",".join("?" for _ in qns)
+        demanded = {
+            row["qualified_name"]
+            for row in self.connection.execute(
+                f"""
+                SELECT DISTINCT qualified_name
+                FROM external_symbols
+                WHERE qualified_name IN ({placeholders})
+                """,  # noqa: S608
+                tuple(qns),
             )
-
-    def ensure_external_symbols(self, assigner: _IDAssigner) -> None:
-        import_rows = self.connection.execute(
-            """
-            SELECT DISTINCT imported_symbol_qualified_name, imported_symbol
-            FROM imports
-            WHERE import_type = 'absolute'
-              AND NOT EXISTS (
-                  SELECT 1 FROM files AS f
-                  WHERE f.normalized_path = imports.import_path
-              )
-            """
-        ).fetchall()
-        stubs_from_imports: dict[str, tuple[str, str | None, str]] = {}
-        for row in import_rows:
-            qualified_name = row["imported_symbol_qualified_name"]
-            kind = "external" if row["imported_symbol"] else "module"
-            if "." in qualified_name:
-                parent, _, name = qualified_name.rpartition(".")
-            else:
-                parent, name = None, qualified_name
-            stubs_from_imports[qualified_name] = (name, parent, kind)
-
-        snapshot = self.get_symbols_snapshot(EXTERNAL_PACKAGES_FILE_ID)
-        stubs_by_qn = {qualified_name: entry for (qualified_name, _kind), entry in snapshot.items()}
-
+        }
+        if not demanded:
+            return
+        demand_list = list(demanded)
+        demand_placeholders = ",".join("?" for _ in demand_list)
+        existing = {
+            row["qualified_name"]
+            for row in self.connection.execute(
+                f"""
+                SELECT qualified_name
+                FROM symbols
+                WHERE qualified_name IN ({demand_placeholders})
+                """,  # noqa: S608
+                tuple(demand_list),
+            )
+        }
         stub_rows: list[dict[str, Any]] = []
-        fts_rows: list[tuple[int, str, str | None]] = []
-
-        for qualified_name, (name, parent, kind) in stubs_from_imports.items():
-            if qualified_name in stubs_by_qn:
-                stubs_by_qn[qualified_name]["seen"] = True
-            else:
+        for qualified_name in demand_list:
+            if qualified_name not in existing:
+                if "." in qualified_name:
+                    parent, _, name = qualified_name.rpartition(".")
+                else:
+                    parent, name = None, qualified_name
                 stub_rows.append(
                     {
                         "qualified_name": qualified_name,
                         "name": name,
                         "parent": parent,
-                        "kind": kind,
+                        "kind": "external",
                     }
                 )
-        self.delete_symbols(snapshot)
-        if stub_rows:
-            ids = assigner.reserve("symbols", len(stub_rows))
-            for symbol_id, stub in zip(ids, stub_rows, strict=True):
-                stub["id"] = symbol_id
-                stub["file_id"] = EXTERNAL_PACKAGES_FILE_ID
-                stub["parent_id"] = None
-                stub["line_start"] = 0
-                stub["line_end"] = 0
-                stub["line_count"] = 0
-                stub["signature"] = ""
-                stub["docstring"] = None
-                stub["modifiers"] = None
-                stub["language"] = "python"
-                stub["is_test"] = False
-                stub["is_inherited"] = False
-                fts_rows.append((symbol_id, stub["name"], stub["parent"]))
-            with self.connection:
-                self.connection.executemany(
-                    """
-                    INSERT INTO symbols
-                    (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
-                     line_end, line_count, signature, docstring, modifiers, language,
-                     is_test, is_inherited)
-                    VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
-                            :line_start, :line_end, :line_count, :signature,
-                            :docstring, :modifiers, :language, :is_test, :is_inherited)
-                    """,
-                    stub_rows,
-                )
-                self.connection.executemany(
-                    """
-                    INSERT INTO symbols_fts (rowid, name, parent)
-                    VALUES (?, ?, ?)
-                    """,
-                    fts_rows,
-                )
+        if not stub_rows:
+            return
+        ids = assigner.reserve("symbols", len(stub_rows))
+        fts_rows: list[tuple[int, str, str | None]] = []
+        for symbol_id, stub in zip(ids, stub_rows, strict=True):
+            stub["id"] = symbol_id
+            stub["file_id"] = EXTERNAL_PACKAGES_FILE_ID
+            stub["parent_id"] = None
+            stub["line_start"] = 0
+            stub["line_end"] = 0
+            stub["line_count"] = 0
+            stub["signature"] = ""
+            stub["docstring"] = None
+            stub["modifiers"] = None
+            stub["language"] = "python"
+            stub["is_test"] = False
+            stub["is_inherited"] = False
+            fts_rows.append((symbol_id, stub["name"], stub["parent"]))
+        with self.connection:
+            self.connection.executemany(
+                """
+                INSERT INTO symbols
+                (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
+                 line_end, line_count, signature, docstring, modifiers, language,
+                 is_test, is_inherited)
+                VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
+                        :line_start, :line_end, :line_count, :signature,
+                        :docstring, :modifiers, :language, :is_test, :is_inherited)
+                """,
+                stub_rows,
+            )
+            self.connection.executemany(
+                """
+                INSERT INTO symbols_fts (rowid, name, parent)
+                VALUES (?, ?, ?)
+                """,
+                fts_rows,
+            )
 
     def resolve_symbol_references(self) -> None:
         with self.connection:
@@ -542,20 +610,6 @@ class CodeDB:
             WHERE NOT EXISTS (SELECT 1 FROM symbol_references AS sr WHERE sr.id = s.id);
             """)
             self.connection.execute("DELETE FROM symbol_references_staging;")
-
-    def resolve_imports(self, now: int, last_incremental: int) -> None:
-        with self.connection:
-            self.connection.execute(
-                """
-                UPDATE imports
-                SET imported_file_id = f.id,
-                    watermark = ?
-                FROM files AS f
-                WHERE f.normalized_path = imports.import_path
-                    AND imports.watermark BETWEEN ? AND ?
-                """,
-                (last_incremental, now, last_incremental),
-            )
 
     def close(self):
         if not self.connection_closed:

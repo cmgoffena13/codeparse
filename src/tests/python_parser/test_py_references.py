@@ -1,5 +1,4 @@
 from src.tests.python_parser._assertions import (
-    assert_imports_invariants,
     assert_reference_shape,
     assert_symbol_references_invariants,
     assert_symbols_invariants,
@@ -10,7 +9,7 @@ from src.tests.python_parser._assertions import (
 def test_import_after_path_use_same_suite_still_filters_path_call(python_parser, fixture_bytes):
     """Import below Path(...) must still register before sibling refs (import-first walk)."""
     file_bytes = fixture_bytes("import_after_use_path.py")
-    _, _, references = python_parser.parse(45, file_bytes)
+    _, references = python_parser.parse(45, file_bytes)
 
     assert_symbol_references_invariants(references)
     assert not any(
@@ -21,7 +20,7 @@ def test_import_after_path_use_same_suite_still_filters_path_call(python_parser,
 def test_stdlib_import_and_literal_calls_filtered_from_references(python_parser, fixture_bytes):
     """Path(...) and str.join skipped; project name like files kept."""
     file_bytes = fixture_bytes("external_refs_filter.py")
-    _, _, references = python_parser.parse(41, file_bytes)
+    _, references = python_parser.parse(41, file_bytes)
 
     assert_symbol_references_invariants(references)
     assert not any(
@@ -36,10 +35,9 @@ def test_stdlib_import_and_literal_calls_filtered_from_references(python_parser,
 def test_self_attr_call_resolves_via_init_param_annotation(python_parser, fixture_bytes):
     """self.dep.* resolves via __init__ param type (DependencyType)."""
     file_bytes = fixture_bytes("ctor_param_self_call.py")
-    symbols, imports, references = python_parser.parse(40, file_bytes)
+    symbols, references = python_parser.parse(40, file_bytes)
 
     assert_symbols_invariants(symbols)
-    assert_imports_invariants(imports)
     assert_symbol_references_invariants(references)
 
     call = next(
@@ -57,13 +55,11 @@ def test_self_attr_call_resolves_via_init_param_annotation(python_parser, fixtur
 
 def test_symbol_references_access_and_type_annotation(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("references_cases.py")
-    symbols, imports, references = python_parser.parse(4, file_bytes)
+    symbols, references = python_parser.parse(4, file_bytes)
 
     assert len(symbols) == 6
-    assert len(imports) == 1
     assert len(references) == 4
     assert_symbols_invariants(symbols)
-    assert_imports_invariants(imports)
     assert_symbol_references_invariants(references)
     for r in references:
         assert_reference_shape(r, expected_file_id=4)
@@ -79,13 +75,11 @@ def test_symbol_references_access_and_type_annotation(python_parser, fixture_byt
 
 def test_symbol_references_ids_are_unique_with_repeated_calls(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("duplicate_reference_ids.py")
-    symbols, imports, references = python_parser.parse(5, file_bytes)
+    symbols, references = python_parser.parse(5, file_bytes)
 
     assert len(symbols) == 2
-    assert len(imports) == 0
     assert len(references) == 2
     assert_symbols_invariants(symbols)
-    assert_imports_invariants(imports)
     assert_symbol_references_invariants(references)
     for r in references:
         assert_reference_shape(r, expected_file_id=5)
@@ -99,10 +93,9 @@ def test_symbol_references_ids_are_unique_with_repeated_calls(python_parser, fix
 
 def test_same_line_duplicate_calls_get_distinct_ids(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("same_line_duplicate_refs.py")
-    symbols, imports, references = python_parser.parse(55, file_bytes)
+    symbols, references = python_parser.parse(55, file_bytes)
 
     assert_symbols_invariants(symbols)
-    assert_imports_invariants(imports)
     assert_symbol_references_invariants(references)
     for r in references:
         assert_reference_shape(r, expected_file_id=55)
@@ -118,7 +111,7 @@ def test_same_line_duplicate_calls_get_distinct_ids(python_parser, fixture_bytes
 
 def test_same_module_simple_name_gets_module_prefix(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("ref_qn_same_module.py")
-    _, _, references = python_parser.parse(50, file_bytes, module_qn="pkg.mod")
+    _, references = python_parser.parse(50, file_bytes, module_qn="pkg.mod")
 
     assert_symbol_references_invariants(references)
     call = next(
@@ -129,7 +122,7 @@ def test_same_module_simple_name_gets_module_prefix(python_parser, fixture_bytes
 
 def test_absolute_from_import_rewrites_ref_qn(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("ref_qn_absolute_import.py")
-    _, _, references = python_parser.parse(51, file_bytes, module_qn="app.main")
+    _, references = python_parser.parse(51, file_bytes, module_qn="app.main")
 
     assert_symbol_references_invariants(references)
     call = next(
@@ -140,7 +133,7 @@ def test_absolute_from_import_rewrites_ref_qn(python_parser, fixture_bytes):
 
 def test_import_module_alias_rewrites_ref_qn(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("ref_qn_import_alias.py")
-    _, _, references = python_parser.parse(52, file_bytes, module_qn="app.main")
+    _, references = python_parser.parse(52, file_bytes, module_qn="app.main")
 
     assert_symbol_references_invariants(references)
     call = next(
@@ -151,7 +144,7 @@ def test_import_module_alias_rewrites_ref_qn(python_parser, fixture_bytes):
 
 def test_relative_from_import_rewrites_ref_qn(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("ref_qn_relative_import.py")
-    _, _, references = python_parser.parse(53, file_bytes, module_qn="pkg.sub.caller")
+    _, references = python_parser.parse(53, file_bytes, module_qn="pkg.sub.caller")
 
     assert_symbol_references_invariants(references)
     call = next(r for r in references if r["ref_kind"] == "call" and r["ref_symbol_name"] == "Foo")
@@ -160,7 +153,7 @@ def test_relative_from_import_rewrites_ref_qn(python_parser, fixture_bytes):
 
 def test_ctor_param_imported_type_rewrites_via_import_qn(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("ctor_param_imported_type.py")
-    _, _, references = python_parser.parse(54, file_bytes, module_qn="pkg.host")
+    _, references = python_parser.parse(54, file_bytes, module_qn="pkg.host")
 
     assert_symbol_references_invariants(references)
     call = next(
@@ -178,7 +171,7 @@ def test_ctor_param_imported_type_rewrites_via_import_qn(python_parser, fixture_
 
 def test_param_receiver_call_resolves_via_annotation(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("param_receiver_call.py")
-    _, _, references = python_parser.parse(56, file_bytes, module_qn="pkg.mod")
+    _, references = python_parser.parse(56, file_bytes, module_qn="pkg.mod")
 
     assert_symbol_references_invariants(references)
     calls = [
@@ -196,7 +189,7 @@ def test_param_receiver_call_resolves_via_annotation(python_parser, fixture_byte
 
 def test_builtin_method_call_also_references_the_variable(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("builtin_method_variable.py")
-    symbols, _, references = python_parser.parse(70, file_bytes, module_qn="pkg.mod")
+    symbols, references = python_parser.parse(70, file_bytes, module_qn="pkg.mod")
     assert_symbol_references_invariants(references)
     by_qn = index_symbols(symbols)
 
@@ -220,7 +213,7 @@ def test_builtin_method_call_also_references_the_variable(python_parser, fixture
 
 def test_annotated_local_method_call_resolves_to_type(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("typed_local_call.py")
-    _, _, references = python_parser.parse(80, file_bytes, module_qn="pkg.mod")
+    _, references = python_parser.parse(80, file_bytes, module_qn="pkg.mod")
     call = next(
         r
         for r in references
@@ -231,7 +224,7 @@ def test_annotated_local_method_call_resolves_to_type(python_parser, fixture_byt
 
 def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
     source = b"ITEMS = {}\n\ndef run():\n    return ITEMS.get('a')\n"
-    _, _, references = python_parser.parse(71, source, module_qn="pkg.mod")
+    _, references = python_parser.parse(71, source, module_qn="pkg.mod")
     calls = [r for r in references if r["ref_kind"] == "call"]
     assert len(calls) == 1
     assert calls[0]["ref_symbol_name"] == "ITEMS.get"
@@ -247,7 +240,7 @@ def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
 
 def test_variable_comparison_is_access(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("variable_comparison.py")
-    symbols, _, references = python_parser.parse(73, file_bytes, module_qn="pkg.check")
+    symbols, references = python_parser.parse(73, file_bytes, module_qn="pkg.check")
     assert_symbol_references_invariants(references)
     by_qn = index_symbols(symbols)
     accesses = [
@@ -262,7 +255,7 @@ def test_variable_comparison_is_access(python_parser, fixture_bytes):
 
 def test_bare_variable_uses_are_accesses(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("variable_bare_uses.py")
-    symbols, _, references = python_parser.parse(72, file_bytes, module_qn="pkg.mod")
+    symbols, references = python_parser.parse(72, file_bytes, module_qn="pkg.mod")
     assert_symbol_references_invariants(references)
     by_qn = index_symbols(symbols)
     assert not any(r["source_line"] == 3 for r in references)
@@ -304,7 +297,7 @@ def test_source_symbol_id_is_the_enclosing_container(python_parser):
         b"    def run(self) -> helper:\n"
         b"        return helper()\n"
     )
-    symbols, _, references = python_parser.parse(1, source, module_qn="pkg.mod")
+    symbols, references = python_parser.parse(1, source, module_qn="pkg.mod")
     by_qn = index_symbols(symbols)
     calls = {
         r["source_line"]: r["source_symbol_id"]

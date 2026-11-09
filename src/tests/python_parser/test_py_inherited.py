@@ -17,7 +17,7 @@ def test_same_module_subclass_gets_base_members(python_parser) -> None:
         b"    def apply(self):\n"
         b"        return self.plan()\n"
     )
-    symbols, _, refs = python_parser.parse(1, source, module_qn="mod")
+    symbols, refs = python_parser.parse(1, source, module_qn="mod")
     by_qn = index_symbols(symbols)
     assert by_qn["mod.Context.plan"]["kind"] == "method"
     assert by_qn["mod.Context.flag"]["kind"] == "variable"
@@ -43,7 +43,7 @@ def test_same_module_override_is_not_replaced(python_parser) -> None:
         b"    def plan(self):\n"
         b"        return 2\n"
     )
-    symbols, _, _ = python_parser.parse(1, source, module_qn="mod")
+    symbols, _ = python_parser.parse(1, source, module_qn="mod")
     plans = [symbol for symbol in symbols if symbol["qualified_name"] == "mod.Context.plan"]
     assert len(plans) == 1
     assert plans[0]["line_start"] != index_symbols(symbols)["mod.GenericContext.plan"]["line_start"]
@@ -60,5 +60,5 @@ def test_same_module_later_base_still_links(python_parser) -> None:
         b"    def plan(self):\n"
         b"        return 1\n"
     )
-    symbols, _, _ = python_parser.parse(1, source, module_qn="mod")
+    symbols, _ = python_parser.parse(1, source, module_qn="mod")
     assert "mod.Context.plan" in index_symbols(symbols)

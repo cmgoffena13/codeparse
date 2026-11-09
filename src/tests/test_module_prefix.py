@@ -73,18 +73,9 @@ def test_relative_import_under_src_omits_src(tmp_path: Path) -> None:
     )
     db = _index(tmp_path)
     try:
-        row = db.connection.execute(
-            """
-            SELECT import_path, import_type
-            FROM imports
-            WHERE imported_symbol = 'Foo'
-            """
-        ).fetchone()
-        assert row["import_type"] == "relative"
-        assert row["import_path"] == "fundamentals.sib"
         out = get_import_relations(db, "fundamentals.sib", include_tests=False)
-        assert "fundamentals.sib.Foo (" in out
-        assert "src/fundamentals/caller.py" in out
+        assert "• src/fundamentals/caller.py" in out
+        assert "• fundamentals.sib.Foo (" in out
     finally:
         db.close()
 

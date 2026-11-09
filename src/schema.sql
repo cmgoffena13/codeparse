@@ -109,25 +109,12 @@ CREATE INDEX IF NOT EXISTS symbol_references_source_file_id_index ON symbol_refe
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_qualified_name_index ON symbol_references (ref_symbol_qualified_name);
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_id_index ON symbol_references (ref_symbol_id);
 
-CREATE TABLE IF NOT EXISTS imports (
-    id                    INTEGER NOT NULL PRIMARY KEY,
-    file_id               INTEGER NOT NULL REFERENCES files(id),
-    module                TEXT NOT NULL,
-    import_path           TEXT NOT NULL,                           
-    imported_symbol       TEXT NOT NULL DEFAULT '',
-    imported_symbol_qualified_name TEXT,
-    alias                 TEXT,                           
-    line_number           INTEGER NOT NULL,                        
-    import_type           TEXT NOT NULL, 
-    import_scope          TEXT NOT NULL, 
-    signature             TEXT NOT NULL, 
-    imported_file_id      INTEGER REFERENCES files(id),
-    watermark             INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+CREATE TABLE IF NOT EXISTS external_symbols (
+    file_id          INTEGER NOT NULL REFERENCES files(id),
+    qualified_name   TEXT NOT NULL,
+    PRIMARY KEY (file_id, qualified_name)
 );
-CREATE INDEX IF NOT EXISTS imports_file_id_index ON imports (file_id);
-CREATE INDEX IF NOT EXISTS imports_module_index ON imports (module);
-CREATE INDEX IF NOT EXISTS imports_import_path_index ON imports (import_path, watermark);
-
+CREATE INDEX IF NOT EXISTS external_symbols_qualified_name_index ON external_symbols (qualified_name);
 
 /* NOTE: Full Text Search "Tables" for symbols */
 CREATE VIRTUAL TABLE IF NOT EXISTS symbols_fts USING fts5(

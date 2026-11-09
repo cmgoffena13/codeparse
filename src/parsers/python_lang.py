@@ -6,7 +6,7 @@ import typing
 from tree_sitter import Node, Parser
 
 from src.assigner import GlobalIDAssigner
-from src.db import CodeDB
+from src.db import CodeDB, _ref_qn_is_indexed
 from src.parsers.base import ParserBase
 from src.parsers.class_catalog import ClassCatalog
 from src.parsers.parser_utils import StackFrame, node_text
@@ -71,11 +71,11 @@ class PythonParser(ParserBase):
         self.std_module_names: set[str] = getattr(sys, "stdlib_module_names", set())
         self.stack: list[StackFrame] = []
         self.symbols: list[dict] = []
-        self.imports: list[dict] = []
         self.symbol_references: list[dict] = []
+        self.external_symbols: list[dict] = []
         self.symbols_snapshot = {}
         self.symbols_references_snapshot = {}
-        self.imports_snapshot = {}
+        self.external_symbols_snapshot = {}
         self._class_param_annos: dict[str, dict[str, str]] = {}
         self._func_param_annos: dict[str, dict[str, str]] = {}
         self._ref_root_module: dict[str, str] = {}
@@ -94,7 +94,7 @@ class PythonParser(ParserBase):
         file_bytes: bytes,
         module_qn: str = "",
         is_package: bool = False,
-    ) -> tuple[list[dict], list[dict], list[dict]]:
+    ) -> tuple[list[dict], list[dict]]:
         self.stack = []
         self._module_qn = module_qn
         self._is_package = is_package
@@ -107,20 +107,36 @@ class PythonParser(ParserBase):
         self._name_types = {}
         self._var_qns = {}
         self.symbols = []
-        self.imports = []
         self.symbol_references = []
+        self.external_symbols = []
         tree = self.parser.parse(file_bytes)
         root_node = tree.root_node
         self.symbols_snapshot = self.db.get_symbols_snapshot(file_id)
         self.symbols_references_snapshot = self.db.get_symbol_references_snapshot(file_id)
-        self.imports_snapshot = self.db.get_imports_snapshot(file_id)
+        self.external_symbols_snapshot = self.db.get_external_symbols_snapshot(file_id)
         self._walk(root_node, file_id, file_bytes)
         self.class_catalog.link(self.symbols, self.symbols_snapshot, file_id, self.assigner)
+        self._sync_external_symbols_ledger(file_id)
 
         self.db.delete_symbol_references(self.symbols_references_snapshot)
         self.db.delete_symbols(self.symbols_snapshot)
-        self.db.delete_imports(self.imports_snapshot)
-        return self.symbols, self.imports, self.symbol_references
+        return self.symbols, self.symbol_references
+
+    def _sync_external_symbols_ledger(self, file_id: int) -> None:
+        indexed = self.db._indexed_module_paths()
+        seen_qns: set[str] = set()
+        for ref in self.symbol_references:
+            qualified_name = ref["ref_symbol_qualified_name"]
+            if qualified_name in seen_qns:
+                continue
+            seen_qns.add(qualified_name)
+            if _ref_qn_is_indexed(qualified_name, indexed):
+                continue
+            if qualified_name in self.external_symbols_snapshot:
+                self.external_symbols_snapshot[qualified_name]["seen"] = True
+            else:
+                self.external_symbols.append({"file_id": file_id, "qualified_name": qualified_name})
+        self.db.delete_unseen_external_symbols(file_id, self.external_symbols_snapshot)
 
     def _qualify(self, name: str) -> str:
         if self.stack:
@@ -673,7 +689,7 @@ class PythonParser(ParserBase):
         """Handle Imports and References."""
 
         if node.type in ("import_statement", "import_from_statement"):
-            self._extract_import(node, file_id)
+            self._extract_import(node)
             return  # NOTE: Imports don't have children that are symbols
 
         if node.type == "call":
@@ -810,16 +826,12 @@ class PythonParser(ParserBase):
             "is_inherited": False,
         }
 
-    def _extract_import(self, node: Node, file_id: int) -> None:
-        """Extract Import Statement."""
-        signature = node_text(node)
-        if signature is None or node.type not in ("import_from_statement", "import_statement"):
+    def _extract_import(self, node: Node) -> None:
+        """Bind import locals for reference rewriting; does not persist import rows."""
+        if node.type not in ("import_from_statement", "import_statement"):
             return
 
-        line_number = node.start_point.row + 1
-        import_scope = "module" if not self.stack else "function"
         from_import = node.type == "import_from_statement"
-
         import_type = "absolute"  # NOTE: Default to absolute import.
         module_name = ""
         relative_node = None
@@ -854,12 +866,6 @@ class PythonParser(ParserBase):
                 if decoded is not None:
                     module_name = decoded
 
-        stored_path = module_name
-        if import_type == "relative":
-            resolved = self._resolve_relative_import_path(module_name)
-            if resolved:
-                stored_path = resolved.lower()
-
         for child in node.children:
             name_node = child
             alias = None
@@ -890,38 +896,6 @@ class PythonParser(ParserBase):
             # "from Foo import Bar" -> imported_symbol = "Bar"
             # "import os" -> imported_symbol = ""
             imported_symbol = name if from_import else ""
-            # "from .sib import Foo" inside pkg.sub.caller -> record_path = "pkg.sub.sib"
-            # "import os" -> record_path = "os"
-            record_path = stored_path if from_import else child_path
-
-            key = (record_path, imported_symbol)
-            row = {
-                "file_id": file_id,
-                "module": record_path.split(".")[0],
-                "import_path": record_path,
-                "imported_symbol": imported_symbol,
-                "imported_symbol_qualified_name": (
-                    f"{record_path}.{imported_symbol}" if imported_symbol else record_path
-                ),
-                "alias": alias,
-                "line_number": line_number,
-                "import_type": import_type,
-                "import_scope": import_scope,
-                "signature": signature,
-            }
-            if key in self.imports_snapshot:
-                self.imports_snapshot[key]["seen"] = True
-                if self.imports_snapshot[key]["line_number"] != line_number:
-                    import_id = self.imports_snapshot[key]["id"]
-                    self.imports.append({"id": import_id, **row})
-            else:
-                import_id = self.assigner.reserve("imports", 1)[0]
-                self.imports_snapshot[key] = {
-                    "id": import_id,
-                    "line_number": line_number,
-                    "seen": True,
-                }
-                self.imports.append({"id": import_id, **row})
             self._register_import_ref_binding(child_path, imported_symbol, alias, import_type)
 
     def _extract_identifier_reference(self, node: Node, file_id: int) -> None:
