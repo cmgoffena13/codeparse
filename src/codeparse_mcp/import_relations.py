@@ -187,7 +187,7 @@ def _format_rows(
         body = _format_relation_rows(
             shown,
             show_file_paths=show_file_paths,
-            flat=relation == "dependencies",
+            flat=relation == "dependencies" and not show_file_paths,
         )
         result = body
         if page_count > 1:

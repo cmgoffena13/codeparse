@@ -222,7 +222,7 @@ async def _print_tools() -> None:
                 await client.call_tool(
                     "get_import_relations",
                     {
-                        "target": "sqlmesh.core.dialect",
+                        "target": "sqlmesh.core",
                         "relation": "dependents",
                         "include_tests": False,
                     },
@@ -235,7 +235,7 @@ async def _print_tools() -> None:
                 await client.call_tool(
                     "get_import_relations",
                     {
-                        "target": "sqlmesh.core.dialect",
+                        "target": "sqlmesh.core",
                         "relation": "dependencies",
                     },
                 )

@@ -52,8 +52,8 @@ def test_import_relations_include_tests_only_dependents(tmp_path: Path) -> None:
         deps = get_import_relations(db, "tests", relation="dependencies", include_tests=False)
         assert "pkg.target.helper" in deps
         assert "tests/test_user.py" in deps
-        assert "├─" not in deps
-        assert "└─" not in deps
+        assert "└─" in deps or "├─" in deps
+        assert deps.index("tests/test_user.py") < deps.index("pkg.target.helper")
     finally:
         db.close()
 
@@ -150,8 +150,11 @@ def test_import_relations_directory_dependencies(tmp_path: Path) -> None:
         out = get_import_relations(db, "pkg.lib", relation="dependencies", include_tests=False)
         assert "pkg/lib/b.py" in out
         assert "pkg.lib.b.beta" in out
-        assert "  • pkg.lib.a.alpha (C)" in out
-        assert "├─" not in out
+        assert "• pkg.lib.a.alpha (C)" in out
+        assert "└─ pkg.lib.b.beta" in out or "├─ pkg.lib.b.beta" in out
+        file_at = out.index("pkg/lib/b.py")
+        source_at = out.index("pkg.lib.b.beta")
+        assert file_at < source_at
     finally:
         db.close()
 
