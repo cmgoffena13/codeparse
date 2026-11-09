@@ -1,6 +1,6 @@
 [project]
 name = "codeparse"
-version = "0.14.1"
+version = "0.14.2"
 readme = "README.md"
 requires-python = ">=3.15"
 dependencies = [

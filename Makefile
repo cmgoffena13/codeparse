@@ -1,4 +1,4 @@
-.PHONY: install ready format lint type-check test test-cov run compile eval eval-smoke eval-clean cursor claude v verbose
+.PHONY: install ready format lint type-check test test-cov run compile eval eval-smoke eval-clean cursor claude v verbose bump major minor patch
 
 install:
 	uv sync --all-extras
@@ -93,3 +93,9 @@ compile:
 		--include-data-files=src/drop_schema.sql=src/drop_schema.sql \
 		--noinclude-data-files=src/tests/* \
 		--output-dir=dist/
+
+bump:
+	uv version --bump $(filter major minor patch,$(MAKECMDGOALS))
+
+major minor patch:
+	@:
