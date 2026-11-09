@@ -6,13 +6,15 @@ def test_type_annotations_optional_generics_and_forward_refs(python_parser, fixt
     symbols, references = python_parser.parse(13, file_bytes)
 
     assert len(symbols) == 1
-    assert len(references) == 1
     assert_symbol_references_invariants(references)
 
     assert not any(
         r["ref_kind"] == "type_annotation" and r["ref_symbol_name"] == "list" for r in references
     )
-    # Optional/List/typing.Path skipped as stdlib-mapped; quoted forward ref remains
+    assert any(
+        r["ref_kind"] == "type_annotation" and r["ref_symbol_qualified_name"] == "pathlib.Path"
+        for r in references
+    )
     assert any(
         r["ref_kind"] == "type_annotation" and r["ref_symbol_name"] == '"Path"' for r in references
     )

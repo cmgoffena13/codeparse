@@ -77,3 +77,15 @@ def index_external_user(root: Path) -> Path:
     CodeProcessor(db, root).process(full=True)
     db.close()
     return root
+
+
+def index_stdlib_user(root: Path) -> Path:
+    write_gitignore(root)
+    (root / "app.py").write_text(
+        "import re\n\n\ndef run() -> None:\n    re.compile('x')\n    re.search('x', 'y')\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(root)
+    CodeProcessor(db, root).process(full=True)
+    db.close()
+    return root

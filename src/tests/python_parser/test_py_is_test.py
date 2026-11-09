@@ -9,7 +9,8 @@ def test_is_test_detection_pytest_and_unittest(python_parser, fixture_bytes):
     symbols, references = python_parser.parse(3, file_bytes)
 
     assert len(symbols) == 5
-    assert len(references) == 0
+    assert len(references) == 1
+    assert references[0]["ref_symbol_qualified_name"] == "unittest.TestCase"
     assert_symbols_invariants(symbols)
 
     by_qn = index_symbols(symbols)

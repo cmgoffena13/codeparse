@@ -196,13 +196,14 @@ async def _print_tools() -> None:
                 await client.call_tool(
                     "get_import_relations",
                     {
-                        "target": "sqlglot.dialects.athena",
+                        "target": "re",
                         "relation": "dependents",
                         "include_tests": True,
                     },
                 )
             ),
         )
+        # NOTE: This is a 3rd party module, so no dependencies are available.
         _print_section(
             "IMPORT RELATIONS (external dependencies)",
             _body(

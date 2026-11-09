@@ -9,6 +9,7 @@ from src.tests.fixtures.import_relations import (
     index_directory_package,
     index_external_user,
     index_internal_package,
+    index_stdlib_user,
     write_gitignore,
 )
 
@@ -174,6 +175,18 @@ def test_import_relations_external_dependents(tmp_path: Path) -> None:
         assert "  └─ app.run" in out or "  ├─ app.run" in out
         assert "• sqlglot.Exp (C)" in out
         assert out.index("• app.py") < out.index("• sqlglot.Exp (C)")
+    finally:
+        db.close()
+
+
+def test_import_relations_stdlib_dependents_via_symbol_use(tmp_path: Path) -> None:
+    index_stdlib_user(tmp_path)
+    db = CodeDB(tmp_path)
+    try:
+        out = get_import_relations(db, "re", include_tests=False)
+        assert "• app.py" in out
+        assert "• re.compile (C)" in out
+        assert "• re.search (C)" in out
     finally:
         db.close()
 

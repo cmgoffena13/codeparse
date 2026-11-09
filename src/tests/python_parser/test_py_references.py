@@ -6,25 +6,27 @@ from src.tests.python_parser._assertions import (
 )
 
 
-def test_import_after_path_use_same_suite_still_filters_path_call(python_parser, fixture_bytes):
+def test_import_after_path_use_same_suite_still_rewrites_path_call(python_parser, fixture_bytes):
     """Import below Path(...) must still register before sibling refs (import-first walk)."""
     file_bytes = fixture_bytes("import_after_use_path.py")
     _, references = python_parser.parse(45, file_bytes)
 
     assert_symbol_references_invariants(references)
-    assert not any(
-        r["ref_kind"] == "call" and r["ref_symbol_name"].startswith("Path") for r in references
+    assert any(
+        r["ref_kind"] == "call" and r["ref_symbol_qualified_name"] == "pathlib.Path"
+        for r in references
     )
 
 
-def test_stdlib_import_and_literal_calls_filtered_from_references(python_parser, fixture_bytes):
-    """Path(...), str.join, and annotation-rewrites onto builtins are skipped."""
+def test_stdlib_package_calls_recorded_builtin_methods_filtered(python_parser, fixture_bytes):
+    """Stdlib package uses are kept; builtin method calls stay filtered."""
     file_bytes = fixture_bytes("external_refs_filter.py")
     _, references = python_parser.parse(41, file_bytes)
 
     assert_symbol_references_invariants(references)
-    assert not any(
-        r["ref_kind"] == "call" and r["ref_symbol_name"].startswith("Path") for r in references
+    assert any(
+        r["ref_kind"] == "call" and r["ref_symbol_qualified_name"] == "pathlib.Path"
+        for r in references
     )
     assert not any(r["ref_kind"] == "call" and "join" in r["ref_symbol_name"] for r in references)
     assert not any(
@@ -73,7 +75,6 @@ def test_symbol_references_access_and_type_annotation(python_parser, fixture_byt
     symbols, references = python_parser.parse(4, file_bytes)
 
     assert len(symbols) == 6
-    assert len(references) == 4
     assert_symbols_invariants(symbols)
     assert_symbol_references_invariants(references)
     for r in references:
@@ -85,7 +86,10 @@ def test_symbol_references_access_and_type_annotation(python_parser, fixture_byt
     assert not any(
         r["ref_kind"] == "type_annotation" and r["ref_symbol_name"] == "int" for r in references
     )
-    assert not any("Path" in r["ref_symbol_name"] for r in references)
+    assert any(
+        r["ref_kind"] == "call" and r["ref_symbol_qualified_name"] == "pathlib.Path"
+        for r in references
+    )
 
 
 def test_symbol_references_ids_are_unique_with_repeated_calls(python_parser, fixture_bytes):
@@ -397,6 +401,10 @@ def load(source):
     return GATEWAY_PATTERN.search(source)
 """
     _, references = python_parser.parse(104, source, module_qn="pkg.mod")
+    assert any(
+        r["ref_kind"] == "call" and r["ref_symbol_qualified_name"] == "re.compile"
+        for r in references
+    )
     assert not any(r["ref_symbol_qualified_name"] == "GATEWAY_PATTERN.search" for r in references)
     assert not any("GATEWAY_PATTERN." in r["ref_symbol_qualified_name"] for r in references)
 

@@ -33,8 +33,6 @@ def test_multi_import_bindings(python_parser, fixture_bytes):
     assert len(references) == 0
     assert python_parser._import_qn["Path"] == "pathlib.Path"
     assert python_parser._import_qn["PurePath"] == "pathlib.PurePath"
-    assert "os" in python_parser._ref_root_module
-    assert "sys" in python_parser._ref_root_module
 
 
 def test_non_stdlib_import_call_records_rewritten_qn(python_parser) -> None:
@@ -57,8 +55,8 @@ def test_references_dotted_calls_and_chained_attributes(python_parser, fixture_b
     for r in references:
         assert_reference_shape(r, expected_file_id=12)
 
-    assert not any(
-        r["ref_kind"] == "call" and r["ref_symbol_name"] == "pkgutil.walk_packages"
+    assert any(
+        r["ref_kind"] == "call" and r["ref_symbol_qualified_name"] == "pkgutil.walk_packages"
         for r in references
     )
     assert not any(r["ref_symbol_name"].startswith("obj.") for r in references)

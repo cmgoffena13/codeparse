@@ -1,6 +1,5 @@
 import ast
 import builtins
-import sys
 import typing
 
 from tree_sitter import Node, Parser
@@ -68,7 +67,6 @@ class PythonParser(ParserBase):
         self.builtin_names.update(
             name for name in getattr(typing, "__all__", []) if isinstance(name, str)
         )
-        self.std_module_names: set[str] = getattr(sys, "stdlib_module_names", set())
         self.stack: list[StackFrame] = []
         self.symbols: list[dict] = []
         self.symbol_references: list[dict] = []
@@ -78,7 +76,6 @@ class PythonParser(ParserBase):
         self.external_symbols_snapshot = {}
         self._class_param_annos: dict[str, dict[str, str]] = {}
         self._func_param_annos: dict[str, dict[str, str]] = {}
-        self._ref_root_module: dict[str, str] = {}
         self._import_qn: dict[str, str] = {}
         self._local_defs: dict[str, str] = {}
         self._return_types: dict[str, str] = {}
@@ -104,7 +101,6 @@ class PythonParser(ParserBase):
         self._skip_access_depth = 0
         self._class_param_annos = {}
         self._func_param_annos = {}
-        self._ref_root_module = {}
         self._import_qn = {}
         self._local_defs = {}
         self._return_types = {}
@@ -350,7 +346,7 @@ class PythonParser(ParserBase):
         alias: str | None,
         import_type: str,
     ) -> None:
-        """Map locals for stdlib filtering and for ref_symbol_qualified_name rewriting."""
+        """Map locals for ref_symbol_qualified_name rewriting."""
         abs_path: str | None
         if import_type == "relative":
             abs_path = self._resolve_relative_import_path(import_path)
@@ -363,21 +359,9 @@ class PythonParser(ParserBase):
                 self._import_qn[local] = f"{abs_path}.{imported_symbol}"
             elif alias:
                 self._import_qn[alias] = abs_path
-
-        if import_type == "relative":
-            return
-        top = import_path.split(".", 1)[0] if import_path else ""
-        if not top:
-            return
-        if imported_symbol:
-            local = alias if alias else imported_symbol
-            self._ref_root_module[local] = top
-        else:
-            if alias:
-                self._ref_root_module[alias] = top
-            else:
-                root_local = import_path.split(".", 1)[0]
-                self._ref_root_module[root_local] = top
+            elif import_type != "relative":
+                top = abs_path.split(".", 1)[0]
+                self._import_qn[top] = top
 
     @staticmethod
     def _children_import_first(node: Node) -> list[Node]:
@@ -454,10 +438,6 @@ class PythonParser(ParserBase):
                         if type_name is None and "." not in ctor and ctor[:1].isupper():
                             type_name = ctor
         return type_name
-
-    def _should_skip_import_mapped_stdlib(self, root_id: str) -> bool:
-        mod = self._ref_root_module.get(root_id)
-        return bool(mod and mod in self.std_module_names)
 
     @staticmethod
     def _reference_root_identifier(target_name: str) -> str:
@@ -1088,12 +1068,8 @@ class PythonParser(ParserBase):
         if not target_name:
             return
 
-        # Skip built-in names and standard library names.
         root_id = self._reference_root_identifier(target_name)
-        skipped = root_id in self.builtin_names or (
-            ref_kind != "type_annotation" and root_id in self.std_module_names
-        )
-        if skipped or self._should_skip_import_mapped_stdlib(root_id):
+        if root_id in self.builtin_names:
             return
 
         resolved_qualified = None
@@ -1160,10 +1136,7 @@ class PythonParser(ParserBase):
 
         for name, qualified, kind, row_context in rows:
             qn_root = qualified.split(".", 1)[0] if qualified else ""
-            skip_resolved = qn_root in self.builtin_names or (
-                kind != "type_annotation" and qn_root in self.std_module_names
-            )
-            if skip_resolved or self._should_skip_import_mapped_stdlib(qn_root):
+            if qn_root in self.builtin_names:
                 continue
             self._record_symbol_reference(
                 file_id,
