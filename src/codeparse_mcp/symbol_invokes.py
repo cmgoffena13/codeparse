@@ -1,17 +1,11 @@
 """Outgoing call / access targets from a symbol."""
 
 from collections import OrderedDict
-from typing import Literal
 
 from src.codeparse_mcp.format_utils import bullet, kind_count_suffix
 from src.db import CodeDB
 
 _MAX_ENTRIES = 50
-
-_REFERENCE_TYPES = {
-    "call": "call",
-    "access": "access",
-}
 
 _INVOKES_SQL = """
 SELECT
@@ -26,7 +20,6 @@ INNER JOIN files AS f
     ON f.id = sr.ref_symbol_file_id
 WHERE src.qualified_name = ?
   AND sr.ref_kind != 'type_annotation'
-{kind_filter}
 ORDER BY f.path, sr.source_line, sr.ref_symbol_qualified_name
 """
 
@@ -70,30 +63,16 @@ def _format_invoke_rows(rows: list) -> str:
 def get_symbol_invokes(
     db: CodeDB,
     qualified_name: str,
-    *,
-    reference_type: Literal["call", "access"] | None = None,
 ) -> str:
     """
     List symbols that ``qualified_name`` invokes, grouped by file then symbol.
 
     Each target shows ``(C)`` / ``(A)`` counts. At most ``_MAX_ENTRIES`` symbols
-    are shown. ``reference_type`` may be ``call`` or ``access`` to keep one kind.
+    are shown.
     """
     key = qualified_name.strip()
     result = "No symbol name given; pass a non-empty qualified_name."
     if key:
-        params: list[str] = [key]
-        kind_filter = ""
-        if reference_type is not None:
-            kind_filter = "    AND sr.ref_kind = ?"
-            params.append(_REFERENCE_TYPES[reference_type])
-        rows = list(
-            db.connection.execute(
-                _INVOKES_SQL.format(
-                    kind_filter=kind_filter,
-                ),
-                params,
-            )
-        )
+        rows = list(db.connection.execute(_INVOKES_SQL, (key,)))
         result = _format_invoke_rows(rows) if rows else "No invokes found."
     return result

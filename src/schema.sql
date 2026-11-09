@@ -71,7 +71,6 @@ CREATE INDEX IF NOT EXISTS symbols_file_id_index ON symbols (file_id);
 CREATE INDEX IF NOT EXISTS symbols_parent_id_index ON symbols (parent_id);
 CREATE UNIQUE INDEX IF NOT EXISTS symbols_qualified_name_index ON symbols (qualified_name);
 
-
 CREATE TABLE IF NOT EXISTS symbol_bases (
     symbol_id               INTEGER NOT NULL REFERENCES symbols(id),
     base_qualified_name     TEXT NOT NULL,
@@ -108,6 +107,7 @@ CREATE TABLE IF NOT EXISTS symbol_references (
 CREATE INDEX IF NOT EXISTS symbol_references_source_file_id_index ON symbol_references (source_file_id);
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_qualified_name_index ON symbol_references (ref_symbol_qualified_name);
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_id_index ON symbol_references (ref_symbol_id);
+CREATE INDEX IF NOT EXISTS symbol_references_ref_source_symbol_id_index ON symbol_references (source_symbol_id);
 
 CREATE TABLE IF NOT EXISTS external_symbols (
     file_id          INTEGER NOT NULL REFERENCES files(id),

@@ -7,11 +7,6 @@ from src.db import CodeDB
 
 _MAX_ENTRIES = 50
 
-_REFERENCE_TYPES = {
-    "call": "call",
-    "access": "access",
-}
-
 _REFERENCES_SQL = """
 SELECT
     f.path AS source_path,
@@ -26,7 +21,6 @@ LEFT JOIN symbols AS src
 WHERE sr.ref_symbol_qualified_name = ?
   AND sr.ref_kind != 'type_annotation'
 {test_filter}
-{kind_filter}
 ORDER BY f.path, sr.source_line
 """
 
@@ -76,7 +70,6 @@ def get_symbol_references(
     qualified_name: str,
     *,
     include_tests: bool,
-    reference_type: str | None = None,
 ) -> str:
     """
     List reference sites for ``qualified_name``, grouped by file then symbol.
@@ -84,23 +77,17 @@ def get_symbol_references(
     Each site shows the enclosing symbol with ``(C)`` / ``(A)`` counts. A
     module-level site has none and shows its line number instead. At most
     ``_MAX_ENTRIES`` symbols are shown. Test files are skipped unless
-    ``include_tests`` is true. ``reference_type`` may be ``call`` or ``access``.
+    ``include_tests`` is true.
     """
     key = qualified_name.strip()
     result = "No symbol name given; pass a non-empty qualified_name."
     if key:
-        params: list[str] = [key]
-        kind_filter = ""
-        if reference_type is not None:
-            kind_filter = "    AND sr.ref_kind = ?"
-            params.append(_REFERENCE_TYPES[reference_type])
         rows = list(
             db.connection.execute(
                 _REFERENCES_SQL.format(
                     test_filter="" if include_tests else "    AND f.is_test = 0",
-                    kind_filter=kind_filter,
                 ),
-                params,
+                (key,),
             )
         )
         result = _format_reference_rows(rows) if rows else "No references found."

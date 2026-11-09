@@ -219,10 +219,6 @@ def test_symbol_invokes_lists_callees(tmp_path: Path) -> None:
 
         none = get_symbol_invokes(db, "pkg.target.helper")
         assert none == "No invokes found."
-
-        calls = get_symbol_invokes(db, "pkg.target.Worker.run", reference_type="call")
-        assert "(C)" in calls
-        assert "(A)" not in calls
     finally:
         db.close()
 
@@ -284,7 +280,7 @@ def test_symbol_invokes_includes_test_targets(tmp_path: Path) -> None:
         db.close()
 
 
-def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
+def test_symbol_references_and_invokes_exclude_type_annotations(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -301,24 +297,11 @@ def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     CodeProcessor(db, tmp_path).process()
     try:
-        all_kinds = get_symbol_references(db, "pkg.target.Thing", include_tests=False)
-        assert "(C)" in all_kinds
-        assert "(A)" in all_kinds
-        assert "## Type Annotations" not in all_kinds
-        assert "pkg.user.make (C) (A)" in all_kinds
-
-        calls = get_symbol_references(
-            db, "pkg.target.Thing", include_tests=False, reference_type="call"
-        )
-        assert "(C)" in calls
-        assert "(A)" not in calls
-        assert "pkg.user.make (C)" in calls
-
-        access = get_symbol_references(
-            db, "pkg.target.Thing", include_tests=False, reference_type="access"
-        )
-        assert "(A)" in access
-        assert "(C)" not in access
+        refs = get_symbol_references(db, "pkg.target.Thing", include_tests=False)
+        assert "(C)" in refs
+        assert "(A)" in refs
+        assert "## Type Annotations" not in refs
+        assert "pkg.user.make (C) (A)" in refs
 
         invokes = get_symbol_invokes(db, "pkg.user.make")
         assert "pkg.target.Thing (C)" in invokes
