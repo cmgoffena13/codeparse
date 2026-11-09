@@ -4,8 +4,8 @@ from pathlib import Path
 
 from src.codeparse_mcp.symbol import get_symbol
 from src.codeparse_mcp.symbol_invokes import get_symbol_invokes
-from src.codeparse_mcp.symbol_links import get_symbol_links
 from src.codeparse_mcp.symbol_references import get_symbol_references
+from src.codeparse_mcp.symbol_relations import get_symbol_relations
 from src.db import CodeDB
 from src.processor import CodeProcessor
 
@@ -227,32 +227,32 @@ def test_symbol_invokes_lists_callees(tmp_path: Path) -> None:
         db.close()
 
 
-def test_symbol_links_directions(tmp_path: Path) -> None:
+def test_symbol_relations(tmp_path: Path) -> None:
     root = _index(tmp_path)
     db = CodeDB(root)
     try:
-        dependents = get_symbol_links(db, "pkg.target.helper", include_tests=False)
-        defaulted = get_symbol_links(
-            db, "pkg.target.helper", direction="dependents", include_tests=False
+        dependents = get_symbol_relations(db, "pkg.target.helper", include_tests=False)
+        defaulted = get_symbol_relations(
+            db, "pkg.target.helper", relation="dependents", include_tests=False
         )
         assert dependents == defaulted
         assert "## Calls" in dependents
         assert "pkg/user.py" in dependents
         assert "tests/test_target.py" not in dependents
 
-        dependencies = get_symbol_links(
+        dependencies = get_symbol_relations(
             db,
             "pkg.target.Worker.run",
-            direction="dependencies",
+            relation="dependencies",
             include_tests=False,
         )
         assert "pkg.target.helper" in dependencies
         assert "pkg/target.py" in dependencies
 
-        calls_only = get_symbol_links(
+        calls_only = get_symbol_relations(
             db,
             "pkg.target.helper",
-            direction="dependents",
+            relation="dependents",
             include_tests=False,
             reference_type="call",
         )
@@ -283,13 +283,13 @@ def test_symbol_invokes_includes_test_targets(tmp_path: Path) -> None:
         shown = get_symbol_invokes(db, "pkg.prod.run")
         assert "tests.helpers.spooky" in shown
         assert "tests/helpers.py" in shown
-        via_links = get_symbol_links(
+        via_relations = get_symbol_relations(
             db,
             "pkg.prod.run",
-            direction="dependencies",
+            relation="dependencies",
             include_tests=False,
         )
-        assert "tests.helpers.spooky" in via_links
+        assert "tests.helpers.spooky" in via_relations
     finally:
         db.close()
 

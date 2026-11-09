@@ -172,7 +172,7 @@ def get_import_relations(
     db: CodeDB,
     target: str,
     *,
-    direction: Literal["dependents", "dependencies"] = "dependents",
+    relation: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
 ) -> str:
     """
@@ -186,7 +186,7 @@ def get_import_relations(
     result = "No target given; pass a non-empty dotted module path."
     if key:
         kind, file_ids = _resolve_file_ids(db, key)
-        if kind == "external" and direction == "dependencies":
+        if kind == "external" and relation == "dependencies":
             result = "External package dependencies are not available."
         elif kind == "external":
             module, module_like = _prefix_params(key)
@@ -203,7 +203,7 @@ def get_import_relations(
             result = _format_rows(rows) if rows else "No import relations found."
         elif not file_ids:
             result = "No import relations found."
-        elif direction == "dependencies":
+        elif relation == "dependencies":
             rows = _query_rows(
                 db,
                 _dependencies_scope(file_ids),

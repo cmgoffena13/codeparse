@@ -134,7 +134,7 @@ def get_symbol(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
     Test dependents are omitted unless ``include_tests`` is true.
 
     ``qualified_name`` must equal ``symbols.qualified_name`` (module-prefixed for
-    Python). Bare names do not match. Use ``get_symbol_links`` for dependents or
+    Python). Bare names do not match. Use ``get_symbol_relations`` for dependents or
     dependencies.
     """
     key = qualified_name.strip()

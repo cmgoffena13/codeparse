@@ -47,7 +47,7 @@ def test_import_relations_include_tests_only_dependents(tmp_path: Path) -> None:
         shown = get_import_relations(db, "pkg.target", include_tests=True)
         assert "tests/test_user.py" in shown
         assert "pkg.target.helper" in shown
-        deps = get_import_relations(db, "tests", direction="dependencies", include_tests=False)
+        deps = get_import_relations(db, "tests", relation="dependencies", include_tests=False)
         assert "pkg.target.helper" in deps
         assert "tests/test_user.py" in deps
     finally:
@@ -58,7 +58,7 @@ def test_import_relations_internal_file_dependencies(tmp_path: Path) -> None:
     index_internal_package(tmp_path)
     db = CodeDB(tmp_path)
     try:
-        out = get_import_relations(db, "pkg.user", direction="dependencies", include_tests=False)
+        out = get_import_relations(db, "pkg.user", relation="dependencies", include_tests=False)
         assert "pkg.target.helper (C) (" in out
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.run" in out or "  ├─ pkg.user.run" in out
@@ -83,7 +83,7 @@ def test_import_relations_directory_dependencies(tmp_path: Path) -> None:
     index_directory_package(tmp_path)
     db = CodeDB(tmp_path)
     try:
-        out = get_import_relations(db, "pkg.lib", direction="dependencies", include_tests=False)
+        out = get_import_relations(db, "pkg.lib", relation="dependencies", include_tests=False)
         assert "pkg.lib.a.alpha (C) (" in out
         assert "• pkg/lib/b.py" in out
         assert "  └─ pkg.lib.b.beta" in out or "  ├─ pkg.lib.b.beta" in out
@@ -203,7 +203,7 @@ def test_import_relations_external_dependencies_unavailable(tmp_path: Path) -> N
     index_external_user(tmp_path)
     db = CodeDB(tmp_path)
     try:
-        out = get_import_relations(db, "sqlglot", direction="dependencies", include_tests=False)
+        out = get_import_relations(db, "sqlglot", relation="dependencies", include_tests=False)
         assert out == "External package dependencies are not available."
     finally:
         db.close()

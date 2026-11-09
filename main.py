@@ -170,7 +170,7 @@ async def _print_tools() -> None:
             "SYMBOL LINKS (dependents)",
             _body(
                 await client.call_tool(
-                    "get_symbol_links",
+                    "get_symbol_relations",
                     {
                         "qualified_name": ("sqlmesh.core.context.Context"),
                         "include_tests": False,
@@ -182,10 +182,10 @@ async def _print_tools() -> None:
             "SYMBOL LINKS (dependencies)",
             _body(
                 await client.call_tool(
-                    "get_symbol_links",
+                    "get_symbol_relations",
                     {
                         "qualified_name": "sqlmesh.core.context.GenericContext",
-                        "direction": "dependencies",
+                        "relation": "dependencies",
                     },
                 )
             ),
@@ -197,7 +197,7 @@ async def _print_tools() -> None:
                     "get_import_relations",
                     {
                         "target": "sqlglot.dialects.athena",
-                        "direction": "dependents",
+                        "relation": "dependents",
                         "include_tests": True,
                     },
                 )
@@ -210,7 +210,7 @@ async def _print_tools() -> None:
                     "get_import_relations",
                     {
                         "target": "sqlglot.dialects.athena",
-                        "direction": "dependencies",
+                        "relation": "dependencies",
                     },
                 )
             ),
@@ -222,7 +222,7 @@ async def _print_tools() -> None:
                     "get_import_relations",
                     {
                         "target": "sqlmesh.core.dialect",
-                        "direction": "dependents",
+                        "relation": "dependents",
                         "include_tests": False,
                     },
                 )
@@ -235,7 +235,7 @@ async def _print_tools() -> None:
                     "get_import_relations",
                     {
                         "target": "sqlmesh.core.dialect",
-                        "direction": "dependencies",
+                        "relation": "dependencies",
                     },
                 )
             ),

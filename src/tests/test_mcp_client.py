@@ -19,7 +19,7 @@ _TOOLS = {
     "get_import_relations",
     "get_symbol",
     "get_symbol_at_lines",
-    "get_symbol_links",
+    "get_symbol_relations",
     "search_symbols",
 }
 
@@ -86,7 +86,7 @@ def test_client_tools_read_the_workspace(
 
             references = _text(
                 await mcp_client.call_tool(
-                    "get_symbol_links", {"qualified_name": "pkg.base.Parent"}
+                    "get_symbol_relations", {"qualified_name": "pkg.base.Parent"}
                 )
             )
             assert "pkg/user.py" in references
@@ -94,7 +94,7 @@ def test_client_tools_read_the_workspace(
 
             with_tests = _text(
                 await mcp_client.call_tool(
-                    "get_symbol_links",
+                    "get_symbol_relations",
                     {"qualified_name": "pkg.base.Parent", "include_tests": True},
                 )
             )

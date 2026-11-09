@@ -18,7 +18,7 @@ from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_sessi
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
 from src.codeparse_mcp.symbol import get_symbol as run_get_symbol
 from src.codeparse_mcp.symbol_at_lines import get_symbol_at_lines as run_get_symbol_at_lines
-from src.codeparse_mcp.symbol_links import get_symbol_links as run_get_symbol_links
+from src.codeparse_mcp.symbol_relations import get_symbol_relations as run_get_symbol_relations
 from src.db import CodeDB
 from src.processor import CodeProcessor
 from src.utils import get_code_parse_config_dir
@@ -143,8 +143,8 @@ def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -
 
     Excludes test dependents by default; set ``include_tests`` to include them.
     Links do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Use ``get_symbol_links`` for dependents (``direction="dependents"``) or
-    dependencies (``direction="dependencies"``).
+    Use ``get_symbol_relations`` for dependents (``relation="dependents"``) or
+    dependencies (``relation="dependencies"``).
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol(db, qualified_name, include_tests=include_tests)
@@ -174,30 +174,30 @@ def get_symbol_at_lines(
 
 
 @mcp.tool()
-def get_symbol_links(
+def get_symbol_relations(
     qualified_name: str,
     ctx: Context,
-    direction: Literal["dependents", "dependencies"] = "dependents",
+    relation: Literal["dependents", "dependencies"] = "dependents",
     reference_type: Literal["call", "access"] | None = None,
     include_tests: bool = False,
 ) -> str:
     """
-    Return linked symbols for ``qualified_name``.
+    Return related symbols for ``qualified_name``.
 
-    ``direction="dependents"`` lists who references it; ``direction="dependencies"``
+    ``relation="dependents"`` lists who references it; ``relation="dependencies"``
     lists what it invokes. Grouped by file. A dependent site with no enclosing symbol
     shows its line number.
 
-    Links do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    For dependents, excludes test files by default; set ``include_tests`` to include them.
-    ``include_tests`` does not filter dependencies.
+    Relations do not follow multi-hop attribute access (obj.field.method) and untyped
+    locals. For dependents, excludes test files by default; set ``include_tests`` to
+    include them. ``include_tests`` does not filter dependencies.
     Set ``reference_type`` to ``call`` or ``access`` to return only one kind.
     """
     return _processor(ctx).run_query(
-        lambda db: run_get_symbol_links(
+        lambda db: run_get_symbol_relations(
             db,
             qualified_name,
-            direction=direction,
+            relation=relation,
             include_tests=include_tests,
             reference_type=reference_type,
         )
@@ -219,15 +219,15 @@ def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = Fal
 def get_import_relations(
     target: str,
     ctx: Context,
-    direction: Literal["dependents", "dependencies"] = "dependents",
+    relation: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
 ) -> str:
     """
     Return call/access relations for a dotted module path.
 
     Resolves ``target`` as an internal directory, internal file, or external
-    package. ``direction="dependents"`` lists who uses its symbols;
-    ``direction="dependencies"`` lists what its files use.
+    package. ``relation="dependents"`` lists who uses its symbols;
+    ``relation="dependencies"`` lists what its files use.
 
     External package dependencies are not available.
     For dependents, excludes test site files by default; set ``include_tests``
@@ -237,7 +237,7 @@ def get_import_relations(
         lambda db: run_get_import_relations(
             db,
             target,
-            direction=direction,
+            relation=relation,
             include_tests=include_tests,
         )
     )
