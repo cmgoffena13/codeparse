@@ -31,7 +31,7 @@ def test_import_relations_internal_file_dependents(tmp_path: Path) -> None:
         out = get_import_relations(db, "pkg.target", include_tests=False)
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.run" in out or "  ├─ pkg.user.run" in out
-        assert "• pkg.target.helper (C) (" in out
+        assert "• pkg.target.helper (C)" in out
         assert "tests/test_user.py" not in out
         assert "pkg.mod_extra" not in out
     finally:
@@ -50,6 +50,8 @@ def test_import_relations_include_tests_only_dependents(tmp_path: Path) -> None:
         deps = get_import_relations(db, "tests", relation="dependencies", include_tests=False)
         assert "pkg.target.helper" in deps
         assert "tests/test_user.py" in deps
+        assert "├─" not in deps
+        assert "└─" not in deps
     finally:
         db.close()
 
@@ -59,10 +61,70 @@ def test_import_relations_internal_file_dependencies(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_import_relations(db, "pkg.user", relation="dependencies", include_tests=False)
-        assert "pkg.target.helper (C) (" in out
-        assert "• pkg/user.py" in out
-        assert "  └─ pkg.user.run" in out or "  ├─ pkg.user.run" in out
-        assert "pkg.target.FLAG (A) (" in out
+        assert "• pkg/user.py" not in out
+        assert "pkg.user.run" in out
+        assert "  • pkg.target.helper (C)" in out
+        assert "  • pkg.target.FLAG (A)" in out
+        assert "├─ pkg.user.run" not in out
+        assert "\n\npkg.user.run\n" in out or out.startswith("pkg.user.run\n")
+    finally:
+        db.close()
+
+
+def test_import_relations_internal_dependencies_omit_same_file_targets(
+    tmp_path: Path,
+) -> None:
+    write_gitignore(tmp_path)
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "solo.py").write_text(
+        "def helper() -> int:\n    return 1\n\n\ndef run() -> int:\n    return helper()\n",
+        encoding="utf-8",
+    )
+    (pkg / "other.py").write_text(
+        "from pkg.solo import helper\n\n\ndef go() -> int:\n    return helper()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    try:
+        solo = get_import_relations(db, "pkg.solo", relation="dependencies", include_tests=False)
+        assert solo == "No import relations found."
+        other = get_import_relations(db, "pkg.other", relation="dependencies", include_tests=False)
+        assert "• pkg/other.py" not in other
+        assert "• pkg.solo.helper (C)" in other
+    finally:
+        db.close()
+
+
+def test_import_relations_internal_dependencies_omit_external_and_unresolved(
+    tmp_path: Path,
+) -> None:
+    write_gitignore(tmp_path)
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "target.py").write_text(
+        "def helper() -> int:\n    return 1\n",
+        encoding="utf-8",
+    )
+    (pkg / "user.py").write_text(
+        "from pkg.target import helper\n"
+        "from sqlglot import Exp\n\n"
+        "def run(node) -> int:\n"
+        "    node.this\n"
+        "    Exp()\n"
+        "    return helper()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+    try:
+        out = get_import_relations(db, "pkg.user", relation="dependencies", include_tests=False)
+        assert "• pkg.target.helper (C)" in out
+        assert "sqlglot.Exp" not in out
+        assert "node.this" not in out
     finally:
         db.close()
 
@@ -74,7 +136,7 @@ def test_import_relations_directory_dependents(tmp_path: Path) -> None:
         out = get_import_relations(db, "pkg.lib", include_tests=False)
         assert "• pkg/caller.py" in out
         assert "  └─ pkg.caller.go" in out or "  ├─ pkg.caller.go" in out
-        assert "• pkg.lib.b.beta (C) (" in out
+        assert "• pkg.lib.b.beta (C)" in out
     finally:
         db.close()
 
@@ -84,9 +146,10 @@ def test_import_relations_directory_dependencies(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     try:
         out = get_import_relations(db, "pkg.lib", relation="dependencies", include_tests=False)
-        assert "pkg.lib.a.alpha (C) (" in out
         assert "• pkg/lib/b.py" in out
-        assert "  └─ pkg.lib.b.beta" in out or "  ├─ pkg.lib.b.beta" in out
+        assert "pkg.lib.b.beta" in out
+        assert "  • pkg.lib.a.alpha (C)" in out
+        assert "├─" not in out
     finally:
         db.close()
 
@@ -109,8 +172,8 @@ def test_import_relations_external_dependents(tmp_path: Path) -> None:
         out = get_import_relations(db, "sqlglot", include_tests=False)
         assert "• app.py" in out
         assert "  └─ app.run" in out or "  ├─ app.run" in out
-        assert "• sqlglot.Exp (C) (" in out
-        assert out.index("• app.py") < out.index("• sqlglot.Exp (C) (")
+        assert "• sqlglot.Exp (C)" in out
+        assert out.index("• app.py") < out.index("• sqlglot.Exp (C)")
     finally:
         db.close()
 
@@ -164,7 +227,7 @@ def test_import_relations_groups_by_used_symbol(tmp_path: Path) -> None:
         out = get_import_relations(db, "pkg.target", include_tests=False)
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.Box.run" in out
-        assert "• pkg.target.helper (C) (1)" in out
+        assert "• pkg.target.helper (C)" in out
         assert "  └─ pkg.user.Box\n" not in out
     finally:
         db.close()
@@ -195,7 +258,7 @@ def test_import_relations_nests_only_real_source_symbols(tmp_path: Path) -> None
         assert "• pkg/user.py" in out
         assert "  └─ pkg.user.outer" in out
         assert "     └─ pkg.user.outer.inner" in out
-        assert "• pkg.target.helper (C) (" in out
+        assert "• pkg.target.helper (C)" in out
     finally:
         db.close()
 
@@ -206,5 +269,35 @@ def test_import_relations_external_dependencies_unavailable(tmp_path: Path) -> N
     try:
         out = get_import_relations(db, "sqlglot", relation="dependencies", include_tests=False)
         assert out == "External package dependencies are not available."
+    finally:
+        db.close()
+
+
+def test_import_relations_orders_sources_by_line_with_module_first(tmp_path: Path) -> None:
+    write_gitignore(tmp_path)
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "target.py").write_text(
+        "def helper() -> int:\n    return 1\n\ndef other() -> int:\n    return 2\n",
+        encoding="utf-8",
+    )
+    (pkg / "user.py").write_text(
+        "from pkg.target import helper, other\n\n"
+        "def early() -> int:\n"
+        "    return helper()\n\n"
+        "def late() -> int:\n"
+        "    return other()\n\n"
+        "helper()\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process()
+    try:
+        out = get_import_relations(db, "pkg.target", include_tests=False)
+        module_at = out.index("  ├─ (module)")
+        early_at = out.index("  ├─ pkg.user.early")
+        late_at = out.index("  └─ pkg.user.late")
+        assert module_at < early_at < late_at
     finally:
         db.close()

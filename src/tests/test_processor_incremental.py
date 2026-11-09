@@ -197,7 +197,7 @@ def test_imported_variable_comparison_is_an_access(tmp_path: Path) -> None:
     CodeProcessor(db, tmp_path).process(full=True)
 
     out = get_symbol_references(db, "flags.BACKFILL", include_tests=False)
-    assert "## Access" in out
+    assert "(A)" in out
     assert "check.py" in out
     assert "check.run" in out
     db.close()

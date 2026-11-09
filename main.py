@@ -167,7 +167,7 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "SYMBOL LINKS (dependents)",
+            "SYMBOL RELATIONS (dependents)",
             _body(
                 await client.call_tool(
                     "get_symbol_relations",
@@ -179,7 +179,7 @@ async def _print_tools() -> None:
             ),
         )
         _print_section(
-            "SYMBOL LINKS (dependencies)",
+            "SYMBOL RELATIONS (dependencies)",
             _body(
                 await client.call_tool(
                     "get_symbol_relations",

@@ -1,5 +1,25 @@
 """Shared formatting helpers for MCP tool output."""
 
+_KIND_ORDER = ("call", "access")
+_KIND_LETTER = {
+    "call": "C",
+    "access": "A",
+}
+
+
+def kind_count_suffix(counts: dict[str, int]) -> str:
+    parts: list[str] = []
+    for kind in _KIND_ORDER:
+        if kind in counts:
+            letter = _KIND_LETTER[kind]
+            n = counts[kind]
+            parts.append(f"({letter}) ({n})" if n > 1 else f"({letter})")
+    for kind in sorted(k for k in counts if k not in _KIND_LETTER):
+        n = counts[kind]
+        letter = kind[0].upper()
+        parts.append(f"({letter}) ({n})" if n > 1 else f"({letter})")
+    return " " + " ".join(parts)
+
 
 def line_span(line_start: int, line_end: int) -> str:
     """``L12`` or ``L12-34``."""

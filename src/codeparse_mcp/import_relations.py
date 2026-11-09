@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from typing import Literal
 
+from src.codeparse_mcp.format_utils import kind_count_suffix
 from src.db import EXTERNAL_PACKAGES_FILE_ID, CodeDB
 
 _MAX_ROWS = 100
@@ -35,7 +36,7 @@ LEFT JOIN symbols AS src
 WHERE sr.ref_kind != 'type_annotation'
 {scope_filter}
 {test_filter}
-ORDER BY sr.ref_symbol_qualified_name, sr.ref_kind, f.path, src.qualified_name
+ORDER BY f.path, sr.source_line, sr.ref_symbol_qualified_name, sr.ref_kind
 """
 
 
@@ -87,10 +88,14 @@ def _source_parent(module: str, source_qn: str, sources: OrderedDict[str, None])
 def _source_tree_lines(
     module: str,
     sources: OrderedDict[str, None],
-    targets_by_source: (OrderedDict[str, OrderedDict[tuple[str, str], int]] | None) = None,
+    targets_by_source: OrderedDict[str, OrderedDict[str, dict[str, int]]],
 ) -> list[str]:
     children: dict[str | None, list[str]] = {}
-    for source_qn in sources:
+    ordered_sources = list(sources)
+    if "(module)" in sources:
+        rest = [source_qn for source_qn in sources if source_qn != "(module)"]
+        ordered_sources = ["(module)", *rest]
+    for source_qn in ordered_sources:
         parent = _source_parent(module, source_qn, sources)
         bucket = children.setdefault(parent, [])
         if source_qn not in bucket:
@@ -103,72 +108,81 @@ def _source_tree_lines(
         for index, node in enumerate(items):
             is_last = index == last_i
             connector = "└─ " if is_last else "├─ "
-            continuation = "   " if is_last else "│  "
+            stem = "   " if is_last else "│  "
             lines.append(f"{prefix}{connector}{node}")
-            if targets_by_source is not None and node in targets_by_source:
-                for (target_qn, kind), count in targets_by_source[node].items():
-                    lines.append(f"{prefix}{continuation}   • {target_qn} ({kind}) ({count})")
-            lines.extend(branch(node, prefix + continuation))
+            child_prefix = prefix + stem
+            if node in targets_by_source:
+                for target_qn, kind_counts in targets_by_source[node].items():
+                    lines.append(f"{child_prefix}   • {target_qn}{kind_count_suffix(kind_counts)}")
+            lines.extend(branch(node, child_prefix))
         return lines
 
     return branch(None, "  ")
 
 
-def _format_dependencies(rows: list) -> str:
-    by_target: OrderedDict[tuple[str, str], OrderedDict[str, OrderedDict[str, None]]] = (
-        OrderedDict()
-    )
-    counts: dict[tuple[str, str], int] = {}
-    for row in rows:
-        kind = row["ref_kind"][0].upper()
-        key = (row["target_qualified_name"], kind)
-        path = row["source_path"]
-        source_qn = row["source_qualified_name"] or "(module)"
-        counts[key] = counts.get(key, 0) + 1
-        files = by_target.setdefault(key, OrderedDict())
-        sources = files.setdefault(path, OrderedDict())
-        sources[source_qn] = None
-
+def _flat_source_lines(
+    sources: OrderedDict[str, OrderedDict[str, dict[str, int]]],
+) -> list[str]:
+    ordered_sources = list(sources)
+    if "(module)" in sources:
+        ordered_sources = ["(module)"] + [qn for qn in sources if qn != "(module)"]
     lines: list[str] = []
-    for target_index, (key, files) in enumerate(by_target.items()):
-        if target_index > 0:
+    for source_index, source_qn in enumerate(ordered_sources):
+        if source_index > 0:
             lines.append("")
-        target_qn, kind = key
-        lines.append(f"{target_qn} ({kind}) ({counts[key]})")
-        for path, sources in files.items():
-            lines.append(f"• {path}")
-            lines.extend(_source_tree_lines(_module_from_path(path), sources))
-    return "\n".join(lines).strip() + "\n"
+        lines.append(source_qn)
+        for target_qn, kind_counts in sources[source_qn].items():
+            lines.append(f"  • {target_qn}{kind_count_suffix(kind_counts)}")
+    return lines
 
 
-def _format_dependents(rows: list) -> str:
-    by_file: OrderedDict[str, OrderedDict[str, OrderedDict[tuple[str, str], int]]] = OrderedDict()
+def _format_relation_rows(rows: list, *, show_file_paths: bool, flat: bool) -> str:
+    by_file: OrderedDict[str, OrderedDict[str, OrderedDict[str, dict[str, int]]]] = OrderedDict()
     for row in rows:
         path = row["source_path"]
         source_qn = row["source_qualified_name"] or "(module)"
-        kind = row["ref_kind"][0].upper()
-        key = (row["target_qualified_name"], kind)
+        target_qn = row["target_qualified_name"]
+        kind = row["ref_kind"]
         sources = by_file.setdefault(path, OrderedDict())
         targets = sources.setdefault(source_qn, OrderedDict())
-        targets[key] = targets.get(key, 0) + 1
+        kind_counts = targets.get(target_qn)
+        if kind_counts is None:
+            kind_counts = {}
+            targets[target_qn] = kind_counts
+        kind_counts[kind] = kind_counts.get(kind, 0) + 1
 
     lines: list[str] = []
     for file_index, (path, sources) in enumerate(by_file.items()):
-        if file_index > 0:
+        if show_file_paths:
+            if file_index > 0:
+                lines.append("")
+            lines.append(f"• {path}")
+        elif file_index > 0:
             lines.append("")
-        lines.append(f"• {path}")
-        source_keys = OrderedDict((source_qn, None) for source_qn in sources)
-        lines.extend(_source_tree_lines(_module_from_path(path), source_keys, sources))
+        if flat:
+            lines.extend(_flat_source_lines(sources))
+        else:
+            source_keys = OrderedDict((source_qn, None) for source_qn in sources)
+            lines.extend(_source_tree_lines(_module_from_path(path), source_keys, sources))
     return "\n".join(lines).strip() + "\n"
 
 
-def _format_rows(rows: list, *, relation: Literal["dependents", "dependencies"]) -> str:
+def _format_rows(
+    rows: list,
+    *,
+    relation: Literal["dependents", "dependencies"],
+    show_file_paths: bool = True,
+) -> str:
     truncated = len(rows) > _MAX_ROWS
     shown = rows[:_MAX_ROWS]
-    body = _format_dependencies(shown) if relation == "dependencies" else _format_dependents(shown)
+    body = _format_relation_rows(
+        shown,
+        show_file_paths=show_file_paths,
+        flat=relation == "dependencies",
+    )
     result = body
     if truncated:
-        result = body.rstrip("\n") + f"\n\n… truncated to {_MAX_ROWS} relations\n"
+        result = body.rstrip("\n") + f"\n\n… truncated to {_MAX_ROWS} {relation}\n"
     return result
 
 
@@ -239,11 +253,20 @@ def get_import_relations(
         elif relation == "dependencies":
             rows = _query_rows(
                 db,
-                _dependencies_scope(file_ids),
-                list(file_ids),
+                (
+                    _dependencies_scope(file_ids)
+                    + "\n  AND sr.ref_symbol_id IS NOT NULL"
+                    + "\n  AND sr.ref_symbol_file_id != ?"
+                    + "\n  AND sr.ref_symbol_file_id != sr.source_file_id"
+                ),
+                [*file_ids, EXTERNAL_PACKAGES_FILE_ID],
                 include_tests=True,
             )
-            result = _format_rows(rows, relation=relation) if rows else "No import relations found."
+            result = (
+                _format_rows(rows, relation=relation, show_file_paths=kind != "file")
+                if rows
+                else "No import relations found."
+            )
         else:
             rows = _query_rows(
                 db,

@@ -1,11 +1,11 @@
 """Call / access sites for a symbol."""
 
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 
-from src.codeparse_mcp.format_utils import bullet
+from src.codeparse_mcp.format_utils import bullet, kind_count_suffix
 from src.db import CodeDB
 
-_MAX_PER_KIND = 50
+_MAX_ENTRIES = 50
 
 _REFERENCE_TYPES = {
     "call": "call",
@@ -27,47 +27,48 @@ WHERE sr.ref_symbol_qualified_name = ?
   AND sr.ref_kind != 'type_annotation'
 {test_filter}
 {kind_filter}
-ORDER BY sr.ref_kind, f.path, sr.source_line
+ORDER BY f.path, sr.source_line
 """
 
-_REF_KIND_SECTIONS: tuple[tuple[str, str], ...] = (
-    ("call", "## Calls"),
-    ("access", "## Access"),
-)
 
+def _format_reference_rows(rows: list) -> str:
+    labels: OrderedDict[tuple[str, str], str] = OrderedDict()
+    counts: dict[tuple[str, str], dict[str, int]] = {}
+    for row in rows:
+        path = row["source_path"]
+        qn = row["source_qualified_name"]
+        key = (path, qn if qn else f"L{int(row['source_line'])}")
+        if key not in labels:
+            labels[key] = qn if qn else f"L{int(row['source_line'])}  (no symbol)"
+            counts[key] = {}
+        kind = row["ref_kind"]
+        counts[key][kind] = counts[key].get(kind, 0) + 1
 
-def _section_lines(heading: str, total: int, rows: list) -> list[str]:
-    by_file: OrderedDict[str, list[tuple[int, str | None]]] = OrderedDict()
-    seen = set()
-    count = {}
-    for r in rows:
-        count[r["source_qualified_name"]] = count.get(r["source_qualified_name"], 0) + 1
-        if r["source_qualified_name"] in seen:
-            continue
-        seen.add(r["source_qualified_name"])
-        by_file.setdefault(r["source_path"], []).append(
-            (int(r["source_line"]), r["source_qualified_name"])
-        )
+    by_file: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
+    for path, key_id in labels:
+        by_file.setdefault(path, []).append((path, key_id))
 
-    shown = len(rows)
-    count_label = f"{shown} of {total}" if shown < total else str(total)
-    lines_out = [
-        "",
-        f"{heading} ({count_label})",
-        "",
-    ]
-    for path_index, (path, sites) in enumerate(by_file.items()):
-        if path_index > 0:
-            lines_out.append("")
-        lines_out.append(path)
-        for line_n, qn in sites:
-            if qn and count[qn] > 1:
-                lines_out.append(bullet(qn + f" ({count[qn]})"))
-            elif qn:
-                lines_out.append(bullet(qn))
-            else:
-                lines_out.append(bullet(f"L{line_n}  (no symbol)"))
-    return lines_out
+    lines_out: list[str] = []
+    shown = 0
+    truncated = False
+    for path_index, (path, keys) in enumerate(by_file.items()):
+        if truncated:
+            break
+        path_lines: list[str] = []
+        for key in keys:
+            if shown >= _MAX_ENTRIES:
+                truncated = True
+                break
+            path_lines.append(bullet(labels[key] + kind_count_suffix(counts[key])))
+            shown += 1
+        if path_lines:
+            if path_index > 0 and lines_out:
+                lines_out.append("")
+            lines_out.append(path)
+            lines_out.extend(path_lines)
+    if truncated:
+        lines_out.append(f"(truncated after {_MAX_ENTRIES} symbols)")
+    return "\n".join(lines_out).strip() + "\n"
 
 
 def get_symbol_references(
@@ -78,50 +79,29 @@ def get_symbol_references(
     reference_type: str | None = None,
 ) -> str:
     """
-    List reference sites for ``qualified_name``, grouped by ``ref_kind`` then file.
+    List reference sites for ``qualified_name``, grouped by file then symbol.
 
-    Each site shows the enclosing symbol stored on the reference. A module-level
-    site has none and shows its line number instead. At most ``_MAX_PER_KIND`` rows
-    are shown per kind. Test files
-    are skipped unless ``include_tests`` is true.
-    ``reference_type`` may be ``call`` or ``access`` to keep one kind.
+    Each site shows the enclosing symbol with ``(C)`` / ``(A)`` counts. A
+    module-level site has none and shows its line number instead. At most
+    ``_MAX_ENTRIES`` symbols are shown. Test files are skipped unless
+    ``include_tests`` is true. ``reference_type`` may be ``call`` or ``access``.
     """
     key = qualified_name.strip()
-    if not key:
-        return "No symbol name given; pass a non-empty qualified_name."
-
-    params: list[str] = [key]
-    kind_filter = ""
-    if reference_type is not None:
-        kind_filter = "    AND sr.ref_kind = ?"
-        params.append(_REFERENCE_TYPES[reference_type])
-    rows = list(
-        db.connection.execute(
-            _REFERENCES_SQL.format(
-                test_filter="" if include_tests else "    AND f.is_test = 0",
-                kind_filter=kind_filter,
-            ),
-            params,
+    result = "No symbol name given; pass a non-empty qualified_name."
+    if key:
+        params: list[str] = [key]
+        kind_filter = ""
+        if reference_type is not None:
+            kind_filter = "    AND sr.ref_kind = ?"
+            params.append(_REFERENCE_TYPES[reference_type])
+        rows = list(
+            db.connection.execute(
+                _REFERENCES_SQL.format(
+                    test_filter="" if include_tests else "    AND f.is_test = 0",
+                    kind_filter=kind_filter,
+                ),
+                params,
+            )
         )
-    )
-    if not rows:
-        return "No references found."
-
-    by_kind: defaultdict[str, list] = defaultdict(list)
-    for row in rows:
-        by_kind[row["ref_kind"]].append(row)
-
-    lines: list[str] = []
-    covered = {k for k, _ in _REF_KIND_SECTIONS}
-    for kind, heading in _REF_KIND_SECTIONS:
-        items = by_kind.get(kind, [])
-        if not items:
-            continue
-        lines.extend(_section_lines(heading, len(items), items[:_MAX_PER_KIND]))
-
-    for kind in sorted(k for k in by_kind if k not in covered):
-        items = by_kind[kind]
-        title = kind.replace("_", " ").title()
-        lines.extend(_section_lines(f"## {title}", len(items), items[:_MAX_PER_KIND]))
-
-    return "\n".join(lines).strip() + "\n"
+        result = _format_reference_rows(rows) if rows else "No references found."
+    return result

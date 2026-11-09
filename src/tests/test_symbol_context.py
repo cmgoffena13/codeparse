@@ -65,7 +65,7 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert out.index("File:") < out.index("def helper()")
         assert "pkg/user.py" not in out
         assert "tests/test_target.py" not in out
-        assert "## Calls" not in out
+        assert "(C) (" not in out
 
         method = get_symbol(db, "pkg.target.Worker.run", include_tests=False)
         assert "Parent:" not in method
@@ -176,12 +176,12 @@ def test_symbol_references_lists_calls_with_counts(tmp_path: Path) -> None:
         assert "total" not in out
         assert "pkg/user.py" in out
         assert "tests/test_target.py" not in out
-        assert "## Calls" in out
-        assert "  • pkg.user.run" in out
-        assert "  • L3  (no symbol)" in out
+        assert "## Calls" not in out
+        assert "  • L3  (no symbol) (C)" in out
+        assert "  • pkg.user.run (C)" in out
         assert "L5" not in out
         assert "pkg/user.py:" not in out
-        assert "(" in out  # kind section counts
+        assert out.index("L3  (no symbol)") < out.index("pkg.user.run")
     finally:
         db.close()
 
@@ -212,8 +212,8 @@ def test_symbol_invokes_lists_callees(tmp_path: Path) -> None:
     db = CodeDB(root)
     try:
         out = get_symbol_invokes(db, "pkg.target.Worker.run")
-        assert "## Calls" in out
-        assert "pkg.target.helper" in out
+        assert "## Calls" not in out
+        assert "pkg.target.helper (C)" in out
         assert "pkg/target.py" in out
         assert "No invokes found." not in out
 
@@ -221,8 +221,8 @@ def test_symbol_invokes_lists_callees(tmp_path: Path) -> None:
         assert none == "No invokes found."
 
         calls = get_symbol_invokes(db, "pkg.target.Worker.run", reference_type="call")
-        assert "## Calls" in calls
-        assert "## Access" not in calls
+        assert "(C)" in calls
+        assert "(A)" not in calls
     finally:
         db.close()
 
@@ -236,7 +236,7 @@ def test_symbol_relations(tmp_path: Path) -> None:
             db, "pkg.target.helper", relation="dependents", include_tests=False
         )
         assert dependents == defaulted
-        assert "## Calls" in dependents
+        assert "(C)" in dependents
         assert "pkg/user.py" in dependents
         assert "tests/test_target.py" not in dependents
 
@@ -246,7 +246,7 @@ def test_symbol_relations(tmp_path: Path) -> None:
             relation="dependencies",
             include_tests=False,
         )
-        assert "pkg.target.helper" in dependencies
+        assert "pkg.target.helper (C)" in dependencies
         assert "pkg/target.py" in dependencies
 
         calls_only = get_symbol_relations(
@@ -256,8 +256,8 @@ def test_symbol_relations(tmp_path: Path) -> None:
             include_tests=False,
             reference_type="call",
         )
-        assert "## Calls" in calls_only
-        assert "## Access" not in calls_only
+        assert "(C)" in calls_only
+        assert "(A)" not in calls_only
     finally:
         db.close()
 
@@ -303,6 +303,7 @@ def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
     (pkg / "user.py").write_text(
         "from pkg.target import Thing\n\n"
         "def make() -> Thing:\n"
+        "    _ = Thing\n"
         "    return Thing()\n\n"
         "ALIAS = Thing\n",
         encoding="utf-8",
@@ -311,25 +312,26 @@ def test_symbol_references_filters_by_reference_type(tmp_path: Path) -> None:
     CodeProcessor(db, tmp_path).process()
     try:
         all_kinds = get_symbol_references(db, "pkg.target.Thing", include_tests=False)
-        assert "## Calls" in all_kinds
-        assert "## Access" in all_kinds
+        assert "(C)" in all_kinds
+        assert "(A)" in all_kinds
         assert "## Type Annotations" not in all_kinds
+        assert "pkg.user.make (C) (A)" in all_kinds
 
         calls = get_symbol_references(
             db, "pkg.target.Thing", include_tests=False, reference_type="call"
         )
-        assert "## Calls" in calls
-        assert "## Access" not in calls
-        assert "pkg.user.make" in calls
+        assert "(C)" in calls
+        assert "(A)" not in calls
+        assert "pkg.user.make (C)" in calls
 
         access = get_symbol_references(
             db, "pkg.target.Thing", include_tests=False, reference_type="access"
         )
-        assert "## Access" in access
-        assert "## Calls" not in access
+        assert "(A)" in access
+        assert "(C)" not in access
 
         invokes = get_symbol_invokes(db, "pkg.user.make")
-        assert "## Calls" in invokes
+        assert "pkg.target.Thing (C)" in invokes
         assert "## Type Annotations" not in invokes
         assert "Type Annotations:" not in get_symbol(db, "pkg.user.make", include_tests=False)
     finally:
