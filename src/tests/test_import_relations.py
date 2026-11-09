@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from src.codeparse_mcp.import_relations import get_import_relations
+from src.codeparse_mcp import import_relations as import_relations_mod
+from src.codeparse_mcp.import_relations import _format_rows, get_import_relations
 from src.db import CodeDB
 from src.processor import CodeProcessor
 from src.tests.fixtures.import_relations import (
@@ -314,3 +315,20 @@ def test_import_relations_orders_sources_by_line_with_module_first(tmp_path: Pat
         assert module_at < early_at < late_at
     finally:
         db.close()
+
+
+def test_format_rows_truncation_includes_total_count(monkeypatch) -> None:
+    monkeypatch.setattr(import_relations_mod, "_MAX_ROWS", 2)
+    rows = [
+        {
+            "source_path": f"a{index}.py",
+            "source_qualified_name": f"a{index}.run",
+            "target_qualified_name": "pkg.t.f",
+            "ref_kind": "call",
+        }
+        for index in range(5)
+    ]
+    dependents = _format_rows(rows, relation="dependents")
+    dependencies = _format_rows(rows, relation="dependencies")
+    assert "… truncated to 2 dependents (out of 5 dependents)" in dependents
+    assert "… truncated to 2 dependencies (out of 5 dependencies)" in dependencies

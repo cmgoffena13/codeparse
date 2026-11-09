@@ -179,7 +179,11 @@ def _format_rows(
     )
     result = body
     if truncated:
-        result = body.rstrip("\n") + f"\n\n… truncated to {_MAX_ROWS} {relation}\n"
+        total = len(rows)
+        result = (
+            body.rstrip("\n")
+            + f"\n\n… truncated to {_MAX_ROWS} {relation} (out of {total} {relation})\n"
+        )
     return result
 
 
