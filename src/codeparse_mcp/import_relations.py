@@ -3,7 +3,12 @@
 from collections import OrderedDict
 from typing import Literal
 
-from src.codeparse_mcp.format_utils import kind_count_suffix, tree_glyphs
+from src.codeparse_mcp.format_utils import (
+    kind_count_suffix,
+    page_footer,
+    page_window,
+    tree_glyphs,
+)
 from src.db import EXTERNAL_PACKAGES_FILE_ID, CodeDB
 
 _MAX_ROWS = 100
@@ -168,22 +173,30 @@ def _format_rows(
     rows: list,
     *,
     relation: Literal["dependents", "dependencies"],
+    page: int = 1,
     show_file_paths: bool = True,
 ) -> str:
-    truncated = len(rows) > _MAX_ROWS
-    shown = rows[:_MAX_ROWS]
-    body = _format_relation_rows(
-        shown,
-        show_file_paths=show_file_paths,
-        flat=relation == "dependencies",
-    )
-    result = body
-    if truncated:
-        total = len(rows)
-        result = (
-            body.rstrip("\n")
-            + f"\n\n… truncated to {_MAX_ROWS} {relation} (out of {total} {relation})\n"
+    total = len(rows)
+    window = page_window(total, page, _MAX_ROWS, label=relation)
+    result: str
+    if isinstance(window, str):
+        result = window
+    else:
+        start, stop, page_count = window
+        shown = rows[start:stop]
+        body = _format_relation_rows(
+            shown,
+            show_file_paths=show_file_paths,
+            flat=relation == "dependencies",
         )
+        result = body
+        if page_count > 1:
+            result = (
+                body.rstrip("\n")
+                + "\n\n"
+                + page_footer(page, page_count, len(shown), total, relation)
+                + "\n"
+            )
     return result
 
 
@@ -222,6 +235,7 @@ def get_import_relations(
     *,
     relation: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
+    page: int = 1,
 ) -> str:
     """
     List call/access relations for a dotted module path.
@@ -229,6 +243,7 @@ def get_import_relations(
     Resolves ``target`` as an internal directory, internal file, or external
     package. ``dependents`` lists who uses its symbols; ``dependencies`` lists
     what its files use. ``include_tests`` applies only to dependents.
+    ``page`` is 1-indexed over relation rows.
     """
     key = target.strip()
     result = "No target given; pass a non-empty dotted module path."
@@ -248,7 +263,11 @@ def get_import_relations(
                 [EXTERNAL_PACKAGES_FILE_ID, module, module_like],
                 include_tests,
             )
-            result = _format_rows(rows, relation=relation) if rows else "No import relations found."
+            result = (
+                _format_rows(rows, relation=relation, page=page)
+                if rows
+                else "No import relations found."
+            )
         elif not file_ids:
             result = "No import relations found."
         elif relation == "dependencies":
@@ -264,7 +283,7 @@ def get_import_relations(
                 include_tests=True,
             )
             result = (
-                _format_rows(rows, relation=relation, show_file_paths=kind != "file")
+                _format_rows(rows, relation=relation, page=page, show_file_paths=kind != "file")
                 if rows
                 else "No import relations found."
             )
@@ -275,5 +294,9 @@ def get_import_relations(
                 list(file_ids),
                 include_tests,
             )
-            result = _format_rows(rows, relation=relation) if rows else "No import relations found."
+            result = (
+                _format_rows(rows, relation=relation, page=page)
+                if rows
+                else "No import relations found."
+            )
     return result

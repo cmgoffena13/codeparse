@@ -2,9 +2,10 @@
 
 from pathlib import Path
 
+from src.codeparse_mcp import symbol_references as symbol_references_mod
 from src.codeparse_mcp.symbol import get_symbol
 from src.codeparse_mcp.symbol_invokes import get_symbol_invokes
-from src.codeparse_mcp.symbol_references import get_symbol_references
+from src.codeparse_mcp.symbol_references import _format_reference_rows, get_symbol_references
 from src.codeparse_mcp.symbol_relations import get_symbol_relations
 from src.db import CodeDB
 from src.processor import CodeProcessor
@@ -309,3 +310,23 @@ def test_symbol_references_and_invokes_exclude_type_annotations(tmp_path: Path) 
         assert "Type Annotations:" not in get_symbol(db, "pkg.user.make", include_tests=False)
     finally:
         db.close()
+
+
+def test_symbol_relations_page_footer(monkeypatch) -> None:
+    monkeypatch.setattr(symbol_references_mod, "_MAX_ENTRIES", 2)
+    rows = [
+        {
+            "source_path": f"a{index}.py",
+            "source_line": 1,
+            "ref_kind": "call",
+            "source_qualified_name": f"a{index}.run",
+        }
+        for index in range(5)
+    ]
+    page_one = _format_reference_rows(rows, page=1)
+    page_two = _format_reference_rows(rows, page=2)
+    assert "a0.run" in page_one
+    assert "a2.run" not in page_one
+    assert "a2.run" in page_two
+    assert "… page 1 of 3 (2 of 5 dependents)" in page_one
+    assert _format_reference_rows(rows, page=4) == "No more dependents; page 4 is past 3."

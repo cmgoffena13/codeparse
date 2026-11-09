@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from src.codeparse_mcp.format_utils import bullet, kind_count_suffix
+from src.codeparse_mcp.format_utils import format_paged_file_entries
 from src.db import CodeDB
 
 _MAX_ENTRIES = 50
@@ -23,7 +23,7 @@ ORDER BY f.path, sr.source_line
 """
 
 
-def _format_reference_rows(rows: list) -> str:
+def _reference_entries(rows: list) -> list[tuple[str, str, dict[str, int]]]:
     labels: OrderedDict[tuple[str, str], str] = OrderedDict()
     counts: dict[tuple[str, str], dict[str, int]] = {}
     for row in rows:
@@ -36,31 +36,19 @@ def _format_reference_rows(rows: list) -> str:
         kind = row["ref_kind"]
         counts[key][kind] = counts[key].get(kind, 0) + 1
 
-    by_file: OrderedDict[str, list[tuple[str, str]]] = OrderedDict()
+    entries: list[tuple[str, str, dict[str, int]]] = []
     for path, key_id in labels:
-        by_file.setdefault(path, []).append((path, key_id))
+        entries.append((path, labels[(path, key_id)], counts[(path, key_id)]))
+    return entries
 
-    lines_out: list[str] = []
-    shown = 0
-    truncated = False
-    for path_index, (path, keys) in enumerate(by_file.items()):
-        if truncated:
-            break
-        path_lines: list[str] = []
-        for key in keys:
-            if shown >= _MAX_ENTRIES:
-                truncated = True
-                break
-            path_lines.append(bullet(labels[key] + kind_count_suffix(counts[key])))
-            shown += 1
-        if path_lines:
-            if path_index > 0 and lines_out:
-                lines_out.append("")
-            lines_out.append(path)
-            lines_out.extend(path_lines)
-    if truncated:
-        lines_out.append(f"(truncated after {_MAX_ENTRIES} symbols)")
-    return "\n".join(lines_out).strip() + "\n"
+
+def _format_reference_rows(rows: list, *, page: int = 1) -> str:
+    return format_paged_file_entries(
+        _reference_entries(rows),
+        page=page,
+        page_size=_MAX_ENTRIES,
+        label="dependents",
+    )
 
 
 def get_symbol_references(
@@ -68,14 +56,15 @@ def get_symbol_references(
     qualified_name: str,
     *,
     include_tests: bool,
+    page: int = 1,
 ) -> str:
     """
     List reference sites for ``qualified_name``, grouped by file then symbol.
 
     Each site shows the enclosing symbol with ``(C)`` / ``(A)`` counts. A
-    module-level site has none and shows its line number instead. At most
-    ``_MAX_ENTRIES`` symbols are shown. Test files are skipped unless
-    ``include_tests`` is true.
+    module-level site has none and shows its line number instead. ``page`` is
+    1-indexed over symbols. Test files are skipped unless ``include_tests`` is
+    true.
     """
     key = qualified_name.strip()
     result = "No symbol name given; pass a non-empty qualified_name."
@@ -88,5 +77,5 @@ def get_symbol_references(
                 (key,),
             )
         )
-        result = _format_reference_rows(rows) if rows else "No references found."
+        result = _format_reference_rows(rows, page=page) if rows else "No references found."
     return result

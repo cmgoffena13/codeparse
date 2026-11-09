@@ -13,19 +13,22 @@ def get_symbol_relations(
     *,
     relation: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
+    page: int = 1,
 ) -> str:
     """
     List relations for ``qualified_name``.
 
     ``dependents`` lists symbols/files that reference it. ``dependencies`` lists
     symbols it invokes. ``include_tests`` applies only to dependents.
+    ``page`` is 1-indexed over symbols.
     """
     if relation == "dependencies":
-        result = get_symbol_invokes(db, qualified_name)
+        result = get_symbol_invokes(db, qualified_name, page=page)
     else:
         result = get_symbol_references(
             db,
             qualified_name,
             include_tests=include_tests,
+            page=page,
         )
     return result

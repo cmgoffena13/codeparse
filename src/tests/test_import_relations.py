@@ -317,7 +317,7 @@ def test_import_relations_orders_sources_by_line_with_module_first(tmp_path: Pat
         db.close()
 
 
-def test_format_rows_truncation_includes_total_count(monkeypatch) -> None:
+def test_format_rows_page_includes_total_count(monkeypatch) -> None:
     monkeypatch.setattr(import_relations_mod, "_MAX_ROWS", 2)
     rows = [
         {
@@ -328,7 +328,19 @@ def test_format_rows_truncation_includes_total_count(monkeypatch) -> None:
         }
         for index in range(5)
     ]
-    dependents = _format_rows(rows, relation="dependents")
-    dependencies = _format_rows(rows, relation="dependencies")
-    assert "… truncated to 2 dependents (out of 5 dependents)" in dependents
-    assert "… truncated to 2 dependencies (out of 5 dependencies)" in dependencies
+    page_one = _format_rows(rows, relation="dependents", page=1)
+    page_two = _format_rows(rows, relation="dependents", page=2)
+    page_three = _format_rows(rows, relation="dependents", page=3)
+    deps = _format_rows(rows, relation="dependencies", page=1)
+    assert "a0.run" in page_one
+    assert "a2.run" not in page_one
+    assert "a2.run" in page_two
+    assert "a4.run" in page_three
+    assert "… page 1 of 3 (2 of 5 dependents)" in page_one
+    assert "… page 2 of 3 (2 of 5 dependents)" in page_two
+    assert "… page 3 of 3 (1 of 5 dependents)" in page_three
+    assert "… page 1 of 3 (2 of 5 dependencies)" in deps
+    assert _format_rows(rows, relation="dependents", page=4) == (
+        "No more dependents; page 4 is past 3."
+    )
+    assert _format_rows(rows, relation="dependents", page=0) == ("Invalid page; pass page >= 1.")

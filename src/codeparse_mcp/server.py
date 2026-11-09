@@ -179,13 +179,14 @@ def get_symbol_relations(
     ctx: Context,
     relation: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
+    page: int = 1,
 ) -> str:
     """
     Return related symbols for ``qualified_name``.
 
     ``relation="dependents"`` lists who references it; ``relation="dependencies"``
     lists what it invokes. Grouped by file. A dependent site with no enclosing symbol
-    shows its line number.
+    shows its line number. ``page`` is 1-indexed over symbols.
 
     Relations do not follow multi-hop attribute access (obj.field.method) and untyped
     locals. For dependents, excludes test files by default; set ``include_tests`` to
@@ -197,6 +198,7 @@ def get_symbol_relations(
             qualified_name,
             relation=relation,
             include_tests=include_tests,
+            page=page,
         )
     )
 
@@ -218,13 +220,15 @@ def get_import_relations(
     ctx: Context,
     relation: Literal["dependents", "dependencies"] = "dependents",
     include_tests: bool = False,
+    page: int = 1,
 ) -> str:
     """
     Return call/access relations for a dotted module path.
 
     Resolves ``target`` as an internal directory, internal file, or external
     package. ``relation="dependents"`` lists who uses its symbols;
-    ``relation="dependencies"`` lists what its files use.
+    ``relation="dependencies"`` lists what its files use. ``page`` is 1-indexed
+    over relation rows.
 
     External package dependencies are not available.
     For dependents, excludes test site files by default; set ``include_tests``
@@ -236,6 +240,7 @@ def get_import_relations(
             target,
             relation=relation,
             include_tests=include_tests,
+            page=page,
         )
     )
 
