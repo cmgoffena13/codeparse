@@ -21,18 +21,18 @@ def kind_count_suffix(counts: dict[str, int]) -> str:
     return " " + " ".join(parts)
 
 
-def line_span(line_start: int, line_end: int) -> str:
+def line_span(start_line: int, end_line: int) -> str:
     """``L12`` or ``L12-34``."""
-    if line_start == line_end:
-        return f"L{line_start}"
-    return f"L{line_start}-{line_end}"
+    if start_line == end_line:
+        return f"L{start_line}"
+    return f"L{start_line}-{end_line}"
 
 
-def lines_range(line_start: int, line_end: int) -> str:
+def lines_range(start_line: int, end_line: int) -> str:
     """``12`` or ``12-34`` (no ``L`` prefix)."""
-    if line_start == line_end:
-        return str(line_start)
-    return f"{line_start}-{line_end}"
+    if start_line == end_line:
+        return str(start_line)
+    return f"{start_line}-{end_line}"
 
 
 def bullet(text: str, lead: str = "") -> str:

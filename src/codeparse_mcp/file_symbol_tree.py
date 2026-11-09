@@ -10,16 +10,16 @@ SELECT
     parent_id,
     kind,
     qualified_name,
-    line_start,
-    line_end
+    start_line,
+    end_line
 FROM symbols
 WHERE file_id = ?
-ORDER BY line_start, line_end, qualified_name
+ORDER BY start_line, end_line, qualified_name
 """
 
 
 def _symbol_label(row) -> str:
-    loc = line_span(int(row["line_start"]), int(row["line_end"]))
+    loc = line_span(int(row["start_line"]), int(row["end_line"]))
     kind = (row["kind"] or "").strip()
     label = row["qualified_name"].strip()
     return f"{loc}  {kind}  {label}"
@@ -76,7 +76,7 @@ def get_file_symbol_tree(db: CodeDB, file_path: str) -> str:
             for row in sym_rows:
                 children_by_parent_id[effective_parent_id(row)].append(row)
             for bucket in children_by_parent_id.values():
-                bucket.sort(key=lambda r: (r["line_start"], r["line_end"], r["qualified_name"]))
+                bucket.sort(key=lambda r: (r["start_line"], r["end_line"], r["qualified_name"]))
 
             roots = children_by_parent_id.get(None, ())
             for root_index, row in enumerate(roots):

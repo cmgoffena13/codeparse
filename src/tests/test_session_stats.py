@@ -327,7 +327,7 @@ def test_client_writes_tool_sizes_to_the_workspace_database(
             at_lines = _text(
                 await mcp_client.call_tool(
                     "get_symbol_at_lines",
-                    {"file_path": "pkg/child.py", "line_start": 4},
+                    {"file_path": "pkg/child.py", "start_line": 4},
                 )
             )
             await mcp_client.call_tool("search_symbols", {"query": "Child", "limit": 5})

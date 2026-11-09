@@ -147,8 +147,8 @@ async def _print_tools() -> None:
                     "get_symbol_at_lines",
                     {
                         "file_path": "sqlmesh/__init__.py",
-                        "line_start": 96,
-                        "line_end": 98,
+                        "start_line": 96,
+                        "end_line": 98,
                     },
                 )
             ),
@@ -160,8 +160,8 @@ async def _print_tools() -> None:
                     "get_symbol_at_lines",
                     {
                         "file_path": "sqlmesh/__init__.py",
-                        "line_start": 125,
-                        "line_end": 128,
+                        "start_line": 125,
+                        "end_line": 128,
                     },
                 )
             ),

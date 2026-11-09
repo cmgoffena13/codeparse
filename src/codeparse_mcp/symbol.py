@@ -4,8 +4,8 @@ from src.db import EXTERNAL_PACKAGES_PATH, CodeDB
 _SYMBOL_ROW_SQL = """
 SELECT
     s.id AS symbol_id,
-    s.line_start,
-    s.line_end,
+    s.start_line,
+    s.end_line,
     s.is_inherited,
     f.path AS file_path,
     sb.base_qualified_name || '.' || s.name AS defining_qualified_name
@@ -59,10 +59,10 @@ _INHERITED_KIND_LABELS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _definition_gutter_width(line_start: int, line_count: int) -> int:
+def _definition_gutter_width(start_line: int, line_count: int) -> int:
     if line_count <= 0:
-        return len(str(line_start))
-    return len(str(line_start + line_count - 1))
+        return len(str(start_line))
+    return len(str(start_line + line_count - 1))
 
 
 def _kind_count_lines(counts: dict[str, int]) -> list[str]:
@@ -144,8 +144,8 @@ def get_symbol(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
         return f"No symbol with qualified_name {key!r} was found."
 
     path = row["file_path"]
-    line_start = int(row["line_start"])
-    line_end = int(row["line_end"])
+    start_line = int(row["start_line"])
+    end_line = int(row["end_line"])
 
     body_lines: list[str] = []
     if path == EXTERNAL_PACKAGES_PATH:
@@ -154,16 +154,16 @@ def get_symbol(db: CodeDB, qualified_name: str, *, include_tests: bool) -> str:
         abs_path = db.root / path
         try:
             raw_lines = abs_path.read_text(encoding="utf-8", errors="replace").splitlines()
-            if line_start < 1:
-                body_lines.append("    (invalid line_start)")
+            if start_line < 1:
+                body_lines.append("    (invalid start_line)")
             else:
-                chunk = raw_lines[line_start - 1 : line_end]
+                chunk = raw_lines[start_line - 1 : end_line]
                 if not chunk:
                     body_lines.append("    (no lines in range)")
                 else:
-                    gutter = _definition_gutter_width(line_start, len(chunk))
+                    gutter = _definition_gutter_width(start_line, len(chunk))
                     for index, ln in enumerate(chunk):
-                        lineno = line_start + index
+                        lineno = start_line + index
                         body_lines.append(f"L{lineno:<{gutter}} | {ln}")
         except OSError as e:
             body_lines.append(f"    (could not read source file: {e})")

@@ -265,8 +265,8 @@ class PythonParser(ParserBase):
         parent_id: int | None,
         name: str,
         qualified_name: str,
-        line_start: int,
-        line_end: int,
+        start_line: int,
+        end_line: int,
         signature: str,
         is_test: bool,
     ) -> dict:
@@ -278,9 +278,9 @@ class PythonParser(ParserBase):
             "name": name,
             "qualified_name": qualified_name,
             "kind": "variable",
-            "line_start": line_start,
-            "line_end": line_end,
-            "line_count": line_end - line_start + 1,
+            "start_line": start_line,
+            "end_line": end_line,
+            "line_count": end_line - start_line + 1,
             "signature": signature,
             "docstring": None,
             "modifiers": None,
@@ -684,8 +684,8 @@ class PythonParser(ParserBase):
                 name = text
         if not symbol_leaf:
             return symbols
-        line_start = node.start_point.row + 1
-        line_end = node.end_point.row + 1
+        start_line = node.start_point.row + 1
+        end_line = node.end_point.row + 1
 
         if self.stack:
             parent_qn = self.stack[-1].qualified_name
@@ -718,9 +718,9 @@ class PythonParser(ParserBase):
         key = (symbol_identity, kind)
         if key in self.symbols_snapshot:
             self.symbols_snapshot[key]["seen"] = True
-            if (line_start, line_end) != (
-                self.symbols_snapshot[key]["line_start"],
-                self.symbols_snapshot[key]["line_end"],
+            if (start_line, end_line) != (
+                self.symbols_snapshot[key]["start_line"],
+                self.symbols_snapshot[key]["end_line"],
             ):
                 symbol_id = self.symbols_snapshot[key]["id"]
                 symbols.append(
@@ -730,8 +730,8 @@ class PythonParser(ParserBase):
                         parent_id,
                         name,
                         qualified_name,
-                        line_start,
-                        line_end,
+                        start_line,
+                        end_line,
                         signature,
                         is_test,
                     )
@@ -741,8 +741,8 @@ class PythonParser(ParserBase):
             self.symbols_snapshot[key] = {
                 "id": symbol_id,
                 "seen": True,
-                "line_start": line_start,
-                "line_end": line_end,
+                "start_line": start_line,
+                "end_line": end_line,
             }
             symbols.append(
                 self._variable_symbol_dict(
@@ -751,8 +751,8 @@ class PythonParser(ParserBase):
                     parent_id,
                     name,
                     qualified_name,
-                    line_start,
-                    line_end,
+                    start_line,
+                    end_line,
                     signature,
                     is_test,
                 )
@@ -812,10 +812,10 @@ class PythonParser(ParserBase):
                 if decorator_text:
                     modifiers.append(decorator_text)
 
-            line_start = node.parent.start_point.row + 1
+            start_line = node.parent.start_point.row + 1
         else:
-            line_start = node.start_point.row + 1
-        line_end = node.end_point.row + 1
+            start_line = node.start_point.row + 1
+        end_line = node.end_point.row + 1
 
         # NOTE: Extract Signature. Decorators stay in modifiers.
         end_byte = body_node.start_byte if body_node is not None else node.end_byte
@@ -861,9 +861,9 @@ class PythonParser(ParserBase):
             record_bases = sorted(symbol.get("base_qualified_names", []))
 
             # Compare Line Start, Line End, and Base Qualified Names.
-            if (line_start, line_end) != (
-                symbol["line_start"],
-                symbol["line_end"],
+            if (start_line, end_line) != (
+                symbol["start_line"],
+                symbol["end_line"],
             ) or resolved_bases != record_bases:
                 symbol_id = symbol["id"]
             else:
@@ -876,8 +876,8 @@ class PythonParser(ParserBase):
             self.symbols_snapshot[key] = {
                 "id": symbol_id,
                 "seen": True,
-                "line_start": line_start,
-                "line_end": line_end,
+                "start_line": start_line,
+                "end_line": end_line,
                 "base_qualified_names": resolved_bases,
             }
 
@@ -889,9 +889,9 @@ class PythonParser(ParserBase):
             "name": name,
             "qualified_name": qualified_name,
             "kind": kind,
-            "line_start": line_start,
-            "line_end": line_end,
-            "line_count": line_end - line_start + 1,
+            "start_line": start_line,
+            "end_line": end_line,
+            "line_count": end_line - start_line + 1,
             "signature": signature,
             "docstring": docstring,
             "modifiers": str(modifiers) if modifiers else None,

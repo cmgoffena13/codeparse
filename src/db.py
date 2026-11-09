@@ -191,8 +191,8 @@ class CodeDB:
                 s.id,
                 s.qualified_name AS name,
                 s.kind,
-                s.line_start,
-                s.line_end,
+                s.start_line,
+                s.end_line,
                 sb.base_qualified_name
             FROM symbols AS s
             LEFT JOIN symbol_bases AS sb
@@ -208,8 +208,8 @@ class CodeDB:
             if entry is None:
                 entry = {
                     "id": row["id"],
-                    "line_start": row["line_start"],
-                    "line_end": row["line_end"],
+                    "start_line": row["start_line"],
+                    "end_line": row["end_line"],
                     "base_qualified_names": [],
                     "seen": False,
                 }
@@ -366,11 +366,11 @@ class CodeDB:
             self.connection.executemany(
                 """
                 INSERT OR REPLACE INTO symbols
-                (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
-                 line_end, line_count, signature, docstring, modifiers, language,
+                (id, file_id, parent_id, name, parent, qualified_name, kind, start_line,
+                 end_line, line_count, signature, docstring, modifiers, language,
                  is_test, is_inherited)
                 VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
-                        :line_start, :line_end, :line_count, :signature,
+                        :start_line, :end_line, :line_count, :signature,
                         :docstring, :modifiers, :language, :is_test, :is_inherited)
                 """,
                 symbols,
@@ -536,8 +536,8 @@ class CodeDB:
                     "parent": parent or None,
                     "qualified_name": qualified_name,
                     "kind": "external",
-                    "line_start": 0,
-                    "line_end": 0,
+                    "start_line": 0,
+                    "end_line": 0,
                     "line_count": 0,
                     "signature": "",
                     "docstring": None,

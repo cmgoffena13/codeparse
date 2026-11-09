@@ -10,7 +10,7 @@ _MAX_SUBCLASSES = 100
 _SUBCLASSES_SQL = """
 SELECT
     s.qualified_name,
-    s.line_start,
+    s.start_line,
     f.path AS file_path
 FROM symbol_bases AS sb
 INNER JOIN symbols AS s
@@ -19,7 +19,7 @@ INNER JOIN files AS f
     ON f.id = s.file_id
 WHERE sb.base_qualified_name = ?
 {test_filter}
-ORDER BY f.path, s.line_start, s.qualified_name
+ORDER BY f.path, s.start_line, s.qualified_name
 """
 
 

@@ -53,9 +53,9 @@ def test_python_fixture_file_parses_symbols_imports_and_references(python_parser
     assert fake_fn["docstring"]
     assert "Fake Function Docstring" in fake_fn["docstring"]
 
-    # Decorators stay on line_start and modifiers; the signature is the def header.
+    # Decorators stay on start_line and modifiers; the signature is the def header.
     fake_prop = index_symbols(symbols)["FakeClass.fake_property"]
-    assert fake_prop["line_start"] == 40  # first @_noop_deco line in file.py fixture
+    assert fake_prop["start_line"] == 40  # first @_noop_deco line in file.py fixture
     assert "@" not in fake_prop["signature"]
     assert fake_prop["signature"] == "def fake_property(self):"
     assert fake_prop["modifiers"] is not None

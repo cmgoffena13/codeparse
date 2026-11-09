@@ -106,7 +106,6 @@ def get_directory_tree(ctx: Context, path: str | None = None) -> str:
 def get_file_symbol_tree(file_path: str, ctx: Context) -> str:
     """
     Return a nested symbol tree for one file with line numbers.
-    Follow up with ``get_symbol`` for symbol definitions.
     """
     return _processor(ctx).run_query(lambda db: run_get_file_symbol_tree(db, file_path))
 
@@ -121,9 +120,10 @@ def search_symbols(
     """
     FTS symbol names. Results are grouped by file and ordered #1, #2, #3... by relevance.
 
-    Excludes test file symbols by default; set ``include_tests`` to include them.
     Narrow with one distinctive word; Widen with extra space-separated words (OR).
     Example input queries: ``loader``, ``dialect format``, ``Context.plan``
+
+    Excludes test file symbols by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_symbol_search(
@@ -139,12 +139,10 @@ def search_symbols(
 def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return the symbol definition with line numbers, inherited members,
-    aggregated dependent counts, and dependency counts (calls, accesses).
+    aggregated dependent/dependency (relation) counts (calls, accesses).
 
-    Excludes test dependents by default; set ``include_tests`` to include them.
-    Links do not follow multi-hop attribute access (obj.field.method) and untyped locals.
-    Use ``get_symbol_relations`` for dependents (``relation="dependents"``) or
-    dependencies (``relation="dependencies"``).
+    Relations do not follow multi-hop attribute access (obj.field.method) and untyped locals.
+    Excludes test files in aggregated counts by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol(db, qualified_name, include_tests=include_tests)
@@ -154,21 +152,21 @@ def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -
 @mcp.tool()
 def get_symbol_at_lines(
     file_path: str,
-    line_start: int,
+    start_line: int,
     ctx: Context,
-    line_end: int | None = None,
+    end_line: int | None = None,
     include_tests: bool = False,
 ) -> str:
     """
     Same output as ``get_symbol`` for the tightest symbol that contains the whole range.
     A range inside no single symbol returns each symbol and its line span.
 
-    ``line_end`` defaults to ``line_start`` if not provided.
-    Excludes test dependents by default; set ``include_tests`` to include them.
+    ``end_line`` defaults to ``start_line`` if not provided.
+    Excludes test files in aggregated counts by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol_at_lines(
-            db, file_path, line_start, line_end, include_tests=include_tests
+            db, file_path, start_line, end_line, include_tests=include_tests
         )
     )
 
@@ -182,15 +180,10 @@ def get_symbol_relations(
     page: int = 1,
 ) -> str:
     """
-    Return related symbols for ``qualified_name``.
+    Return call (C) / access (A) relations for ``qualified_name``.
 
-    ``relation="dependents"`` lists who references it; ``relation="dependencies"``
-    lists what it invokes. Grouped by file. A dependent site with no enclosing symbol
-    shows its line number. ``page`` is 1-indexed over symbols.
-
-    Relations do not follow multi-hop attribute access (obj.field.method) and untyped
-    locals. For dependents, excludes test files by default; set ``include_tests`` to
-    include them. ``include_tests`` does not filter dependencies.
+    Relations do not follow multi-hop attribute access (obj.field.method) and untyped locals.
+    Excludes test files from dependents by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol_relations(
@@ -207,7 +200,7 @@ def get_symbol_relations(
 def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
     Return classes that directly inherit from a given class, grouped by file.
-    Excludes test files by default; set ``include_tests`` to include them.
+    Excludes test file symbols by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_list_subclasses(db, qualified_name, include_tests=include_tests)
@@ -223,16 +216,14 @@ def get_import_relations(
     page: int = 1,
 ) -> str:
     """
-    Return call/access relations for a dotted module path.
+    Return call (C) / access (A) relations for a dotted module path.
+    External package dependencies are not available (dependents only).
 
     Resolves ``target`` as an internal directory, internal file, or external
-    package. ``relation="dependents"`` lists who uses its symbols;
-    ``relation="dependencies"`` lists what its files use. ``page`` is 1-indexed
-    over relation rows.
+    package. Example targets: ``re.compile``, ``src.transform``
 
-    External package dependencies are not available.
-    For dependents, excludes test site files by default; set ``include_tests``
-    to include them. ``include_tests`` does not filter dependencies.
+    Relations do not follow multi-hop attribute access (obj.field.method) and untyped locals.
+    Excludes test files from dependents by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_import_relations(

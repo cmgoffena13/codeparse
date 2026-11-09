@@ -4,13 +4,14 @@ import xxhash
 import yaml
 
 DESCRIPTION = (
-    "Use when navigating a Python codebase for efficient code navigation: "
-    "find symbols, follow imports and references, and map how files depend on each other."
+    "Use when navigating a Python codebase: symbol definitions, "
+    "module/symbol dependencies. Includes external modules/symbols "
+    "(stdlib and third-party names work with the tools)."
 )
 
 _SKILL_BODY = """\
 # IMPORTANT RULES
- - ALWAYS use codeparse tools to get symbol information.
+ - ALWAYS use codeparse tools to get symbol definitions.
  - NEVER use ``read`` on a Python file.
  - Only ``include_tests`` when making changes to the codebase. 
  - DO NOT ``include_tests`` when investigating unless explicitly asked.

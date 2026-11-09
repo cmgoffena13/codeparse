@@ -7,8 +7,8 @@ from src.db import CodeDB
 _SYMBOL_SEARCH_SQL = """
 SELECT
     s.qualified_name,
-    s.line_start,
-    s.line_end,
+    s.start_line,
+    s.end_line,
     f.path,
     bm25(symbols_fts, 10.0, 2.0) AS rank
 FROM symbols_fts
@@ -107,7 +107,7 @@ def search_symbols(
         if not qn:
             continue
         by_path.setdefault(path, []).append(
-            (rank, int(row["line_start"] or 0), int(row["line_end"] or 0), qn)
+            (rank, int(row["start_line"] or 0), int(row["end_line"] or 0), qn)
         )
 
     lines: list[str] = []
@@ -120,7 +120,7 @@ def search_symbols(
             lines.append("")
         lines.append(path)
         ordered = sorted(hits, key=lambda item: (item[1], item[2], item[3]))
-        for rank, _line_start, _line_end, qn in ordered:
+        for rank, _start_line, _end_line, qn in ordered:
             lines.append(bullet(qn, f"#{rank:<{rank_width}} "))
 
     return "\n".join(lines).rstrip() + "\n"

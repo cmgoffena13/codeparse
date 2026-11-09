@@ -82,30 +82,30 @@ def test_inherited_members_are_linked_on_the_subclass(tmp_path: Path) -> None:
         assert inherited_flags["base.GenericContext.plan"] is False
         override = db.connection.execute(
             """
-            SELECT line_start, file_id
+            SELECT start_line, file_id
             FROM symbols
             WHERE qualified_name = 'child.ContextOverride.plan'
             """
         ).fetchone()
         base_plan = db.connection.execute(
             """
-            SELECT line_start, file_id
+            SELECT start_line, file_id
             FROM symbols
             WHERE qualified_name = 'base.GenericContext.plan'
             """
         ).fetchone()
         inherited = db.connection.execute(
             """
-            SELECT line_start, file_id
+            SELECT start_line, file_id
             FROM symbols
             WHERE qualified_name = 'child.Context.plan'
             """
         ).fetchone()
         assert inherited["file_id"] == base_plan["file_id"]
-        assert inherited["line_start"] == base_plan["line_start"]
+        assert inherited["start_line"] == base_plan["start_line"]
         assert (
             override["file_id"] != base_plan["file_id"]
-            or override["line_start"] != base_plan["line_start"]
+            or override["start_line"] != base_plan["start_line"]
         )
         override_count = db.connection.execute(
             """

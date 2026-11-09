@@ -29,8 +29,8 @@ def test_delete_external_ledger_rows_drops_pairs_and_orphan_stubs(tmp_path: Path
     db.connection.execute(
         """
         INSERT INTO symbols
-        (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
-         line_end, line_count, signature, docstring, modifiers, language,
+        (id, file_id, parent_id, name, parent, qualified_name, kind, start_line,
+         end_line, line_count, signature, docstring, modifiers, language,
          is_test, is_inherited)
         VALUES
         (1, ?, NULL, 'Exp', 'sqlglot', 'sqlglot.Exp', 'external', 0, 0, 0, '', NULL, NULL,
