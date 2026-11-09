@@ -178,7 +178,6 @@ def get_symbol_relations(
     qualified_name: str,
     ctx: Context,
     relation: Literal["dependents", "dependencies"] = "dependents",
-    reference_type: Literal["call", "access"] | None = None,
     include_tests: bool = False,
 ) -> str:
     """
@@ -191,7 +190,6 @@ def get_symbol_relations(
     Relations do not follow multi-hop attribute access (obj.field.method) and untyped
     locals. For dependents, excludes test files by default; set ``include_tests`` to
     include them. ``include_tests`` does not filter dependencies.
-    Set ``reference_type`` to ``call`` or ``access`` to return only one kind.
     """
     return _processor(ctx).run_query(
         lambda db: run_get_symbol_relations(
@@ -199,7 +197,6 @@ def get_symbol_relations(
             qualified_name,
             relation=relation,
             include_tests=include_tests,
-            reference_type=reference_type,
         )
     )
 

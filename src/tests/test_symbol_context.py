@@ -248,16 +248,6 @@ def test_symbol_relations(tmp_path: Path) -> None:
         )
         assert "pkg.target.helper (C)" in dependencies
         assert "pkg/target.py" in dependencies
-
-        calls_only = get_symbol_relations(
-            db,
-            "pkg.target.helper",
-            relation="dependents",
-            include_tests=False,
-            reference_type="call",
-        )
-        assert "(C)" in calls_only
-        assert "(A)" not in calls_only
     finally:
         db.close()
 

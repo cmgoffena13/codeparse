@@ -28,7 +28,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `get_file_symbol_tree` | Return the symbol tree of one file. |
 | `get_symbol` | Return one symbol's definition with dependent and dependency counts. |
 | `get_symbol_at_lines` | Return the symbol that covers a line range in a file. |
-| `get_symbol_relations` | Return dependents or dependencies for one symbol (`relation`, `reference_type`). |
+| `get_symbol_relations` | Return dependents or dependencies for one symbol (`relation`). |
 | `get_import_relations` | Return module dependents or dependencies (`relation`, `include_tests`). |
 | `search_symbols` | Full Text Search symbol names. |
 | `list_subclasses` | Return the classes that directly inherit from a class. |
