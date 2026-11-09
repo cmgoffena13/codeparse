@@ -23,6 +23,45 @@ def test_ref_qn_is_indexed_matches_module_and_children() -> None:
     assert not _ref_qn_is_indexed("pkgx.mod", indexed)
 
 
+def test_delete_external_ledger_rows_drops_pairs_and_orphan_stubs(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    db = CodeDB(tmp_path)
+    db.connection.execute(
+        """
+        INSERT INTO symbols
+        (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
+         line_end, line_count, signature, docstring, modifiers, language,
+         is_test, is_inherited)
+        VALUES
+        (1, ?, NULL, 'Exp', 'sqlglot', 'sqlglot.Exp', 'external', 0, 0, 0, '', NULL, NULL,
+         'python', 0, 0),
+        (2, ?, NULL, 'path', 'os', 'os.path', 'external', 0, 0, 0, '', NULL, NULL,
+         'python', 0, 0)
+        """,
+        (EXTERNAL_PACKAGES_FILE_ID, EXTERNAL_PACKAGES_FILE_ID),
+    )
+    db.connection.executemany(
+        "INSERT INTO external_symbols (file_id, qualified_name) VALUES (?, ?)",
+        [(10, "sqlglot.Exp"), (11, "os.path"), (10, "os.path")],
+    )
+    db.connection.commit()
+    db._delete_external_ledger_rows([(10, "sqlglot.Exp"), (11, "os.path")])
+    leftover = {
+        (row["file_id"], row["qualified_name"])
+        for row in db.connection.execute("SELECT file_id, qualified_name FROM external_symbols")
+    }
+    assert leftover == {(10, "os.path")}
+    stub_qns = {
+        row["qualified_name"]
+        for row in db.connection.execute(
+            "SELECT qualified_name FROM symbols WHERE file_id = ?",
+            (EXTERNAL_PACKAGES_FILE_ID,),
+        )
+    }
+    assert stub_qns == {"os.path"}
+    db.close()
+
+
 def test_external_import_stub_joins_symbol_references(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
     (tmp_path / "app.py").write_text(

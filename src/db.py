@@ -434,17 +434,21 @@ class CodeDB:
         )
         return {row["qualified_name"]: {"seen": False} for row in rows}
 
-    def delete_unseen_external_symbols(
-        self, file_id: int, snapshot: dict[str, dict[str, Any]]
-    ) -> None:
-        deleted_qns = [qn for qn, entry in snapshot.items() if not entry["seen"]]
-        if deleted_qns:
+    def _delete_external_ledger_rows(self, pairs: list[tuple[int, str]]) -> None:
+        if pairs:
             with self.connection:
                 self.connection.executemany(
                     "DELETE FROM external_symbols WHERE file_id = ? AND qualified_name = ?",
-                    [(file_id, qn) for qn in deleted_qns],
+                    pairs,
                 )
-            self._delete_orphan_external_stubs(deleted_qns)
+            self._delete_orphan_external_stubs([qn for _file_id, qn in pairs])
+
+    def delete_unseen_external_symbols(
+        self, file_id: int, snapshot: dict[str, dict[str, Any]]
+    ) -> None:
+        self._delete_external_ledger_rows(
+            [(file_id, qn) for qn, entry in snapshot.items() if not entry["seen"]]
+        )
 
     def _delete_orphan_external_stubs(self, candidate_qns: list[str]) -> None:
         if candidate_qns:
@@ -467,11 +471,12 @@ class CodeDB:
                 )
             ]
             if orphan_ids:
-                snapshot = {
-                    (f"orphan-{symbol_id}", "external"): {"id": symbol_id, "seen": False}
-                    for symbol_id in orphan_ids
-                }
-                self.delete_symbols(snapshot)
+                self.delete_symbols(
+                    {
+                        (f"orphan-{symbol_id}", "external"): {"id": symbol_id, "seen": False}
+                        for symbol_id in orphan_ids
+                    }
+                )
 
     def insert_external_symbols(self, rows: list[dict[str, Any]]) -> None:
         if rows:
@@ -486,104 +491,71 @@ class CodeDB:
 
     def prune_indexed_external_symbols(self) -> None:
         indexed = self._indexed_module_paths()
-        rows = list(self.connection.execute("SELECT file_id, qualified_name FROM external_symbols"))
-        to_delete = [
-            (row["file_id"], row["qualified_name"])
-            for row in rows
-            if _ref_qn_is_indexed(row["qualified_name"], indexed)
-        ]
-        if to_delete:
-            with self.connection:
-                self.connection.executemany(
-                    "DELETE FROM external_symbols WHERE file_id = ? AND qualified_name = ?",
-                    to_delete,
+        self._delete_external_ledger_rows(
+            [
+                (row["file_id"], row["qualified_name"])
+                for row in self.connection.execute(
+                    "SELECT file_id, qualified_name FROM external_symbols"
                 )
-            self._delete_orphan_external_stubs([qn for _file_id, qn in to_delete])
+                if _ref_qn_is_indexed(row["qualified_name"], indexed)
+            ]
+        )
 
     def create_external_stubs(self, qualified_names: set[str], assigner: _IDAssigner) -> None:
         if not qualified_names:
             return
         qns = list(qualified_names)
         placeholders = ",".join("?" for _ in qns)
-        demanded = {
-            row["qualified_name"]
-            for row in self.connection.execute(
+        missing = list(
+            self.connection.execute(
                 f"""
-                SELECT DISTINCT qualified_name
-                FROM external_symbols
-                WHERE qualified_name IN ({placeholders})
+                SELECT DISTINCT es.qualified_name
+                FROM external_symbols AS es
+                WHERE es.qualified_name IN ({placeholders})
+                  AND NOT EXISTS (
+                      SELECT 1 FROM symbols AS s
+                      WHERE s.qualified_name = es.qualified_name
+                  )
                 """,  # noqa: S608
                 tuple(qns),
             )
-        }
-        if not demanded:
+        )
+        if not missing:
             return
-        demand_list = list(demanded)
-        demand_placeholders = ",".join("?" for _ in demand_list)
-        existing = {
-            row["qualified_name"]
-            for row in self.connection.execute(
-                f"""
-                SELECT qualified_name
-                FROM symbols
-                WHERE qualified_name IN ({demand_placeholders})
-                """,  # noqa: S608
-                tuple(demand_list),
-            )
-        }
+        ids = assigner.reserve("symbols", len(missing))
         stub_rows: list[dict[str, Any]] = []
-        for qualified_name in demand_list:
-            if qualified_name not in existing:
-                if "." in qualified_name:
-                    parent, _, name = qualified_name.rpartition(".")
-                else:
-                    parent, name = None, qualified_name
-                stub_rows.append(
-                    {
-                        "qualified_name": qualified_name,
-                        "name": name,
-                        "parent": parent,
-                        "kind": "external",
-                    }
-                )
-        if not stub_rows:
-            return
-        ids = assigner.reserve("symbols", len(stub_rows))
-        fts_rows: list[tuple[int, str, str | None]] = []
-        for symbol_id, stub in zip(ids, stub_rows, strict=True):
-            stub["id"] = symbol_id
-            stub["file_id"] = EXTERNAL_PACKAGES_FILE_ID
-            stub["parent_id"] = None
-            stub["line_start"] = 0
-            stub["line_end"] = 0
-            stub["line_count"] = 0
-            stub["signature"] = ""
-            stub["docstring"] = None
-            stub["modifiers"] = None
-            stub["language"] = "python"
-            stub["is_test"] = False
-            stub["is_inherited"] = False
-            fts_rows.append((symbol_id, stub["name"], stub["parent"]))
-        with self.connection:
-            self.connection.executemany(
-                """
-                INSERT INTO symbols
-                (id, file_id, parent_id, name, parent, qualified_name, kind, line_start,
-                 line_end, line_count, signature, docstring, modifiers, language,
-                 is_test, is_inherited)
-                VALUES (:id, :file_id, :parent_id, :name, :parent, :qualified_name, :kind,
-                        :line_start, :line_end, :line_count, :signature,
-                        :docstring, :modifiers, :language, :is_test, :is_inherited)
-                """,
-                stub_rows,
+        for symbol_id, row in zip(ids, missing, strict=True):
+            qualified_name = row["qualified_name"]
+            parent, _, name = qualified_name.rpartition(".")
+            stub_rows.append(
+                {
+                    "id": symbol_id,
+                    "file_id": EXTERNAL_PACKAGES_FILE_ID,
+                    "parent_id": None,
+                    "name": name,
+                    "parent": parent or None,
+                    "qualified_name": qualified_name,
+                    "kind": "external",
+                    "line_start": 0,
+                    "line_end": 0,
+                    "line_count": 0,
+                    "signature": "",
+                    "docstring": None,
+                    "modifiers": None,
+                    "language": "python",
+                    "is_test": False,
+                    "is_inherited": False,
+                }
             )
-            self.connection.executemany(
-                """
-                INSERT INTO symbols_fts (rowid, name, parent)
-                VALUES (?, ?, ?)
-                """,
-                fts_rows,
-            )
+        self.bulk_insert(
+            {
+                "directories": [],
+                "files": [],
+                "entry_points": [],
+                "symbols": stub_rows,
+                "symbol_references": [],
+            }
+        )
 
     def resolve_symbol_references(self) -> None:
         with self.connection:
