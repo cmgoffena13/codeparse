@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from src.codeparse_mcp.format_utils import line_span
+from src.codeparse_mcp.format_utils import line_span, tree_glyphs
 from src.codeparse_mcp.indexed_file import load_indexed_file
 from src.db import CodeDB
 
@@ -35,9 +35,8 @@ def _symbol_branch_lines(
     last_i = len(siblings) - 1
     for index, row in enumerate(siblings):
         is_last = index == last_i
-        connector = "└─ " if is_last else "├─ "
+        connector, continuation = tree_glyphs(is_last)
         lines.append(f"{branch_prefix}{connector}{_symbol_label(row)}")
-        continuation = "   " if is_last else "│  "
         lines.extend(
             _symbol_branch_lines(children_by_parent_id, row["id"], branch_prefix + continuation)
         )

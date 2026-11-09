@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from src.codeparse_mcp.format_utils import file_label
+from src.codeparse_mcp.format_utils import file_label, tree_glyphs
 from src.codeparse_mcp.paths import normalize_repo_file_path
 from src.db import CodeDB
 
@@ -75,7 +75,7 @@ def _lines_under_parent(children_by_parent_id, parent_key, branch_prefix):
     last_index = len(siblings) - 1
     for index, (is_directory, row) in enumerate(siblings):
         is_last_child = index == last_index
-        connector = "└── " if is_last_child else "├── "
+        connector, continuation = tree_glyphs(is_last_child, wide=True)
         if is_directory:
             display_name = row["name"] + "/"
         else:
@@ -86,7 +86,6 @@ def _lines_under_parent(children_by_parent_id, parent_key, branch_prefix):
             )
         lines.append(f"{branch_prefix}{connector}{display_name}")
         if is_directory:
-            continuation = "    " if is_last_child else "│   "
             next_prefix = branch_prefix + continuation
             lines.extend(_lines_under_parent(children_by_parent_id, row["id"], next_prefix))
     return lines

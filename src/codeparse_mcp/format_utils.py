@@ -46,3 +46,9 @@ def file_label(name: str, line_count: int, symbol_count: int) -> str:
     if line_count > 0:
         label = f"{label} ({line_count}L, {symbol_count}S)"
     return label
+
+
+def tree_glyphs(is_last: bool, *, wide: bool = False) -> tuple[str, str]:
+    narrow = (("├─ ", "│  "), ("└─ ", "   "))
+    wide_glyphs = (("├── ", "│   "), ("└── ", "    "))
+    return (wide_glyphs if wide else narrow)[int(is_last)]

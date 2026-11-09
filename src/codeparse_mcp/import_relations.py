@@ -3,7 +3,7 @@
 from collections import OrderedDict
 from typing import Literal
 
-from src.codeparse_mcp.format_utils import kind_count_suffix
+from src.codeparse_mcp.format_utils import kind_count_suffix, tree_glyphs
 from src.db import EXTERNAL_PACKAGES_FILE_ID, CodeDB
 
 _MAX_ROWS = 100
@@ -107,8 +107,7 @@ def _source_tree_lines(
         last_i = len(items) - 1
         for index, node in enumerate(items):
             is_last = index == last_i
-            connector = "└─ " if is_last else "├─ "
-            stem = "   " if is_last else "│  "
+            connector, stem = tree_glyphs(is_last)
             lines.append(f"{prefix}{connector}{node}")
             child_prefix = prefix + stem
             if node in targets_by_source:
