@@ -18,13 +18,17 @@ SELECT id FROM directories WHERE path = ?
 """
 
 _FILE_IDS_FOR_MODULE_SQL = """
-SELECT id FROM files
-WHERE normalized_path = ?
-   OR normalized_path LIKE ?
+SELECT id, normalized_path FROM files
+WHERE id != ?
+  AND (normalized_path = ? OR normalized_path LIKE ?)
+ORDER BY normalized_path
 """
 
-_FILE_ID_SQL = """
-SELECT id FROM files WHERE normalized_path = ?
+_FILE_IDS_UNDER_DIRECTORY_SQL = """
+SELECT id FROM files
+WHERE id != ?
+  AND (path = ? OR path LIKE ?)
+ORDER BY path
 """
 
 _ROWS_SQL = """
@@ -48,21 +52,33 @@ def _prefix_params(module: str) -> tuple[str, str]:
 
 
 def _resolve_file_ids(db: CodeDB, target: str) -> tuple[str, list[int] | None]:
-    dir_path = target.replace(".", "/")
-    directory = db.connection.execute(_RESOLVE_DIRECTORY_SQL, (dir_path,)).fetchone()
     kind = "external"
     file_ids: list[int] | None = None
-    if directory is not None:
-        kind = "directory"
-        file_ids = [
-            int(row["id"])
-            for row in db.connection.execute(_FILE_IDS_FOR_MODULE_SQL, _prefix_params(target))
-        ]
-    else:
-        file_row = db.connection.execute(_FILE_ID_SQL, (target,)).fetchone()
-        if file_row is not None:
+    module_rows = list(
+        db.connection.execute(
+            _FILE_IDS_FOR_MODULE_SQL,
+            (EXTERNAL_PACKAGES_FILE_ID, *_prefix_params(target)),
+        )
+    )
+    if module_rows:
+        if len(module_rows) == 1 and module_rows[0]["normalized_path"] == target:
             kind = "file"
-            file_ids = [int(file_row["id"])]
+            file_ids = [int(module_rows[0]["id"])]
+        else:
+            kind = "directory"
+            file_ids = [int(row["id"]) for row in module_rows]
+    else:
+        dir_path = target.replace(".", "/")
+        directory = db.connection.execute(_RESOLVE_DIRECTORY_SQL, (dir_path,)).fetchone()
+        if directory is not None:
+            kind = "directory"
+            file_ids = [
+                int(row["id"])
+                for row in db.connection.execute(
+                    _FILE_IDS_UNDER_DIRECTORY_SQL,
+                    (EXTERNAL_PACKAGES_FILE_ID, f"{dir_path}/__init__.py", f"{dir_path}/%"),
+                )
+            ]
     return kind, file_ids
 
 

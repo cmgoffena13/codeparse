@@ -38,6 +38,9 @@ def test_src_layout_strips_non_package_prefix(tmp_path: Path) -> None:
         assert "fundamentals.xxx.y (" in out
         assert "use.py" in out
         assert "• " in out
+        package = get_import_relations(db, "fundamentals", include_tests=False)
+        assert "use.py" in package
+        assert "fundamentals.xxx.y (" in package
     finally:
         db.close()
 
