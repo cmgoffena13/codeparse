@@ -321,23 +321,32 @@ class PythonParser(ParserBase):
                 and stored_ref["source_symbol_id"] == source_symbol_id
             ):
                 stored_ref["seen"] = True
-                return
-            # NOTE: Stay unseen so this file's delete removes the row and the
-            # insert writes the same id back with the new source_symbol_id.
-            stored_ref["seen"] = False
-            self.symbol_references.append({"id": stored_ref["id"], **row})
-            return
-
-        symbol_reference_id = self.assigner.reserve("symbol_references", 1)[0]
-        self.symbols_references_snapshot[key] = {
-            "id": symbol_reference_id,
-            "source_line": source_line,
-            "source_column": source_column,
-            "source_symbol_id": source_symbol_id,
-            "context": context,
-            "seen": True,
-        }
-        self.symbol_references.append({"id": symbol_reference_id, **row})
+            else:
+                stored_ref["context"] = context
+                stored_ref["source_symbol_id"] = source_symbol_id
+                new_row = {"id": stored_ref["id"], **row}
+                replaced = False
+                for index, existing in enumerate(self.symbol_references):
+                    if existing["id"] == stored_ref["id"]:
+                        self.symbol_references[index] = new_row
+                        replaced = True
+                        break
+                if replaced:
+                    stored_ref["seen"] = True
+                else:
+                    stored_ref["seen"] = False
+                    self.symbol_references.append(new_row)
+        else:
+            symbol_reference_id = self.assigner.reserve("symbol_references", 1)[0]
+            self.symbols_references_snapshot[key] = {
+                "id": symbol_reference_id,
+                "source_line": source_line,
+                "source_column": source_column,
+                "source_symbol_id": source_symbol_id,
+                "context": context,
+                "seen": True,
+            }
+            self.symbol_references.append({"id": symbol_reference_id, **row})
 
     def _register_import_ref_binding(
         self,
@@ -655,13 +664,16 @@ class PythonParser(ParserBase):
             target = node.child_by_field_name("left") or node.child_by_field_name("target")
             if target is not None and target.type == "identifier":
                 decoded = node_text(target)
-                anno = self._annotation_type_name(node.child_by_field_name("type"))
-                if decoded is not None and anno:
-                    self._name_types[decoded] = anno
-                elif decoded is not None:
-                    rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
-                    if rhs_type:
-                        self._name_types[decoded] = rhs_type
+                if decoded is not None:
+                    if decoded in self._var_qns:
+                        del self._var_qns[decoded]
+                    anno = self._annotation_type_name(node.child_by_field_name("type"))
+                    if anno:
+                        self._name_types[decoded] = anno
+                    else:
+                        rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
+                        if rhs_type:
+                            self._name_types[decoded] = rhs_type
             return symbols
 
         # target is usually in field 'left' for assignment/augmented_assignment

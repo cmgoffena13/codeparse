@@ -110,6 +110,30 @@ def test_symbol_references_ids_are_unique_with_repeated_calls(python_parser, fix
     assert {r["source_line"] for r in call_refs} == {6, 7}
 
 
+def test_class_attr_name_shadowed_by_local_keeps_unique_ref_ids(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("class_attr_shadowed_by_local.py")
+    symbols, references = python_parser.parse(186, file_bytes, module_qn="pkg.harness")
+
+    assert_symbols_invariants(symbols)
+    assert_symbol_references_invariants(references)
+    for r in references:
+        assert_reference_shape(r, expected_file_id=186)
+
+    access_qn = "pkg.harness.HarnessResults.results"
+    accesses = [
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_qualified_name"] == access_qn
+    ]
+    assert len(accesses) == 1
+    assert accesses[0]["context"] == "results.results"
+    assert any(
+        r["ref_kind"] == "call"
+        and r["ref_symbol_qualified_name"] == "pkg.harness.HarnessResults.results.append"
+        for r in references
+    )
+
+
 def test_same_line_duplicate_calls_get_distinct_ids(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("same_line_duplicate_refs.py")
     symbols, references = python_parser.parse(55, file_bytes)

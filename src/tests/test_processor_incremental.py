@@ -186,6 +186,31 @@ def test_cross_file_import_call_joins_after_resolve(tmp_path: Path) -> None:
     assert row["qualified_name"] == "lib.target"
 
 
+def test_class_attr_shadowed_by_local_resolves_without_unique_id_clash(tmp_path: Path) -> None:
+    fixture = (
+        Path(__file__).resolve().parent
+        / "files_to_parse"
+        / "python"
+        / "class_attr_shadowed_by_local.py"
+    )
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "harness.py").write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+
+    count = db.connection.execute("SELECT COUNT(*) AS c FROM symbol_references").fetchone()["c"]
+    assert count >= 1
+    access = db.connection.execute(
+        """
+        SELECT COUNT(*) AS c FROM symbol_references
+        WHERE ref_kind = 'access'
+          AND ref_symbol_qualified_name = 'harness.HarnessResults.results'
+        """
+    ).fetchone()["c"]
+    assert access == 1
+
+
 def test_imported_variable_comparison_is_an_access(tmp_path: Path) -> None:
     (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
     (tmp_path / "flags.py").write_text('BACKFILL = "false"\n', encoding="utf-8")
