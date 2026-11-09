@@ -81,33 +81,34 @@ CREATE INDEX IF NOT EXISTS symbol_bases_base_qualified_name_index
 
 CREATE TABLE IF NOT EXISTS symbol_references_staging (
     id                          INTEGER NOT NULL,
-    ref_symbol_name             TEXT NOT NULL,                 
     ref_symbol_qualified_name   TEXT NOT NULL,
-    source_file_id              INTEGER NOT NULL REFERENCES files(id),
     source_symbol_id            INTEGER REFERENCES symbols(id),
+    source_file_id              INTEGER NOT NULL REFERENCES files(id),
+    source_symbol_qualified_name TEXT NULL,
     source_line                 INTEGER NOT NULL,
     source_column               INTEGER NOT NULL,
-    ref_kind                    TEXT NOT NULL,                  
-    context                     TEXT                             
+    ref_kind                    TEXT NOT NULL,
+    context                     TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS symbol_references (
     id                          INTEGER NOT NULL PRIMARY KEY,
-    ref_symbol_id               INTEGER NOT NULL REFERENCES symbols(id), 
+    ref_symbol_id               INTEGER NOT NULL REFERENCES symbols(id),
     ref_symbol_file_id          INTEGER NOT NULL REFERENCES files(id),
-    ref_symbol_name             TEXT NOT NULL,       
     ref_symbol_qualified_name   TEXT NOT NULL,
-    source_file_id              INTEGER NOT NULL REFERENCES files(id),
     source_symbol_id            INTEGER REFERENCES symbols(id),
+    source_file_id              INTEGER NOT NULL REFERENCES files(id),
+    source_symbol_qualified_name TEXT NULL,
     source_line                 INTEGER NOT NULL,
     source_column               INTEGER NOT NULL,
-    ref_kind                    TEXT NOT NULL,                  
-    context                     TEXT NOT NULL                     
+    ref_kind                    TEXT NOT NULL,
+    context                     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS symbol_references_source_file_id_index ON symbol_references (source_file_id);
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_qualified_name_index ON symbol_references (ref_symbol_qualified_name);
 CREATE INDEX IF NOT EXISTS symbol_references_ref_symbol_id_index ON symbol_references (ref_symbol_id);
-CREATE INDEX IF NOT EXISTS symbol_references_ref_source_symbol_id_index ON symbol_references (source_symbol_id);
+CREATE INDEX IF NOT EXISTS symbol_references_source_symbol_qualified_name_index
+    ON symbol_references (source_symbol_qualified_name);
 
 CREATE TABLE IF NOT EXISTS external_symbols (
     file_id          INTEGER NOT NULL REFERENCES files(id),

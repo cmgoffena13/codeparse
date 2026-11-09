@@ -411,11 +411,11 @@ class CodeDB:
             self.connection.executemany(
                 """
                 INSERT INTO symbol_references_staging
-                (id, ref_symbol_name, ref_symbol_qualified_name, source_file_id,
-                 source_symbol_id, source_line, source_column, ref_kind, context)
-                VALUES (:id, :ref_symbol_name, :ref_symbol_qualified_name,
-                        :source_file_id, :source_symbol_id, :source_line,
-                        :source_column, :ref_kind, :context)
+                (id, ref_symbol_qualified_name, source_symbol_id, source_file_id,
+                 source_symbol_qualified_name, source_line, source_column, ref_kind, context)
+                VALUES (:id, :ref_symbol_qualified_name, :source_symbol_id, :source_file_id,
+                        :source_symbol_qualified_name, :source_line, :source_column,
+                        :ref_kind, :context)
                 """,
                 symbol_references,
             )
@@ -561,17 +561,17 @@ class CodeDB:
         with self.connection:
             self.connection.execute("""
             INSERT INTO symbol_references
-            (id, ref_symbol_id, ref_symbol_file_id, ref_symbol_name,
-             ref_symbol_qualified_name, source_file_id, source_symbol_id,
+            (id, ref_symbol_id, ref_symbol_file_id, ref_symbol_qualified_name,
+             source_symbol_id, source_file_id, source_symbol_qualified_name,
              source_line, source_column, ref_kind, context)
             SELECT
             s.id,
             sy.id AS ref_symbol_id,
             sy.file_id AS ref_symbol_file_id,
-            s.ref_symbol_name,
             s.ref_symbol_qualified_name,
-            s.source_file_id,
             s.source_symbol_id,
+            s.source_file_id,
+            s.source_symbol_qualified_name,
             s.source_line,
             s.source_column,
             s.ref_kind,

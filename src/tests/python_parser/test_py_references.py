@@ -18,7 +18,7 @@ def test_import_after_path_use_same_suite_still_filters_path_call(python_parser,
 
 
 def test_stdlib_import_and_literal_calls_filtered_from_references(python_parser, fixture_bytes):
-    """Path(...) and str.join skipped; project name like files kept."""
+    """Path(...), str.join, and annotation-rewrites onto builtins are skipped."""
     file_bytes = fixture_bytes("external_refs_filter.py")
     _, references = python_parser.parse(41, file_bytes)
 
@@ -27,9 +27,24 @@ def test_stdlib_import_and_literal_calls_filtered_from_references(python_parser,
         r["ref_kind"] == "call" and r["ref_symbol_name"].startswith("Path") for r in references
     )
     assert not any(r["ref_kind"] == "call" and "join" in r["ref_symbol_name"] for r in references)
-    assert any(
+    assert not any(
         r["ref_kind"] == "call" and r["ref_symbol_name"] == "files.values" for r in references
     )
+    assert not any(r["ref_symbol_qualified_name"] == "dict.values" for r in references)
+
+
+def test_expression_receiver_method_calls_are_not_recorded(python_parser) -> None:
+    source = b"""
+def run(macros_dir, parts):
+    (macros_dir / "broken_jinja.sql").write_text("x")
+    "__".join(parts).replace("-", "_")
+    (defaults or {}).get("a")
+"""
+    _, references = python_parser.parse(91, source, module_qn="pkg.mod")
+    assert not any("write_text" in r["ref_symbol_qualified_name"] for r in references)
+    assert not any("replace" in r["ref_symbol_qualified_name"] for r in references)
+    assert not any(r["ref_symbol_name"].endswith(".get") for r in references)
+    assert not any("(" in r["ref_symbol_qualified_name"] for r in references)
 
 
 def test_self_attr_call_resolves_via_init_param_annotation(python_parser, fixture_bytes):
@@ -120,6 +135,100 @@ def test_same_module_simple_name_gets_module_prefix(python_parser, fixture_bytes
     assert call["ref_symbol_qualified_name"] == "pkg.mod.helper"
 
 
+def test_same_module_class_member_access_gets_module_prefix(python_parser) -> None:
+    source = b"""
+from enum import Enum
+
+class ChunkType(Enum):
+    JINJA_QUERY = 1
+    SQL = 2
+
+def parse(chunk_type):
+    return chunk_type == ChunkType.JINJA_QUERY
+"""
+    _, references = python_parser.parse(92, source, module_qn="pkg.mod")
+    access = next(
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_name"] == "ChunkType.JINJA_QUERY"
+    )
+    assert access["ref_symbol_qualified_name"] == "pkg.mod.ChunkType.JINJA_QUERY"
+
+
+def test_forward_same_module_class_member_access_gets_module_prefix(python_parser) -> None:
+    source = b"""
+from enum import Enum
+
+class ModelKindMixin:
+    def is_seed(self):
+        return self.model_kind_name == ModelKindName.SEED
+
+class ModelKindName(str, ModelKindMixin, Enum):
+    SEED = "seed"
+"""
+    _, references = python_parser.parse(96, source, module_qn="pkg.mod")
+    access = next(
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_name"] == "ModelKindName.SEED"
+    )
+    assert access["ref_symbol_qualified_name"] == "pkg.mod.ModelKindName.SEED"
+    assert not any(r["ref_symbol_qualified_name"] == "ModelKindName.SEED" for r in references)
+
+
+def test_module_alias_assignment_rewrites_member_access(python_parser) -> None:
+    source = b"""
+from sqlglot import exp
+
+DATA_TYPE = exp.DataType.Type
+
+def run():
+    return DATA_TYPE.BOOLEAN
+"""
+    _, references = python_parser.parse(93, source, module_qn="pkg.mod")
+    access = next(
+        r
+        for r in references
+        if r["ref_kind"] == "access" and r["ref_symbol_name"] == "DATA_TYPE.BOOLEAN"
+    )
+    assert access["ref_symbol_qualified_name"] == "sqlglot.exp.DataType.Type.BOOLEAN"
+
+
+def test_constructor_assignment_skips_builtin_method_keeps_var_access(python_parser) -> None:
+    source = b"""
+from datetime import date
+
+DATA_START_DATE = date(2022, 6, 1)
+DATA_START_DATE_STR = DATA_START_DATE.strftime("%Y-%m-%d")
+"""
+    symbols, references = python_parser.parse(94, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "DATA_START_DATE.strftime" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "date.strftime" for r in references)
+    assert any(s["qualified_name"] == "pkg.mod.DATA_START_DATE" for s in symbols)
+
+
+def test_factory_return_type_rewrites_instance_method_call(python_parser) -> None:
+    source = b"""
+from jinja2 import Environment
+
+def environment() -> Environment:
+    return Environment()
+
+ENVIRONMENT = environment()
+
+def run(jinja_str):
+    return ENVIRONMENT.parse(jinja_str)
+"""
+    _, references = python_parser.parse(95, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "ENVIRONMENT.parse" for r in references)
+    call = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call" and r["ref_symbol_name"] == "ENVIRONMENT.parse"
+    )
+    assert call["ref_symbol_qualified_name"] == "jinja2.Environment.parse"
+
+
 def test_absolute_from_import_rewrites_ref_qn(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("ref_qn_absolute_import.py")
     _, references = python_parser.parse(51, file_bytes, module_qn="app.main")
@@ -187,18 +296,16 @@ def test_param_receiver_call_resolves_via_annotation(python_parser, fixture_byte
     )
 
 
-def test_builtin_method_call_also_references_the_variable(python_parser, fixture_bytes):
+def test_builtin_method_call_skips_builtin_qn_keeps_variable_access(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("builtin_method_variable.py")
     symbols, references = python_parser.parse(70, file_bytes, module_qn="pkg.mod")
     assert_symbol_references_invariants(references)
     by_qn = index_symbols(symbols)
 
-    calls = [
-        r for r in references if r["ref_kind"] == "call" and r["ref_symbol_name"] == "ITEMS.get"
-    ]
-    assert len(calls) == 1
-    assert calls[0]["ref_symbol_qualified_name"] == "dict.get"
-    assert calls[0]["source_symbol_id"] == by_qn["pkg.mod.Box.run"]["id"]
+    assert not any(r["ref_symbol_qualified_name"] == "dict.get" for r in references)
+    assert not any(
+        r["ref_kind"] == "call" and r["ref_symbol_name"] == "ITEMS.get" for r in references
+    )
 
     accesses = [
         r
@@ -207,8 +314,13 @@ def test_builtin_method_call_also_references_the_variable(python_parser, fixture
     ]
     assert len(accesses) == 1
     assert accesses[0]["ref_symbol_name"] == "ITEMS"
-    assert accesses[0]["source_line"] == calls[0]["source_line"]
-    assert accesses[0]["source_symbol_id"] == calls[0]["source_symbol_id"]
+    assert accesses[0]["source_symbol_id"] == by_qn["pkg.mod.Box.run"]["id"]
+
+
+def test_annotated_str_method_call_does_not_record_str_lower(python_parser) -> None:
+    source = b"def run(value: str) -> str:\n    return value.lower()\n"
+    _, references = python_parser.parse(90, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "str.lower" for r in references)
 
 
 def test_annotated_local_method_call_resolves_to_type(python_parser, fixture_bytes):
@@ -222,13 +334,11 @@ def test_annotated_local_method_call_resolves_to_type(python_parser, fixture_byt
     assert call["ref_symbol_qualified_name"] == "pkg.mod.Worker.process"
 
 
-def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
+def test_dict_literal_assignment_skips_builtin_method_keeps_var_access(python_parser):
     source = b"ITEMS = {}\n\ndef run():\n    return ITEMS.get('a')\n"
     _, references = python_parser.parse(71, source, module_qn="pkg.mod")
-    calls = [r for r in references if r["ref_kind"] == "call"]
-    assert len(calls) == 1
-    assert calls[0]["ref_symbol_name"] == "ITEMS.get"
-    assert calls[0]["ref_symbol_qualified_name"] == "ITEMS.get"
+    assert not any(r["ref_symbol_qualified_name"] == "ITEMS.get" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "dict.get" for r in references)
     accesses = [
         r
         for r in references
@@ -236,6 +346,121 @@ def test_unannotated_variable_method_stays_on_the_receiver(python_parser):
     ]
     assert len(accesses) == 1
     assert accesses[0]["ref_symbol_name"] == "ITEMS"
+
+
+def test_or_empty_dict_assignment_skips_dict_pop(python_parser) -> None:
+    source = b"""
+def load(project_yaml, package_name):
+    all_variables = project_yaml.get("vars") or {}
+    all_variables.update(all_variables.pop(package_name, None) or {})
+"""
+    _, references = python_parser.parse(100, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "all_variables.pop" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "dict.pop" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "all_variables.update" for r in references)
+
+
+def test_parse_argstring_assign_does_not_record_args_attrs(python_parser) -> None:
+    source = b"""
+from IPython.core.magic_arguments import parse_argstring
+
+def init(line):
+    args = parse_argstring(init, line)
+    return args.engine
+"""
+    _, references = python_parser.parse(101, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "args.engine" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "parse_argstring.engine" for r in references)
+
+
+def test_method_factory_assign_does_not_type_as_callee_path(python_parser) -> None:
+    source = b"""
+def test_pool(config):
+    adapter = config.create_engine_adapter()
+    return adapter._connection_pool
+"""
+    _, references = python_parser.parse(102, source, module_qn="pkg.mod")
+    assert not any(
+        r["ref_symbol_qualified_name"] == "config.create_engine_adapter._connection_pool"
+        for r in references
+    )
+    assert not any(r["ref_symbol_qualified_name"] == "adapter._connection_pool" for r in references)
+
+
+def test_re_compile_assignment_skips_pattern_search(python_parser) -> None:
+    source = b"""
+import re
+
+GATEWAY_PATTERN = re.compile(r"gateway:\\s*([^\\s]+)")
+
+def load(source):
+    return GATEWAY_PATTERN.search(source)
+"""
+    _, references = python_parser.parse(104, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "GATEWAY_PATTERN.search" for r in references)
+    assert not any("GATEWAY_PATTERN." in r["ref_symbol_qualified_name"] for r in references)
+
+
+def test_union_type_annotation_splits_members(python_parser) -> None:
+    source = b"""
+import typing as t
+from pkg.adapters import EngineAdapter
+
+class SnapshotEvaluator:
+    def __init__(self, adapters: EngineAdapter | t.Dict[str, EngineAdapter]) -> None:
+        self.adapters = adapters
+"""
+    _, references = python_parser.parse(103, source, module_qn="pkg.mod")
+    assert not any("|" in r["ref_symbol_qualified_name"] for r in references)
+    assert any(
+        r["ref_kind"] == "type_annotation"
+        and r["ref_symbol_qualified_name"] == "pkg.adapters.EngineAdapter"
+        for r in references
+    )
+
+
+def test_untyped_loop_var_method_call_is_not_recorded(python_parser) -> None:
+    source = b"""
+def run(pairs):
+    return {(a.sql(), b.sql()) for (a, b), _ in pairs}
+"""
+    _, references = python_parser.parse(97, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "a.sql" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "b.sql" for r in references)
+
+
+def test_underscore_local_attr_access_is_not_recorded(python_parser) -> None:
+    source = b"""
+def run(diff):
+    _row_diff = diff.row_diff()
+    return _row_diff.joined_sample
+"""
+    _, references = python_parser.parse(98, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "_row_diff.joined_sample" for r in references)
+
+
+def test_factory_class_arg_rewrites_instance_method_call(python_parser) -> None:
+    source = b"""
+from pkg.adapters import NonTransactionalTruncateMixin
+
+def make_mocked_engine_adapter(cls, name):
+    return cls()
+
+def test_truncate():
+    adapter = make_mocked_engine_adapter(NonTransactionalTruncateMixin, "redshift")
+    adapter._truncate_table(table_name="test_table")
+"""
+    _, references = python_parser.parse(99, source, module_qn="pkg.tests")
+    assert not any(r["ref_symbol_qualified_name"] == "adapter._truncate_table" for r in references)
+    call = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call" and r["ref_symbol_name"] == "adapter._truncate_table"
+    )
+    assert (
+        call["ref_symbol_qualified_name"]
+        == "pkg.adapters.NonTransactionalTruncateMixin._truncate_table"
+    )
 
 
 def test_variable_comparison_is_access(python_parser, fixture_bytes):

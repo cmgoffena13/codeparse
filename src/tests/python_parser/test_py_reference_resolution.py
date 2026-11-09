@@ -19,9 +19,9 @@ def test_resolve_symbol_references_drops_unresolvable_type_annotations(tmp_db: C
         tmp_db.connection.execute(
             """
             INSERT INTO symbol_references_staging
-            (id, ref_symbol_name, ref_symbol_qualified_name, source_file_id,
-             source_line, source_column, ref_kind, context)
-            VALUES (1, 'int', 'int', 1, 1, 0, 'type_annotation', 'int')
+            (id, ref_symbol_qualified_name, source_symbol_id, source_file_id,
+             source_symbol_qualified_name, source_line, source_column, ref_kind, context)
+            VALUES (1, 'int', NULL, 1, 'file.run', 1, 0, 'type_annotation', 'int')
             """
         )
 

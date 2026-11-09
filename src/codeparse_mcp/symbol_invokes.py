@@ -14,11 +14,9 @@ SELECT
     sr.source_line,
     sr.ref_symbol_qualified_name AS target_qualified_name
 FROM symbol_references AS sr
-INNER JOIN symbols AS src
-    ON src.id = sr.source_symbol_id
 INNER JOIN files AS f
     ON f.id = sr.ref_symbol_file_id
-WHERE src.qualified_name = ?
+WHERE sr.source_symbol_qualified_name = ?
   AND sr.ref_kind != 'type_annotation'
 ORDER BY f.path, sr.source_line, sr.ref_symbol_qualified_name
 """

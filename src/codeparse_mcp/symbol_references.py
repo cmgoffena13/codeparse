@@ -12,12 +12,10 @@ SELECT
     f.path AS source_path,
     sr.source_line,
     sr.ref_kind,
-    src.qualified_name AS source_qualified_name
+    sr.source_symbol_qualified_name AS source_qualified_name
 FROM symbol_references AS sr
 INNER JOIN files AS f
     ON f.id = sr.source_file_id
-LEFT JOIN symbols AS src
-    ON src.id = sr.source_symbol_id
 WHERE sr.ref_symbol_qualified_name = ?
   AND sr.ref_kind != 'type_annotation'
 {test_filter}

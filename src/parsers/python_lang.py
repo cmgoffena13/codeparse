@@ -80,6 +80,8 @@ class PythonParser(ParserBase):
         self._func_param_annos: dict[str, dict[str, str]] = {}
         self._ref_root_module: dict[str, str] = {}
         self._import_qn: dict[str, str] = {}
+        self._local_defs: dict[str, str] = {}
+        self._return_types: dict[str, str] = {}
         self._name_types: dict[str, str] = {}
         self._var_qns: dict[str, str] = {}
         self._module_qn: str = ""
@@ -104,6 +106,8 @@ class PythonParser(ParserBase):
         self._func_param_annos = {}
         self._ref_root_module = {}
         self._import_qn = {}
+        self._local_defs = {}
+        self._return_types = {}
         self._name_types = {}
         self._var_qns = {}
         self.symbols = []
@@ -115,6 +119,7 @@ class PythonParser(ParserBase):
         self.symbols_references_snapshot = self.db.get_symbol_references_snapshot(file_id)
         self.external_symbols_snapshot = self.db.get_external_symbols_snapshot(file_id)
         self._walk(root_node, file_id, file_bytes)
+        self._rewrite_forward_local_refs()
         self.class_catalog.link(self.symbols, self.symbols_snapshot, file_id, self.assigner)
         self._sync_external_symbols_ledger(file_id)
 
@@ -168,12 +173,32 @@ class PythonParser(ParserBase):
 
     def _resolve_ref_qn(self, target_name: str) -> str:
         root, sep, rest = target_name.partition(".")
-        if root in self._import_qn:
-            bound = self._import_qn[root]
-            return f"{bound}.{rest}" if rest else bound
-        if not sep and target_name and self._module_qn:
-            return f"{self._module_qn}.{target_name}"
-        return target_name
+        bound = self._import_qn.get(root) or self._local_defs.get(root)
+        if bound is not None:
+            resolved = f"{bound}.{rest}" if rest else bound
+        elif not sep and target_name and self._module_qn:
+            resolved = f"{self._module_qn}.{target_name}"
+        else:
+            resolved = target_name
+        return resolved
+
+    def _rewrite_forward_local_refs(self) -> None:
+        for ref in self.symbol_references:
+            qn = ref["ref_symbol_qualified_name"]
+            root, sep, rest = qn.partition(".")
+            bound = self._local_defs.get(root)
+            if not sep or bound is None or qn.startswith(f"{bound}."):
+                continue
+            ref["ref_symbol_qualified_name"] = f"{bound}.{rest}"
+
+    def _is_unresolved_attribute_ref(self, target_name: str, qualified: str) -> bool:
+        surface_root, sep, _ = target_name.partition(".")
+        unresolved = bool(sep) and qualified.partition(".")[0] == surface_root
+        if unresolved:
+            known = surface_root in self._import_qn or surface_root in self._local_defs
+            class_like = surface_root[:1].isupper() and any(c.islower() for c in surface_root)
+            unresolved = not known and not class_like
+        return unresolved
 
     def _resolve_annotation_qn(self, type_name: str) -> str:
         root = type_name.split(".", 1)[0]
@@ -281,11 +306,13 @@ class PythonParser(ParserBase):
         key: tuple[str, str, int, int],
     ) -> None:
         source_symbol_id = self.stack[-1].symbol_id if self.stack else None
+        source_symbol_qualified_name = self.stack[-1].qualified_name if self.stack else None
         row = {
             "ref_symbol_name": target_name,
             "ref_symbol_qualified_name": ref_symbol_qualified_name,
             "source_file_id": file_id,
             "source_symbol_id": source_symbol_id,
+            "source_symbol_qualified_name": source_symbol_qualified_name,
             "source_line": source_line,
             "source_column": source_column,
             "ref_kind": ref_kind,
@@ -366,21 +393,67 @@ class PythonParser(ParserBase):
         return first + rest
 
     @staticmethod
-    def _call_is_literal_receiver_method(func_node: Node) -> bool:
-        obj = func_node.child_by_field_name("object")
-        return (
-            func_node.type == "attribute"
-            and obj is not None
-            and obj.type
-            in {
-                "string",
-                "integer",
-                "float",
-                "true",
-                "false",
-                "none",
-            }
-        )
+    def _is_simple_ref_path(node: Node) -> bool:
+        current = node
+        simple = True
+        while current.type == "attribute":
+            attribute = current.child_by_field_name("attribute")
+            obj = current.child_by_field_name("object")
+            if attribute is None or attribute.type != "identifier" or obj is None:
+                simple = False
+                break
+            current = obj
+        return simple and current.type in {"identifier", "dotted_name"}
+
+    def _call_type_hint_from_args(self, call_node: Node) -> str | None:
+        args = call_node.child_by_field_name("arguments")
+        hint = None
+        if args is not None:
+            for child in args.named_children:
+                if child.type == "keyword_argument":
+                    continue
+                if self._is_simple_ref_path(child):
+                    text = node_text(child)
+                    if text and text[:1].isupper():
+                        hint = text
+                        break
+        return hint
+
+    def _assignment_rhs_type_name(self, right: Node | None) -> str | None:
+        type_name = None
+        if right is not None:
+            if right.type == "parenthesized_expression" and right.named_child_count == 1:
+                type_name = self._assignment_rhs_type_name(right.named_children[0])
+            elif right.type == "dictionary":
+                type_name = "dict"
+            elif right.type == "list":
+                type_name = "list"
+            elif right.type == "set":
+                type_name = "set"
+            elif right.type == "tuple":
+                type_name = "tuple"
+            elif right.type == "boolean_operator":
+                literal_type = None
+                other_type = None
+                for child in right.named_children:
+                    if child.type in {"dictionary", "list", "set", "tuple"}:
+                        literal_type = self._assignment_rhs_type_name(child)
+                    elif other_type is None:
+                        other_type = self._assignment_rhs_type_name(child)
+                type_name = literal_type or other_type
+            elif self._is_simple_ref_path(right):
+                type_name = node_text(right)
+            elif right.type == "call":
+                func = right.child_by_field_name("function")
+                if func is not None and self._is_simple_ref_path(func):
+                    ctor = node_text(func)
+                    if ctor is not None:
+                        type_name = self._return_types.get(ctor)
+                        if type_name is None:
+                            type_name = self._call_type_hint_from_args(right)
+                        if type_name is None and "." not in ctor and ctor[:1].isupper():
+                            type_name = ctor
+        return type_name
 
     def _should_skip_import_mapped_stdlib(self, root_id: str) -> bool:
         mod = self._ref_root_module.get(root_id)
@@ -457,6 +530,8 @@ class PythonParser(ParserBase):
                         and annos
                     ):
                         self._class_param_annos[self.stack[-1].qualified_name] = annos
+                if kind == "class" and name:
+                    self._local_defs[name] = scope_path
                 self.stack.append(StackFrame(symbol_id, scope_path, kind, is_test, name or ""))
                 pushed_stack = True
             # Return annotations sit on the header. Record them after the push so
@@ -465,6 +540,10 @@ class PythonParser(ParserBase):
                 return_type = node.child_by_field_name("return_type")
                 if return_type is not None:
                     self._extract_reference(return_type, "type_annotation", file_id)
+                    if name:
+                        anno = self._annotation_type_name(return_type)
+                        if anno:
+                            self._return_types[name] = anno
         elif node.type in (
             "assignment",
             "annotated_assignment",
@@ -521,6 +600,14 @@ class PythonParser(ParserBase):
             node = node.named_children[0]
         if node.type in ("identifier", "attribute", "dotted_name"):
             return node_text(node)
+        if node.type == "binary_operator":
+            chosen = None
+            for child in node.named_children:
+                name = self._annotation_type_name(child)
+                if name and name != "None":
+                    chosen = name
+                    break
+            return chosen
         if node.type == "subscript":
             value = node.child_by_field_name("value")
             if value is None:
@@ -591,6 +678,10 @@ class PythonParser(ParserBase):
                 anno = self._annotation_type_name(node.child_by_field_name("type"))
                 if decoded is not None and anno:
                     self._name_types[decoded] = anno
+                elif decoded is not None:
+                    rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
+                    if rhs_type:
+                        self._name_types[decoded] = rhs_type
             return symbols
 
         # target is usually in field 'left' for assignment/augmented_assignment
@@ -631,6 +722,10 @@ class PythonParser(ParserBase):
             anno = self._annotation_type_name(node.child_by_field_name("type"))
             if anno:
                 self._name_types[name] = anno
+            else:
+                rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
+                if rhs_type:
+                    self._name_types[name] = rhs_type
 
         signature = self._normalize_signature_bytes(
             file_bytes, node.start_byte, node.end_byte, tail_rstrip=False
@@ -955,35 +1050,41 @@ class PythonParser(ParserBase):
         if ref_kind == "call":
             func_node = node.child_by_field_name("function")
             target_name = node_text(func_node)
-            if (
-                func_node is None
-                or target_name is None
-                or self._call_is_literal_receiver_method(func_node)
-            ):
+            if func_node is None or target_name is None or not self._is_simple_ref_path(func_node):
                 return
-            # "func()" -> target_name = "func"
 
         elif ref_kind == "access":
+            if not self._is_simple_ref_path(node):
+                return
             attribute_node = node.child_by_field_name("attribute")
             object_node = node.child_by_field_name("object")
             leaf_name = node_text(attribute_node)
             if leaf_name is None:
                 return
             object_text = node_text(object_node) or ""
-            # "obj.attr" -> target_name = "obj.attr"
             target_name = f"{object_text}.{leaf_name}" if object_text else leaf_name
 
         elif ref_kind == "type_annotation":
-            target_name = node_text(node)
-            if target_name is None:
+            current = node
+            if current.type == "type" and current.named_child_count == 1:
+                current = current.named_children[0]
+            if current.type == "binary_operator" and any(c.type == "|" for c in current.children):
+                for child in current.named_children:
+                    self._extract_reference(child, "type_annotation", file_id)
                 return
-            # "x: Optional[Foo]" -> target_name = "Foo"
-            target_name = target_name.strip()
-            for prefix in ("typing.Optional[", "Optional["):
-                if target_name.startswith(prefix) and target_name.endswith("]"):
-                    target_name = target_name[len(prefix) : -1].strip()
-                    break
-            target_name = target_name.split("[", 1)[0].strip()
+            target_name = self._annotation_type_name(node)
+            if target_name is None:
+                raw = node_text(node)
+                if raw is None:
+                    return
+                target_name = raw.strip()
+                for prefix in ("typing.Optional[", "Optional["):
+                    if target_name.startswith(prefix) and target_name.endswith("]"):
+                        target_name = target_name[len(prefix) : -1].strip()
+                        break
+                target_name = target_name.split("[", 1)[0].strip()
+                if "|" in target_name:
+                    return
         if not target_name:
             return
 
@@ -1045,6 +1146,10 @@ class PythonParser(ParserBase):
             if resolved_qualified is not None
             else self._resolve_ref_qn(target_name)
         )
+        if ref_kind != "type_annotation" and self._is_unresolved_attribute_ref(
+            target_name, ref_symbol_qualified_name
+        ):
+            return
 
         source_line = node.start_point.row + 1
         source_column = node.start_point.column
@@ -1054,6 +1159,12 @@ class PythonParser(ParserBase):
             rows.append((receiver_root, self._var_qns[receiver_root], "access", receiver_root))
 
         for name, qualified, kind, row_context in rows:
+            qn_root = qualified.split(".", 1)[0] if qualified else ""
+            skip_resolved = qn_root in self.builtin_names or (
+                kind != "type_annotation" and qn_root in self.std_module_names
+            )
+            if skip_resolved or self._should_skip_import_mapped_stdlib(qn_root):
+                continue
             self._record_symbol_reference(
                 file_id,
                 name,

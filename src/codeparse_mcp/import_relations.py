@@ -25,14 +25,12 @@ SELECT id FROM files WHERE normalized_path = ?
 _ROWS_SQL = """
 SELECT
     f.path AS source_path,
-    src.qualified_name AS source_qualified_name,
+    sr.source_symbol_qualified_name AS source_qualified_name,
     sr.ref_symbol_qualified_name AS target_qualified_name,
     sr.ref_kind AS ref_kind
 FROM symbol_references AS sr
 INNER JOIN files AS f
     ON f.id = sr.source_file_id
-LEFT JOIN symbols AS src
-    ON src.id = sr.source_symbol_id
 WHERE sr.ref_kind != 'type_annotation'
 {scope_filter}
 {test_filter}

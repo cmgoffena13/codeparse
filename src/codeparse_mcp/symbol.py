@@ -30,9 +30,7 @@ GROUP BY f.is_test, sr.ref_kind
 _INVOKE_KIND_COUNTS_SQL = """
 SELECT sr.ref_kind, COUNT(*) AS n
 FROM symbol_references AS sr
-INNER JOIN symbols AS src
-    ON src.id = sr.source_symbol_id
-WHERE src.qualified_name = ?
+WHERE sr.source_symbol_qualified_name = ?
   AND sr.ref_kind != 'type_annotation'
 GROUP BY sr.ref_kind
 """
