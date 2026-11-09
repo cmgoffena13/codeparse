@@ -158,7 +158,7 @@ def _format_relation_rows(rows: list, *, show_file_paths: bool, flat: bool) -> s
         if show_file_paths:
             if file_index > 0:
                 lines.append("")
-            lines.append(f"• {path}")
+            lines.append(path)
         elif file_index > 0:
             lines.append("")
         if flat:
