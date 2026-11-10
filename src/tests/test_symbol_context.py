@@ -77,7 +77,11 @@ def test_symbol_context_definition_only(tmp_path: Path) -> None:
         assert method.index("File:") < method.index("def run(")
         assert "## Dependencies (1)" in method
         assert "Calls: 1" in method
-        assert method.index("## Dependents") < method.index("## Dependencies")
+        assert "## Dependents" not in method
+
+        leaf = get_symbol(db, "pkg.target.Worker", include_tests=False)
+        assert "## Dependents" not in leaf
+        assert "## Dependencies" not in leaf
     finally:
         db.close()
 
@@ -160,7 +164,7 @@ def test_symbol_context_lists_inherited_members_before_references(tmp_path: Path
         assert "  • child.Context.plan" not in out
         assert "Methods (0)" not in out
         assert out.index("## Inherits (3)") < out.index("Methods (1)")
-        assert out.index("## Inherits (3)") < out.index("## Dependents")
+        assert "## Dependents" not in out
         assert "## Inherits" not in get_symbol(db, "base.GenericContext", include_tests=False)
         assert "## Inherits" not in get_symbol(db, "child.Context.plan", include_tests=False)
     finally:

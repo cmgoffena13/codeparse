@@ -107,8 +107,9 @@ def _reference_sections(db: CodeDB, qualified_name: str, *, include_tests: bool)
     lines: list[str] = []
     for title, counts in sections:
         total = sum(counts.get(kind, 0) for kind, _ in _REF_KIND_LABELS)
-        lines.extend(["", f"## {title} ({total})", ""])
-        lines.extend(_kind_count_lines(counts))
+        if total:
+            lines.extend(["", f"## {title} ({total})", ""])
+            lines.extend(_kind_count_lines(counts))
     return lines
 
 

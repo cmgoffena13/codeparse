@@ -44,7 +44,10 @@ def test_symbol_at_lines_picks_the_tightest_span(tmp_path: Path) -> None:
             get_symbol(db, "pkg.target.helper", include_tests=False), "pkg.target.helper"
         )
         shown = get_symbol_at_lines(db, "pkg/target.py", 1, None, include_tests=True)
-        assert "Test Dependents" in shown
+        assert shown == _with_symbol_header(
+            get_symbol(db, "pkg.target.helper", include_tests=True), "pkg.target.helper"
+        )
+        assert "Test Dependents" not in shown
         assert get_symbol_at_lines(
             db, "pkg/target.py", 7, None, include_tests=False
         ) == _with_symbol_header(
