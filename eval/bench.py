@@ -747,7 +747,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default=None,
-        help=("Model id (default: grok-4.7 for cursor, claude-opus-5-5-medium for claude)"),
+        help=(
+            "Model id (default: "
+            f"{DEFAULT_MODELS['cursor']} for cursor, "
+            f"{DEFAULT_MODELS['claude']} for claude)"
+        ),
     )
     return parser.parse_args(argv)
 
