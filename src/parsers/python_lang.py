@@ -80,6 +80,8 @@ class PythonParser(ParserBase):
         self._local_defs: dict[str, str] = {}
         self._return_types: dict[str, str] = {}
         self._name_types: dict[str, str] = {}
+        self._field_types: dict[str, str] = {}
+        self._method_returns: dict[str, str] = {}
         self._var_qns: dict[str, str] = {}
         self._module_qn: str = ""
         self._is_package: bool = False
@@ -105,6 +107,8 @@ class PythonParser(ParserBase):
         self._local_defs = {}
         self._return_types = {}
         self._name_types = {}
+        self._field_types = {}
+        self._method_returns = {}
         self._var_qns = {}
         self.symbols = []
         self.symbol_references = []
@@ -117,6 +121,7 @@ class PythonParser(ParserBase):
         self._walk(root_node, file_id, file_bytes)
         self._rewrite_forward_local_refs()
         self.class_catalog.link(self.symbols, self.symbols_snapshot, file_id, self.assigner)
+        self.class_catalog.absorb_member_types(self._field_types, self._method_returns)
         self._sync_external_symbols_ledger(file_id)
 
         self.db.delete_symbol_references(self.symbols_references_snapshot)
@@ -202,6 +207,105 @@ class PythonParser(ParserBase):
         if root not in self.builtin_names:
             resolved = self._resolve_ref_qn(type_name)
         return resolved
+
+    def _lookup_field_type(self, owner_qn: str, member: str) -> str | None:
+        key = f"{owner_qn}.{member}"
+        found = self._field_types.get(key)
+        if found is None:
+            found = self.class_catalog.field_type(owner_qn, member)
+        if found is not None:
+            root = found.split(".", 1)[0]
+            if root in self.builtin_names or found in self.builtin_names:
+                found = None
+        return found
+
+    def _lookup_method_return(self, method_qn: str) -> str | None:
+        found = self._method_returns.get(method_qn)
+        if found is None:
+            found = self.class_catalog.method_return(method_qn)
+        if found is None:
+            leaf = method_qn.rsplit(".", 1)[-1]
+            bare = self._return_types.get(leaf)
+            if bare is not None:
+                found = self._resolve_annotation_qn(bare)
+        return found
+
+    def _walk_field_chain(self, type_qn: str, segments: list[str]) -> tuple[str, list[str]]:
+        current = type_qn
+        remaining = segments
+        for index, seg in enumerate(segments):
+            next_type = self._lookup_field_type(current, seg)
+            if next_type is None:
+                remaining = segments[index:]
+                break
+            current = next_type
+            remaining = segments[index + 1 :]
+        return current, remaining
+
+    def _receiver_type_for_self_attr(self, class_qn: str, first_seg: str) -> str | None:
+        type_qn = None
+        constructor_map = self._class_param_annos.get(class_qn)
+        if constructor_map and first_seg in constructor_map:
+            type_qn = self._resolve_annotation_qn(constructor_map[first_seg])
+        if type_qn is None:
+            type_qn = self._lookup_field_type(class_qn, first_seg)
+        return type_qn
+
+    def _chain_from_type(self, type_qn: str, rest: str, *, as_call: bool) -> str:
+        result = type_qn
+        if rest:
+            segments = rest.split(".")
+            if as_call:
+                current, remaining = self._walk_field_chain(type_qn, segments[:-1])
+                leaf = segments[-1]
+                if remaining:
+                    result = f"{current}.{'.'.join([*remaining, leaf])}"
+                else:
+                    result = f"{current}.{leaf}"
+            else:
+                current, remaining = self._walk_field_chain(type_qn, segments)
+                result = f"{current}.{'.'.join(remaining)}" if remaining else current
+        return result
+
+    def _resolve_chain(self, target_name: str, *, as_call: bool) -> str | None:
+        resolved = None
+        if target_name.startswith(("self.", "cls.")):
+            suffix = target_name.split(".", 1)[1]
+            first_seg, _, rest_after_first = suffix.partition(".")
+            class_entry = next(
+                (entry for entry in reversed(self.stack) if entry.kind == "class"), None
+            )
+            if class_entry is not None:
+                type_qn = self._receiver_type_for_self_attr(class_entry.qualified_name, first_seg)
+                if type_qn is not None:
+                    resolved = self._chain_from_type(type_qn, rest_after_first, as_call=as_call)
+        else:
+            root, sep, rest = target_name.partition(".")
+            type_name = None
+            func_entry = next(
+                (entry for entry in reversed(self.stack) if entry.kind in ("function", "method")),
+                None,
+            )
+            if func_entry is not None:
+                param_map = self._func_param_annos.get(func_entry.qualified_name)
+                if param_map and root in param_map:
+                    type_name = param_map[root]
+            if type_name is None:
+                type_name = self._name_types.get(root)
+            if type_name is not None:
+                type_qn = self._resolve_annotation_qn(type_name)
+                resolved = self._chain_from_type(type_qn, rest, as_call=as_call) if sep else type_qn
+        return resolved
+
+    def _call_return_type_of(self, func_text: str) -> str | None:
+        return_type = self._return_types.get(func_text)
+        if return_type is not None:
+            return_type = self._resolve_annotation_qn(return_type)
+        else:
+            callee = self._resolve_chain(func_text, as_call=True)
+            if callee is not None:
+                return_type = self._lookup_method_return(callee)
+        return return_type
 
     def _base_source_name(self, node: Node) -> str | None:
         """Leftmost name of a base, peeling ``Generic[T]`` down to ``Generic``."""
@@ -435,13 +539,17 @@ class PythonParser(ParserBase):
                         other_type = self._assignment_rhs_type_name(child)
                 type_name = literal_type or other_type
             elif self._is_simple_ref_path(right):
-                type_name = node_text(right)
+                text = node_text(right)
+                if text is not None:
+                    type_name = self._resolve_chain(text, as_call=False)
+                    if type_name is None:
+                        type_name = text
             elif right.type == "call":
                 func = right.child_by_field_name("function")
                 if func is not None and self._is_simple_ref_path(func):
                     ctor = node_text(func)
                     if ctor is not None:
-                        type_name = self._return_types.get(ctor)
+                        type_name = self._call_return_type_of(ctor)
                         if type_name is None:
                             type_name = self._call_type_hint_from_args(right)
                         if type_name is None and "." not in ctor and ctor[:1].isupper():
@@ -533,6 +641,8 @@ class PythonParser(ParserBase):
                         anno = self._annotation_type_name(return_type)
                         if anno:
                             self._return_types[name] = anno
+                            if scope_path is not None:
+                                self._method_returns[scope_path] = self._resolve_annotation_qn(anno)
         elif node.type in (
             "assignment",
             "annotated_assignment",
@@ -669,11 +779,17 @@ class PythonParser(ParserBase):
                         del self._var_qns[decoded]
                     anno = self._annotation_type_name(node.child_by_field_name("type"))
                     if anno:
-                        self._name_types[decoded] = anno
+                        self._name_types[decoded] = self._resolve_annotation_qn(anno)
                     else:
                         rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
                         if rhs_type:
-                            self._name_types[decoded] = rhs_type
+                            self._name_types[decoded] = (
+                                rhs_type
+                                if "." in rhs_type or rhs_type in self.builtin_names
+                                else self._resolve_annotation_qn(rhs_type)
+                            )
+                        else:
+                            self._name_types.pop(decoded, None)
             return symbols
 
         # target is usually in field 'left' for assignment/augmented_assignment
@@ -713,11 +829,43 @@ class PythonParser(ParserBase):
             self._var_qns[name] = scope_path
             anno = self._annotation_type_name(node.child_by_field_name("type"))
             if anno:
-                self._name_types[name] = anno
+                resolved_anno = self._resolve_annotation_qn(anno)
+                self._name_types[name] = resolved_anno
+                if self.stack and self.stack[-1].kind == "class":
+                    self._field_types[scope_path] = resolved_anno
             else:
                 rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
                 if rhs_type:
-                    self._name_types[name] = rhs_type
+                    resolved_rhs = (
+                        rhs_type
+                        if "." in rhs_type or rhs_type in self.builtin_names
+                        else self._resolve_annotation_qn(rhs_type)
+                    )
+                    self._name_types[name] = resolved_rhs
+                    if self.stack and self.stack[-1].kind == "class":
+                        self._field_types[scope_path] = resolved_rhs
+                else:
+                    self._name_types.pop(name, None)
+
+        if (
+            target.type == "attribute"
+            and symbol_leaf
+            and self.stack
+            and self.stack[-1].qualified_name.endswith(".__init__")
+        ):
+            class_qn = self.stack[-1].qualified_name.rsplit(".", 1)[0]
+            field_qn = f"{class_qn}.{symbol_leaf}"
+            field_type = self._receiver_type_for_self_attr(class_qn, symbol_leaf)
+            if field_type is None:
+                rhs_type = self._assignment_rhs_type_name(node.child_by_field_name("right"))
+                if rhs_type is not None:
+                    field_type = (
+                        rhs_type
+                        if "." in rhs_type or rhs_type in self.builtin_names
+                        else self._resolve_annotation_qn(rhs_type)
+                    )
+            if field_type is not None:
+                self._field_types[field_qn] = field_type
 
         signature = self._normalize_signature_bytes(
             file_bytes, node.start_byte, node.end_byte, tail_rstrip=False
@@ -1084,50 +1232,49 @@ class PythonParser(ParserBase):
         if root_id in self.builtin_names:
             return
 
-        resolved_qualified = None
         receiver_root = ""
         linked_variable = False
-        if target_name.startswith(("self.", "cls.")):
+        as_call = ref_kind == "call"
+        resolved_qualified = self._resolve_chain(target_name, as_call=as_call)
+        if resolved_qualified is None and target_name.startswith(("self.", "cls.")):
             suffix = target_name.split(".", 1)[1]
-            first_seg, _, rest_after_first = suffix.partition(".")
             class_entry = next(
                 (entry for entry in reversed(self.stack) if entry.kind == "class"), None
             )
             if class_entry is not None:
-                class_qn = class_entry.qualified_name
-                constructor_map = self._class_param_annos.get(class_qn)
-                if constructor_map and first_seg in constructor_map:
-                    type_qn = self._resolve_annotation_qn(constructor_map[first_seg])
-                    resolved_qualified = (
-                        f"{type_qn}.{rest_after_first}" if rest_after_first else type_qn
-                    )
-                else:
-                    resolved_qualified = f"{class_qn}.{suffix}"
+                resolved_qualified = f"{class_entry.qualified_name}.{suffix}"
             elif self.stack:
                 resolved_qualified = f"{self.stack[-1].qualified_name}.{suffix}"
-        else:
-            root, sep, rest = target_name.partition(".")
+        elif resolved_qualified is None:
+            root, sep, _rest = target_name.partition(".")
             receiver_root = root
             if sep:
-                type_name = None
-                func_entry = next(
-                    (
-                        entry
-                        for entry in reversed(self.stack)
-                        if entry.kind in ("function", "method")
-                    ),
-                    None,
-                )
-                if func_entry is not None:
-                    param_map = self._func_param_annos.get(func_entry.qualified_name)
-                    if param_map and root in param_map:
-                        type_name = param_map[root]
+                type_name = self._name_types.get(root)
+                linked_variable = type_name is not None and root in self._var_qns
                 if type_name is None:
-                    type_name = self._name_types.get(root)
-                    linked_variable = type_name is not None and root in self._var_qns
-                if type_name:
-                    type_qn = self._resolve_annotation_qn(type_name)
-                    resolved_qualified = f"{type_qn}.{rest}" if rest else type_qn
+                    func_entry = next(
+                        (
+                            entry
+                            for entry in reversed(self.stack)
+                            if entry.kind in ("function", "method")
+                        ),
+                        None,
+                    )
+                    if func_entry is not None:
+                        param_map = self._func_param_annos.get(func_entry.qualified_name)
+                        if param_map and root in param_map:
+                            type_name = param_map[root]
+                if type_name is not None:
+                    linked_variable = root in self._var_qns
+        else:
+            root, sep, _rest = target_name.partition(".")
+            receiver_root = root
+            linked_variable = (
+                sep
+                and not target_name.startswith(("self.", "cls."))
+                and root in self._var_qns
+                and root in self._name_types
+            )
 
         ref_symbol_qualified_name = (
             resolved_qualified

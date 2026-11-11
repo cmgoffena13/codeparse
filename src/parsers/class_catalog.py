@@ -1,7 +1,12 @@
+import re
+import sqlite3
+
 from src.assigner import GlobalIDAssigner
 
 _INHERIT_KINDS = frozenset({"method", "property", "variable"})
 _STORED_KINDS = frozenset({"class", "method", "property", "variable"})
+_RETURN_TYPE_RE = re.compile(r"->\s*([A-Za-z_][\w.]*)")
+_VAR_ANNOTATION_RE = re.compile(r"(?:self\.|cls\.)?([A-Za-z_]\w*)\s*:\s*([A-Za-z_][\w.]*)")
 
 
 class ClassCatalog:
@@ -9,6 +14,119 @@ class ClassCatalog:
         self.by_qualified_name: dict[str, dict] = {}
         self.subclasses: dict[str, dict[str, dict]] = {}
         self.members_by_parent_id: dict[int, dict[str, dict]] = {}
+        self.field_types: dict[str, str] = {}
+        self.method_returns: dict[str, str] = {}
+
+    def absorb_member_types(
+        self, field_types: dict[str, str], method_returns: dict[str, str]
+    ) -> None:
+        self.field_types.update(field_types)
+        self.method_returns.update(method_returns)
+
+    def field_type(self, owner_qn: str, member: str) -> str | None:
+        key = f"{owner_qn}.{member}"
+        found = self.field_types.get(key)
+        if found is None:
+            entry = self.by_qualified_name.get(owner_qn)
+            if entry is not None and entry["kind"] == "class":
+                for base in entry.get("base_qualified_names") or ():
+                    found = self.field_type(base, member)
+                    if found is not None:
+                        break
+        return found
+
+    def method_return(self, method_qn: str) -> str | None:
+        return self.method_returns.get(method_qn)
+
+    def _resolve_type_name(self, type_name: str, classes_by_leaf: dict[str, list[str]]) -> str:
+        resolved = type_name
+        if type_name not in self.by_qualified_name:
+            matches = classes_by_leaf.get(type_name.rsplit(".", 1)[-1], [])
+            if len(matches) == 1:
+                resolved = matches[0]
+        return resolved
+
+    def seed_from_db(self, connection: sqlite3.Connection) -> None:
+        classes_by_leaf: dict[str, list[str]] = {}
+        bases_by_id: dict[int, list[str]] = {}
+        for row in connection.execute("SELECT symbol_id, base_qualified_name FROM symbol_bases"):
+            bases_by_id.setdefault(row["symbol_id"], []).append(row["base_qualified_name"])
+
+        for row in connection.execute(
+            """
+            SELECT id, file_id, name, qualified_name, start_line, end_line
+            FROM symbols
+            WHERE kind = 'class'
+            """
+        ):
+            bases = bases_by_id.get(row["id"], [])
+            self.put(
+                {
+                    "id": row["id"],
+                    "file_id": row["file_id"],
+                    "parent_id": None,
+                    "parent": None,
+                    "name": row["name"],
+                    "qualified_name": row["qualified_name"],
+                    "kind": "class",
+                    "start_line": row["start_line"],
+                    "end_line": row["end_line"],
+                    "line_count": row["end_line"] - row["start_line"] + 1,
+                    "signature": "",
+                    "docstring": None,
+                    "modifiers": None,
+                    "language": "python",
+                    "is_test": False,
+                    "is_inherited": False,
+                    "base_qualified_names": bases,
+                    "bases": bases,
+                },
+                overwrite=False,
+            )
+            classes_by_leaf.setdefault(row["name"], []).append(row["qualified_name"])
+        for row in connection.execute(
+            """
+            SELECT qualified_name, kind, signature FROM symbols
+            WHERE kind IN ('method', 'property', 'variable') AND signature != ''
+            """
+        ):
+            signature = row["signature"]
+            qualified_name = row["qualified_name"]
+            if row["kind"] in ("method", "property"):
+                match = _RETURN_TYPE_RE.search(signature)
+                if match is not None:
+                    self.method_returns[qualified_name] = self._resolve_type_name(
+                        match.group(1), classes_by_leaf
+                    )
+            else:
+                match = _VAR_ANNOTATION_RE.search(signature)
+                if match is not None:
+                    self.field_types[qualified_name] = self._resolve_type_name(
+                        match.group(2), classes_by_leaf
+                    )
+
+    def rewrite_pending_qualified_name(self, qualified_name: str) -> str:
+        parts = qualified_name.split(".")
+        rewritten = qualified_name
+        for class_end in range(len(parts) - 1, 0, -1):
+            prefix = ".".join(parts[:class_end])
+            entry = self.by_qualified_name.get(prefix)
+            if entry is not None and entry["kind"] == "class":
+                rest = parts[class_end:]
+                if len(rest) >= 2 and self.field_type(prefix, rest[0]) is not None:
+                    current = prefix
+                    index = 0
+                    while index < len(rest) - 1:
+                        next_type = self.field_type(current, rest[index])
+                        if next_type is None:
+                            rewritten = f"{current}.{'.'.join(rest[index:])}"
+                            break
+                        current = next_type
+                        index += 1
+                    else:
+                        rewritten = f"{current}.{rest[-1]}"
+                break
+        return rewritten
 
     def put(self, symbol: dict, *, overwrite: bool = True) -> None:
         kind = symbol["kind"]
@@ -70,6 +188,8 @@ class ClassCatalog:
 
     def drop(self, qualified_name: str) -> None:
         cataloged = self.by_qualified_name.pop(qualified_name, None)
+        self.field_types.pop(qualified_name, None)
+        self.method_returns.pop(qualified_name, None)
         if cataloged is not None and cataloged["kind"] in _INHERIT_KINDS:
             parent_id = cataloged.get("parent_id")
             if parent_id is not None:

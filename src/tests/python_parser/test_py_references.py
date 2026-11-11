@@ -70,6 +70,70 @@ def test_self_attr_call_resolves_via_init_param_annotation(python_parser, fixtur
     assert access["ref_symbol_qualified_name"] == "DependencyType"
 
 
+def test_multi_hop_self_attr_call_resolves_via_field_types(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("multi_hop_self_call.py")
+    _, references = python_parser.parse(110, file_bytes, module_qn="pkg.mod")
+    assert_symbol_references_invariants(references)
+    call = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call" and r["ref_symbol_name"] == "self.context.engine.execute"
+    )
+    assert call["ref_symbol_qualified_name"] == "pkg.mod.Engine.execute"
+
+
+def test_class_body_attr_call_resolves_via_annotation(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("class_body_attr_call.py")
+    _, references = python_parser.parse(111, file_bytes, module_qn="pkg.mod")
+    assert_symbol_references_invariants(references)
+    call = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call" and r["ref_symbol_name"] == "self.engine.execute"
+    )
+    assert call["ref_symbol_qualified_name"] == "pkg.mod.Engine.execute"
+
+
+def test_untyped_local_from_attr_resolves_method_call(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("untyped_local_from_attr.py")
+    _, references = python_parser.parse(112, file_bytes, module_qn="pkg.mod")
+    assert_symbol_references_invariants(references)
+    call = next(
+        r for r in references if r["ref_kind"] == "call" and r["ref_symbol_name"] == "ctx.plan"
+    )
+    assert call["ref_symbol_qualified_name"] == "pkg.mod.Context.plan"
+
+
+def test_untyped_local_from_call_resolves_return_type(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("untyped_local_from_call.py")
+    _, references = python_parser.parse(113, file_bytes, module_qn="pkg.mod")
+    assert_symbol_references_invariants(references)
+    call = next(
+        r for r in references if r["ref_kind"] == "call" and r["ref_symbol_name"] == "node.apply"
+    )
+    assert call["ref_symbol_qualified_name"] == "pkg.mod.Plan.apply"
+
+
+def test_second_assignment_clears_untyped_local_type(python_parser) -> None:
+    source = b"""
+class Context:
+    def plan(self) -> None:
+        pass
+
+class HostClass:
+    def __init__(self, context: Context) -> None:
+        self.context = context
+
+    def run(self, other) -> None:
+        ctx = self.context
+        ctx = other
+        ctx.plan()
+"""
+    _, references = python_parser.parse(114, source, module_qn="pkg.mod")
+    assert not any(r["ref_symbol_qualified_name"] == "pkg.mod.Context.plan" for r in references)
+    assert not any(r["ref_symbol_qualified_name"] == "ctx.plan" for r in references)
+
+
 def test_symbol_references_access_and_type_annotation(python_parser, fixture_bytes):
     file_bytes = fixture_bytes("references_cases.py")
     symbols, references = python_parser.parse(4, file_bytes)

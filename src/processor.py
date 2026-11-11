@@ -304,17 +304,32 @@ class CodeProcessor:
         for file_name in file_names:
             self._process_file(file_name, directory_path, dir_rel, full)
 
+    def _rewrite_pending_references(self) -> None:
+        for reference in self.db_batches["symbol_references"]:
+            qualified_name = reference["ref_symbol_qualified_name"]
+            rewritten = self.class_catalog.rewrite_pending_qualified_name(qualified_name)
+            reference["ref_symbol_qualified_name"] = rewritten
+
     def _insert_batch(self, final: bool = False) -> None:
         if not final and not any(
             len(batch) >= self.db_batch_size for batch in self.db_batches.values()
         ):
             return
 
+        held_references: list[dict] = []
+        if not final:
+            held_references = self.db_batches["symbol_references"]
+            self.db_batches["symbol_references"] = []
+        else:
+            self._rewrite_pending_references()
+
         external_symbols = self.db_batches["external_symbols"]
         self.db.bulk_insert(self.db_batches)
         self.db.insert_external_symbols(external_symbols)
         self._added_external_qns.update(row["qualified_name"] for row in external_symbols)
         self.db_batches = self._new_batches()
+        if held_references:
+            self.db_batches["symbol_references"] = held_references
 
     def _bulk_operations(self) -> None:
         self.db.prune_indexed_external_symbols()
@@ -342,6 +357,8 @@ class CodeProcessor:
 
     def _process_unlocked(self, full: bool = False) -> None:
         self._reset_run_state()
+        if not self.class_catalog.by_qualified_name:
+            self.class_catalog.seed_from_db(self.db.connection)
         start_time = time.perf_counter()
         root_s = str(self.root)
         for directory_path, directory_names, file_names in os.walk(root_s):

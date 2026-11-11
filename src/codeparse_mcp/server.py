@@ -141,7 +141,6 @@ def get_symbol(qualified_name: str, ctx: Context, include_tests: bool = False) -
     Return the symbol definition with line numbers, inherited members,
     aggregated dependent/dependency (relation) counts (calls, accesses).
 
-    Relations do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files in aggregated counts by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
@@ -182,7 +181,6 @@ def get_symbol_relations(
     """
     Return call (C) / access (A) relations for ``qualified_name``.
 
-    Relations do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files from dependents by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
@@ -222,7 +220,6 @@ def get_import_relations(
     Resolves ``target`` as an internal directory, internal file, or external
     package. Example targets: ``re.compile``, ``src.transform``
 
-    Relations do not follow multi-hop attribute access (obj.field.method) and untyped locals.
     Excludes test files from dependents by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
