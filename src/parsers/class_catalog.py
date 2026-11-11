@@ -23,16 +23,38 @@ class ClassCatalog:
         self.field_types.update(field_types)
         self.method_returns.update(method_returns)
 
+    def canonical_class_qn(self, owner_qn: str) -> str | None:
+        entry = self.by_qualified_name.get(owner_qn)
+        resolved = owner_qn if entry is not None and entry["kind"] == "class" else None
+        if resolved is None and "." in owner_qn:
+            package, leaf = owner_qn.rsplit(".", 1)
+            matches = [
+                qn
+                for qn, item in self.by_qualified_name.items()
+                if item["kind"] == "class" and item["name"] == leaf and qn.startswith(f"{package}.")
+            ]
+            if len(matches) == 1:
+                resolved = matches[0]
+        return resolved
+
     def field_type(self, owner_qn: str, member: str) -> str | None:
-        key = f"{owner_qn}.{member}"
-        found = self.field_types.get(key)
-        if found is None:
-            entry = self.by_qualified_name.get(owner_qn)
-            if entry is not None and entry["kind"] == "class":
-                for base in entry.get("base_qualified_names") or ():
-                    found = self.field_type(base, member)
-                    if found is not None:
-                        break
+        owners = [owner_qn]
+        canonical = self.canonical_class_qn(owner_qn)
+        if canonical is not None and canonical not in owners:
+            owners.append(canonical)
+        found = None
+        for owner in owners:
+            key = f"{owner}.{member}"
+            found = self.field_types.get(key)
+            if found is None:
+                entry = self.by_qualified_name.get(owner)
+                if entry is not None and entry["kind"] == "class":
+                    for base in entry.get("base_qualified_names") or ():
+                        found = self.field_type(base, member)
+                        if found is not None:
+                            break
+            if found is not None:
+                break
         return found
 
     def method_return(self, method_qn: str) -> str | None:
@@ -110,11 +132,11 @@ class ClassCatalog:
         rewritten = qualified_name
         for class_end in range(len(parts) - 1, 0, -1):
             prefix = ".".join(parts[:class_end])
-            entry = self.by_qualified_name.get(prefix)
-            if entry is not None and entry["kind"] == "class":
+            class_qn = self.canonical_class_qn(prefix)
+            if class_qn is not None:
                 rest = parts[class_end:]
-                if len(rest) >= 2 and self.field_type(prefix, rest[0]) is not None:
-                    current = prefix
+                if len(rest) >= 2 and self.field_type(class_qn, rest[0]) is not None:
+                    current = class_qn
                     index = 0
                     while index < len(rest) - 1:
                         next_type = self.field_type(current, rest[index])

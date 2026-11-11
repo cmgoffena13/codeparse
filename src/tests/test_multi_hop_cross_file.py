@@ -71,6 +71,58 @@ def test_seed_from_db_loads_classes_and_signature_types_only(tmp_path: Path) -> 
     db.close()
 
 
+def test_multi_hop_through_package_reexport_resolves_to_defining_class(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    plan_pkg = tmp_path / "pkg" / "plan"
+    plan_pkg.mkdir(parents=True)
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (plan_pkg / "definition.py").write_text(
+        "class DeployabilityIndex:\n"
+        "    def is_deployable(self) -> None:\n"
+        "        pass\n"
+        "\n"
+        "\n"
+        "class Plan:\n"
+        "    deployability_index: DeployabilityIndex\n",
+        encoding="utf-8",
+    )
+    (plan_pkg / "__init__.py").write_text(
+        "from pkg.plan.definition import Plan as Plan\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "a_caller.py").write_text(
+        "from pkg.plan import Plan\n"
+        "\n"
+        "\n"
+        "class Record:\n"
+        "    plan: Plan\n"
+        "\n"
+        "    def check(self) -> None:\n"
+        "        self.plan.deployability_index.is_deployable()\n",
+        encoding="utf-8",
+    )
+
+    db = CodeDB(tmp_path)
+    CodeProcessor(db, tmp_path).process(full=True)
+
+    row = db.connection.execute(
+        """
+        SELECT sr.ref_symbol_qualified_name, s.qualified_name
+        FROM symbol_references AS sr
+        INNER JOIN symbols AS s ON s.id = sr.ref_symbol_id
+        WHERE sr.ref_kind = 'call'
+          AND sr.context LIKE 'self.plan.deployability_index.is_deployable%'
+        """
+    ).fetchone()
+    assert row is not None
+    expected = "pkg.plan.definition.DeployabilityIndex.is_deployable"
+    assert row["ref_symbol_qualified_name"] == expected
+    assert row["qualified_name"] == expected
+    db.close()
+
+
 def test_cold_processor_resolves_multi_hop_from_seeded_types(tmp_path: Path) -> None:
     _write_multi_hop_repo(tmp_path)
     db = CodeDB(tmp_path)
