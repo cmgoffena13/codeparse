@@ -19,16 +19,24 @@ def make_parser() -> argparse.ArgumentParser:
         prog="codeparse",
         description=help_banner(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
+    )
+    parser.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="Show this help message and exit",
     )
     parser.add_argument(
         "--version",
         action="store_true",
-        help="Show CLI version",
+        help="Show the version and exit",
     )
     parser.add_argument(
         "--info",
         action="store_true",
-        help="Show CLI information",
+        help="Show config info and exit",
     )
 
     subparsers = parser.add_subparsers(dest="command")
