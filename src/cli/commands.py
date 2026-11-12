@@ -1,11 +1,17 @@
 import argparse
 from pathlib import Path
 
-import pyfiglet
+_HELP_BANNER = """\
+  ____          _      ____                     
+ / ___|___   __| | ___|  _ \\ __ _ _ __ ___  ___ 
+| |   / _ \\ / _` |/ _ \\ |_) / _` | '__/ __|/ _ \\
+| |__| (_) | (_| |  __/  __/ (_| | |  \\__ \\  __/
+ \\____\\___/ \\__,_|\\___|_|   \\__,_|_|  |___/\\___|
+""".replace("`", "'")
 
 
 def help_banner() -> str:
-    return pyfiglet.figlet_format("CodeParse", font="standard").replace("`", "'")
+    return _HELP_BANNER
 
 
 def make_parser() -> argparse.ArgumentParser:
