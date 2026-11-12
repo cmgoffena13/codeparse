@@ -1,9 +1,15 @@
 import argparse
 from pathlib import Path
 
+import pyfiglet
+
 
 def make_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="codeparse", description="codeparse")
+    parser = argparse.ArgumentParser(
+        prog="codeparse",
+        description=pyfiglet.figlet_format("CodeParse", font="standard").replace("`", "'"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--version",
         action="store_true",
