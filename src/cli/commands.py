@@ -4,10 +4,14 @@ from pathlib import Path
 import pyfiglet
 
 
+def help_banner() -> str:
+    return pyfiglet.figlet_format("CodeParse", font="standard").replace("`", "'")
+
+
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codeparse",
-        description=pyfiglet.figlet_format("CodeParse", font="standard").replace("`", "'"),
+        description=help_banner(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

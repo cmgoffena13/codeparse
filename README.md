@@ -1,4 +1,12 @@
-<h1 align="center">CodeParse</h1>
+<h1 align="center">
+<pre>
+  ____          _      ____
+ / ___|___   __| | ___|  _ \ __ _ _ __ ___  ___
+| |   / _ \ / _' |/ _ \ |_) / _' | '__/ __|/ _ \
+| |__| (_) | (_| |  __/  __/ (_| | |  \__ \  __/
+ \____\___/ \__,_|\___|_|   \__,_|_|  |___/\___|
+</pre>
+</h1>
 
 <p align="center">
   <img alt="Lines of Code" src="https://aschey.tech/tokei/github/cmgoffena13/codeparse?category=code">

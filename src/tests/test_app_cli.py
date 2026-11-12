@@ -5,10 +5,10 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pyfiglet
 import pytest
 
 from src.app import main
+from src.cli.commands import help_banner
 from src.utils import get_version
 
 
@@ -18,8 +18,7 @@ def test_bare_codeparse_prints_help(
     monkeypatch.setattr(sys, "argv", ["codeparse"])
     assert main() == 0
     out = capsys.readouterr().out
-    banner = pyfiglet.figlet_format("CodeParse", font="standard", width=200).replace("`", "'")
-    assert banner in out
+    assert help_banner() in out
     assert "usage:" in out
     assert "mcp" in out
     assert "reload" in out
