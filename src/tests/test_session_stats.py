@@ -158,8 +158,11 @@ def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
     report = format_session_stats_report(tmp_path)
     started_a = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_a))
     started_b = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_b))
-    header = "| file | tool_calls | latest_file_tokens | tool_output_tokens | tokens_saved |"
-    rule = "| --- | --- | --- | --- | --- |"
+    header = (
+        "| file | tool_calls | latest_file_tokens | if_file_read_every_time | "
+        "tool_output_tokens | tokens_saved |"
+    )
+    rule = "| --- | --- | --- | --- | --- | --- |"
     assert (
         "Tokens saved: low = vs reading each file once; "
         "high = vs re-reading it on every tool call.\n"
@@ -168,16 +171,16 @@ def test_format_session_stats_report_bullets_files(tmp_path: Path) -> None:
         f"window-a - {started_a}\n"
         f"{header}\n"
         f"{rule}\n"
-        "| pkg/other.py | 1 | 2 | 1 | 1 |\n"
-        "| pkg/target.py | 2 | 20 | 4 | 16..36 |\n"
-        "| 2 files | 3 | 22 | 5 | 17..37 |\n"
+        "| pkg/other.py | 1 | 2 | 2 | 1 | 1 |\n"
+        "| pkg/target.py | 2 | 20 | 30 | 4 | 16..26 |\n"
+        "| 2 files | 3 | 22 | 32 | 5 | 17..27 |\n"
     ) in report
     assert (
         f"window-b - {started_b}\n"
         f"{header}\n"
         f"{rule}\n"
-        "| pkg/other.py | 1 | 2 | 1 | 1 |\n"
-        "| 1 file | 1 | 2 | 1 | 1 |\n"
+        "| pkg/other.py | 1 | 2 | 2 | 1 | 1 |\n"
+        "| 1 file | 1 | 2 | 2 | 1 | 1 |\n"
     ) in report
     assert report.index("window-b") < report.index("window-a")
 

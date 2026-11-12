@@ -12,6 +12,7 @@ _VAR_ANNOTATION_RE = re.compile(r"(?:self\.|cls\.)?([A-Za-z_]\w*)\s*:\s*([A-Za-z
 class ClassCatalog:
     def __init__(self) -> None:
         self.by_qualified_name: dict[str, dict] = {}
+        self.classes_by_name: dict[str, dict[str, None]] = {}
         self.subclasses: dict[str, dict[str, dict]] = {}
         self.members_by_parent_id: dict[int, dict[str, dict]] = {}
         self.field_types: dict[str, str] = {}
@@ -28,11 +29,8 @@ class ClassCatalog:
         resolved = owner_qn if entry is not None and entry["kind"] == "class" else None
         if resolved is None and "." in owner_qn:
             package, leaf = owner_qn.rsplit(".", 1)
-            matches = [
-                qn
-                for qn, item in self.by_qualified_name.items()
-                if item["kind"] == "class" and item["name"] == leaf and qn.startswith(f"{package}.")
-            ]
+            prefix = f"{package}."
+            matches = [qn for qn in self.classes_by_name.get(leaf, ()) if qn.startswith(prefix)]
             if len(matches) == 1:
                 resolved = matches[0]
         return resolved
@@ -157,6 +155,8 @@ class ClassCatalog:
             skip = (not overwrite) and qualified_name in self.by_qualified_name
             if not skip:
                 prior = self.by_qualified_name.get(qualified_name)
+                if prior is not None and prior["kind"] == "class":
+                    self._unindex_class(prior["name"], qualified_name)
                 if prior is not None and prior["kind"] in _INHERIT_KINDS:
                     prior_parent = prior.get("parent_id")
                     if prior_parent is not None:
@@ -197,6 +197,7 @@ class ClassCatalog:
                     members[parent_id][stored["name"]] = stored
             if kind == "class":
                 stored = self.by_qualified_name[qualified_name]
+                self._index_class(stored["name"], qualified_name)
                 self.register_class(
                     {
                         "id": stored["id"],
@@ -212,6 +213,8 @@ class ClassCatalog:
         cataloged = self.by_qualified_name.pop(qualified_name, None)
         self.field_types.pop(qualified_name, None)
         self.method_returns.pop(qualified_name, None)
+        if cataloged is not None and cataloged["kind"] == "class":
+            self._unindex_class(cataloged["name"], qualified_name)
         if cataloged is not None and cataloged["kind"] in _INHERIT_KINDS:
             parent_id = cataloged.get("parent_id")
             if parent_id is not None:
@@ -222,6 +225,20 @@ class ClassCatalog:
                         self.members_by_parent_id.pop(parent_id, None)
         for children in self.subclasses.values():
             children.pop(qualified_name, None)
+
+    def _index_class(self, name: str, qualified_name: str) -> None:
+        bucket = self.classes_by_name.get(name)
+        if bucket is None:
+            self.classes_by_name[name] = {qualified_name: None}
+        else:
+            bucket[qualified_name] = None
+
+    def _unindex_class(self, name: str, qualified_name: str) -> None:
+        bucket = self.classes_by_name.get(name)
+        if bucket is not None:
+            bucket.pop(qualified_name, None)
+            if not bucket:
+                self.classes_by_name.pop(name, None)
 
     def drop_file(self, file_id: int) -> None:
         for qualified_name, cataloged in list(self.by_qualified_name.items()):
