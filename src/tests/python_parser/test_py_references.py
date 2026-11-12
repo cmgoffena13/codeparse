@@ -636,3 +636,62 @@ def test_source_symbol_id_is_the_enclosing_container(python_parser):
         if r["ref_kind"] == "type_annotation" and r["ref_symbol_name"] == "helper"
     )
     assert annotation["source_symbol_id"] == by_qn["pkg.mod.Box.run"]["id"]
+
+
+def test_decorator_uses_are_call_edges_with_decorated_source(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("decorator_refs.py")
+    symbols, references = python_parser.parse(120, file_bytes, module_qn="pkg.mod")
+    by_qn = index_symbols(symbols)
+    assert_symbol_references_invariants(references)
+
+    bare = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call"
+        and r["ref_symbol_name"] == "deco"
+        and r["source_symbol_id"] == by_qn["pkg.mod.bare"]["id"]
+    )
+    assert bare["ref_symbol_qualified_name"] == "pkg.mod.deco"
+
+    with_args = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call"
+        and r["ref_symbol_name"] == "deco"
+        and r["source_symbol_id"] == by_qn["pkg.mod.with_args"]["id"]
+    )
+    assert with_args["ref_symbol_qualified_name"] == "pkg.mod.deco"
+
+    dotted = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call"
+        and r["ref_symbol_name"] == "Marker.wrap"
+        and r["source_symbol_id"] == by_qn["pkg.mod.dotted"]["id"]
+    )
+    assert dotted["ref_symbol_qualified_name"] == "pkg.mod.Marker.wrap"
+
+    class_deco = next(
+        r
+        for r in references
+        if r["ref_kind"] == "call"
+        and r["ref_symbol_name"] == "deco"
+        and r["source_symbol_id"] == by_qn["pkg.mod.Decorated"]["id"]
+    )
+    assert class_deco["ref_symbol_qualified_name"] == "pkg.mod.deco"
+
+    assert not any(
+        r["ref_kind"] == "call" and r["ref_symbol_name"] in ("property", "staticmethod")
+        for r in references
+    )
+    assert not any(
+        r["ref_kind"] == "access" and r["ref_symbol_name"] == "Marker.wrap" for r in references
+    )
+
+
+def test_property_decorator_modifiers_exclude_definition_body(python_parser, fixture_bytes):
+    file_bytes = fixture_bytes("file.py")
+    symbols, _ = python_parser.parse(1, file_bytes)
+    fake_prop = index_symbols(symbols)["FakeClass.fake_property"]
+    assert fake_prop["modifiers"] == "['_noop_deco', 'property']"
+    assert fake_prop["kind"] == "property"

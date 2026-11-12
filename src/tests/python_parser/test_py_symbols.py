@@ -11,7 +11,7 @@ def test_python_fixture_file_parses_symbols_imports_and_references(python_parser
     symbols, references = python_parser.parse(1, file_bytes)
 
     assert len(symbols) == 12
-    assert len(references) == 7
+    assert len(references) == 8
     assert_symbols_invariants(symbols)
     assert_symbol_references_invariants(references)
 

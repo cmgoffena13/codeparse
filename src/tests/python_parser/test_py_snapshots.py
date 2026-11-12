@@ -9,7 +9,7 @@ from src.tests.python_parser._assertions import (
 @pytest.mark.parametrize(
     ("fixture_name", "file_id", "expected_counts"),
     [
-        ("file.py", 1, (12, 7)),
+        ("file.py", 1, (12, 8)),
         ("another_file.py", 2, (4, 2)),
         ("is_test_cases.py", 3, (5, 1)),
         ("references_cases.py", 4, (6, 7)),

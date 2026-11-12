@@ -571,88 +571,27 @@ class PythonParser(ParserBase):
 
     def _walk(self, node: Node, file_id: int, file_bytes: bytes) -> None:
         """Recursive DFS traversal."""
-        # 1. Extract Data for CURRENT node
+        if node.type == "decorated_definition":
+            self._walk_decorated_definition(node, file_id, file_bytes)
+            return
+
         self._process_node(node, file_id)
 
-        # 2. Push to stack if it's a container (Class/Function)
-        # We need to know the ID *before* recursing so children can use it as parent
-        symbol_id = None
-        scope_path = None
         pushed_stack = False
-        kind: str | None = None
-        is_test: bool = False
-
         if node.type in (
             "class_definition",
             "function_definition",
             "async_function_definition",
         ):
-            # Extract symbol details first
-            symbol_data = self._extract_symbol(node, file_id, file_bytes)
-            name: str | None = None
-            # Always push a stack frame for container defs when they exist in the DB
-            # snapshot (even if we don't emit an updated row), otherwise nested
-            # symbol/references lose parent context and churn ids across reparses.
-            if symbol_data:
-                symbol_id = symbol_data["id"]
-                scope_path = symbol_data["qualified_name"] or symbol_data["name"]
-                self.symbols.append(symbol_data)
-                kind = symbol_data["kind"]
-                is_test = symbol_data.get("is_test", False)
-                name = symbol_data["name"]
-            else:
-                name_node = node.child_by_field_name("name")
-                name = node_text(name_node)
-                if name is not None:
-                    kind = self._kind_for_definition(node)
-                    scope_path = self._qualify(name)
-                    symbol_identity = scope_path
-                    key = (symbol_identity, kind)
-                    if key in self.symbols_snapshot:
-                        symbol_id = self.symbols_snapshot[key]["id"]
-                        is_test = self._snapshot_branch_is_test(kind, name)
-            if symbol_id is not None and scope_path is not None and kind is not None:
-                if kind in ("function", "method") and node.type in (
-                    "function_definition",
-                    "async_function_definition",
-                ):
-                    annos = self._param_types_from_function(node)
-                    if annos:
-                        self._func_param_annos[scope_path] = annos
-                    if (
-                        name == "__init__"
-                        and kind == "method"
-                        and self.stack
-                        and self.stack[-1].kind == "class"
-                        and annos
-                    ):
-                        self._class_param_annos[self.stack[-1].qualified_name] = annos
-                if kind == "class" and name:
-                    self._local_defs[name] = scope_path
-                self.stack.append(StackFrame(symbol_id, scope_path, kind, is_test, name or ""))
-                pushed_stack = True
-            # Return annotations sit on the header. Record them after the push so
-            # source_symbol_id is this function, not its parent.
-            if node.type in ("function_definition", "async_function_definition"):
-                return_type = node.child_by_field_name("return_type")
-                if return_type is not None:
-                    self._extract_reference(return_type, "type_annotation", file_id)
-                    if name:
-                        anno = self._annotation_type_name(return_type)
-                        if anno:
-                            self._return_types[name] = anno
-                            if scope_path is not None:
-                                self._method_returns[scope_path] = self._resolve_annotation_qn(anno)
+            pushed_stack = self._push_definition(node, file_id, file_bytes)
         elif node.type in (
             "assignment",
             "annotated_assignment",
             "augmented_assignment",
         ):
-            # Variable symbols (module/class/function scope)
             for symbol_data in self._extract_variable_symbols(node, file_id, file_bytes):
                 self.symbols.append(symbol_data)
 
-        # 3. Recurse (import-first in statement suites so bindings exist before siblings)
         children = (
             self._children_import_first(node) if node.type in ("module", "block") else node.children
         )
@@ -674,14 +613,158 @@ class PythonParser(ParserBase):
             if skip_child:
                 self._skip_access_depth -= 1
 
-        # 4. Pop from stack if we pushed
         if pushed_stack:
-            popped = self.stack[-1]
-            if popped.kind == "class":
-                self._class_param_annos.pop(popped.qualified_name, None)
-            elif popped.kind in ("function", "method"):
-                self._func_param_annos.pop(popped.qualified_name, None)
-            self.stack.pop()
+            self._pop_definition()
+
+    def _walk_decorated_definition(self, node: Node, file_id: int, file_bytes: bytes) -> None:
+        definition = next(
+            (
+                child
+                for child in node.named_children
+                if child.type
+                in (
+                    "class_definition",
+                    "function_definition",
+                    "async_function_definition",
+                )
+            ),
+            None,
+        )
+        if definition is None:
+            for child in node.children:
+                self._walk(child, file_id, file_bytes)
+            return
+
+        pushed_stack = self._push_definition(definition, file_id, file_bytes)
+        for child in node.named_children:
+            if child.type == "decorator":
+                self._extract_decorator_references(child, file_id, file_bytes)
+
+        node_type = definition.type
+        type_field = None
+        return_type_field = None
+        bases_field = None
+        if node_type in _TYPE_FIELD_ANCESTORS:
+            type_field = definition.child_by_field_name("type")
+            return_type_field = definition.child_by_field_name("return_type")
+        if node_type == "class_definition":
+            bases_field = definition.child_by_field_name("superclasses")
+        for child in definition.children:
+            skip_child = child in (type_field, return_type_field, bases_field)
+            if skip_child:
+                self._skip_access_depth += 1
+            self._walk(child, file_id, file_bytes)
+            if skip_child:
+                self._skip_access_depth -= 1
+
+        if pushed_stack:
+            self._pop_definition()
+
+    def _push_definition(self, node: Node, file_id: int, file_bytes: bytes) -> bool:
+        symbol_id = None
+        scope_path = None
+        pushed_stack = False
+        kind: str | None = None
+        is_test: bool = False
+        symbol_data = self._extract_symbol(node, file_id, file_bytes)
+        name: str | None = None
+        if symbol_data:
+            symbol_id = symbol_data["id"]
+            scope_path = symbol_data["qualified_name"] or symbol_data["name"]
+            self.symbols.append(symbol_data)
+            kind = symbol_data["kind"]
+            is_test = symbol_data.get("is_test", False)
+            name = symbol_data["name"]
+        else:
+            name_node = node.child_by_field_name("name")
+            name = node_text(name_node)
+            if name is not None:
+                kind = self._kind_for_definition(node)
+                scope_path = self._qualify(name)
+                symbol_identity = scope_path
+                key = (symbol_identity, kind)
+                if key in self.symbols_snapshot:
+                    symbol_id = self.symbols_snapshot[key]["id"]
+                    is_test = self._snapshot_branch_is_test(kind, name)
+        if symbol_id is not None and scope_path is not None and kind is not None:
+            if kind in ("function", "method") and node.type in (
+                "function_definition",
+                "async_function_definition",
+            ):
+                annos = self._param_types_from_function(node)
+                if annos:
+                    self._func_param_annos[scope_path] = annos
+                if (
+                    name == "__init__"
+                    and kind == "method"
+                    and self.stack
+                    and self.stack[-1].kind == "class"
+                    and annos
+                ):
+                    self._class_param_annos[self.stack[-1].qualified_name] = annos
+            if kind == "class" and name:
+                self._local_defs[name] = scope_path
+            self.stack.append(StackFrame(symbol_id, scope_path, kind, is_test, name or ""))
+            pushed_stack = True
+        if node.type in ("function_definition", "async_function_definition"):
+            return_type = node.child_by_field_name("return_type")
+            if return_type is not None:
+                self._extract_reference(return_type, "type_annotation", file_id)
+                if name:
+                    anno = self._annotation_type_name(return_type)
+                    if anno:
+                        self._return_types[name] = anno
+                        if scope_path is not None:
+                            self._method_returns[scope_path] = self._resolve_annotation_qn(anno)
+        return pushed_stack
+
+    def _pop_definition(self) -> None:
+        popped = self.stack[-1]
+        if popped.kind == "class":
+            self._class_param_annos.pop(popped.qualified_name, None)
+        elif popped.kind in ("function", "method"):
+            self._func_param_annos.pop(popped.qualified_name, None)
+        self.stack.pop()
+
+    def _extract_decorator_references(self, node: Node, file_id: int, file_bytes: bytes) -> None:
+        expr = next(iter(node.named_children), None)
+        if expr is None:
+            return
+        if expr.type == "call":
+            self._extract_reference(expr, "call", file_id)
+            arguments = expr.child_by_field_name("arguments")
+            if arguments is not None:
+                self._walk(arguments, file_id, file_bytes)
+            return
+        if not self._is_simple_ref_path(expr):
+            return
+        target_name = node_text(expr)
+        if not target_name:
+            return
+        root_id = self._reference_root_identifier(target_name)
+        if root_id in self.builtin_names:
+            return
+        resolved_qualified = self._resolve_chain(target_name, as_call=True)
+        ref_symbol_qualified_name = (
+            resolved_qualified
+            if resolved_qualified is not None
+            else self._resolve_ref_qn(target_name)
+        )
+        if self._is_unresolved_attribute_ref(target_name, ref_symbol_qualified_name):
+            return
+        qn_root = ref_symbol_qualified_name.split(".", 1)[0] if ref_symbol_qualified_name else ""
+        if qn_root in self.builtin_names:
+            return
+        self._record_symbol_reference(
+            file_id,
+            target_name,
+            ref_symbol_qualified_name,
+            expr.start_point.row + 1,
+            expr.start_point.column,
+            "call",
+            node_text(expr),
+            (ref_symbol_qualified_name, "call", expr.start_point.row + 1, expr.start_point.column),
+        )
 
     @staticmethod
     def _is_optional_type_value(node: Node) -> bool:
@@ -958,17 +1041,16 @@ class PythonParser(ParserBase):
         qualified_name = self._qualify(name)
         kind = self._kind_for_definition(node)
 
-        # NOTE: Extract Modifiers (Decorators)
         modifiers: list[str] = []
         if node.parent is not None and node.parent.type == "decorated_definition":
             for child in node.parent.children:
-                if child.text is None:
+                if child.type != "decorator" or child.text is None:
                     continue
                 decorator_text = child.text.decode("utf-8", errors="replace").strip()
                 if decorator_text.startswith("@"):
                     decorator_text = decorator_text[1:].strip()
-                    if kind == "method" and decorator_text.split(".")[-1] == "property":
-                        kind = "property"
+                if kind == "method" and decorator_text.split(".")[-1] == "property":
+                    kind = "property"
                 if decorator_text:
                     modifiers.append(decorator_text)
 
