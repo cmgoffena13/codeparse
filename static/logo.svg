@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="100" viewBox="0 0 560 100" role="img" aria-label="CodeParse">
+  <style>
+    text {
+      fill: #24292f;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 14px;
+    }
+    @media (prefers-color-scheme: dark) {
+      text { fill: #e6edf3; }
+    }
+  </style>
+  <text x="78" y="20" xml:space="preserve">  ____          _      ____                     </text>
+  <text x="78" y="36" xml:space="preserve"> / ___|___   __| | ___|  _ \ __ _ _ __ ___  ___ </text>
+  <text x="78" y="52" xml:space="preserve">| |   / _ \ / _` |/ _ \ |_) / _` | '__/ __|/ _ \</text>
+  <text x="78" y="68" xml:space="preserve">| |__| (_) | (_| |  __/  __/ (_| | |  \__ \  __/</text>
+  <text x="78" y="84" xml:space="preserve"> \____\___/ \__,_|\___|_|   \__,_|_|  |___/\___|</text>
+</svg>

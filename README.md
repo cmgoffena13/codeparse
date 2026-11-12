@@ -1,12 +1,6 @@
-<div align="center">
-<pre style="display: inline-block; text-align: left; margin: 0">
-  ____          _      ____
- / ___|___   __| | ___|  _ &#92; __ _ _ __ ___  ___
-| |   / _ &#92; / _&#96; |/ _ &#92; |_) / _&#96; | '__/ __|/ _ &#92;
-| |__| (_) | (_| |  __/  __/ (_| | |  &#92;__ &#92;  __/
- &#92;____&#92;___/ &#92;__,_|&#92;___|_|   &#92;__,_|_|  |___/&#92;___|
-</pre>
-</div>
+<p align="center">
+  <img alt="CodeParse" src="static/logo.svg" width="560">
+</p>
 
 <p align="center">
   <img alt="Lines of Code" src="https://aschey.tech/tokei/github/cmgoffena13/codeparse?category=code">
