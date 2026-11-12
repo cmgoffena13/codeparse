@@ -695,3 +695,32 @@ def test_property_decorator_modifiers_exclude_definition_body(python_parser, fix
     fake_prop = index_symbols(symbols)["FakeClass.fake_property"]
     assert fake_prop["modifiers"] == "['_noop_deco', 'property']"
     assert fake_prop["kind"] == "property"
+
+
+def test_bare_identifier_access_skips_defs_and_keeps_import_uses(python_parser) -> None:
+    source = b"""
+from flags import BACKFILL
+
+FLAG = BACKFILL
+x = BACKFILL.obj
+
+def helper():
+    return BACKFILL
+
+def run(value=BACKFILL):
+    helper()
+    return BACKFILL
+"""
+    symbols, references = python_parser.parse(1, source, module_qn="pkg.mod")
+    by_qn = index_symbols(symbols)
+    bare_accesses = [
+        r for r in references if r["ref_kind"] == "access" and r["ref_symbol_name"] == "BACKFILL"
+    ]
+    assert bare_accesses
+    assert all(r["ref_symbol_qualified_name"] == "flags.BACKFILL" for r in bare_accesses)
+    assert {r["source_line"] for r in bare_accesses} >= {4, 5, 8, 10, 12}
+    assert not any(
+        r["ref_kind"] == "access" and r["ref_symbol_name"] == "helper" for r in references
+    )
+    assert any(r["ref_kind"] == "call" and r["ref_symbol_name"] == "helper" for r in references)
+    assert by_qn["pkg.mod.run"]["id"] in {r["source_symbol_id"] for r in bare_accesses}

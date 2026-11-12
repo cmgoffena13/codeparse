@@ -21,27 +21,6 @@ _TYPE_FIELD_ANCESTORS = frozenset(
         "annotated_assignment",
     }
 )
-_LEFT_SKIP_PARENTS = frozenset(
-    {
-        "assignment",
-        "annotated_assignment",
-        "augmented_assignment",
-        "for_statement",
-        "for_in_clause",
-    }
-)
-_NAME_SKIP_PARENTS = frozenset(
-    {
-        "function_definition",
-        "async_function_definition",
-        "class_definition",
-        "typed_parameter",
-        "typed_default_parameter",
-        "default_parameter",
-        "named_expression",
-        "keyword_argument",
-    }
-)
 _ALWAYS_SKIP_PARENTS = frozenset(
     {
         "parameters",
@@ -51,6 +30,24 @@ _ALWAYS_SKIP_PARENTS = frozenset(
         "nonlocal_statement",
     }
 )
+_SKIP_IDENTIFIER_FIELDS: dict[str, frozenset[str]] = {
+    "assignment": frozenset({"left"}),
+    "annotated_assignment": frozenset({"left"}),
+    "augmented_assignment": frozenset({"left"}),
+    "for_statement": frozenset({"left"}),
+    "for_in_clause": frozenset({"left"}),
+    "function_definition": frozenset({"name"}),
+    "async_function_definition": frozenset({"name"}),
+    "class_definition": frozenset({"name"}),
+    "typed_parameter": frozenset({"name"}),
+    "typed_default_parameter": frozenset({"name"}),
+    "default_parameter": frozenset({"name"}),
+    "named_expression": frozenset({"name"}),
+    "keyword_argument": frozenset({"name"}),
+    "attribute": frozenset({"attribute"}),
+    "call": frozenset({"function"}),
+    "as_pattern": frozenset({"alias"}),
+}
 
 
 class PythonParser(ParserBase):
@@ -1015,7 +1012,8 @@ class PythonParser(ParserBase):
         elif node.type == "attribute":
             self._extract_reference(node, "access", file_id)
         elif node.type == "identifier":
-            self._extract_identifier_reference(node, file_id)
+            if self._skip_access_depth == 0:
+                self._extract_identifier_reference(node, file_id)
         else:
             type_node = node.child_by_field_name("type")
             if type_node is not None:
@@ -1216,24 +1214,25 @@ class PythonParser(ParserBase):
             self._register_import_ref_binding(child_path, imported_symbol, alias, import_type)
 
     def _extract_identifier_reference(self, node: Node, file_id: int) -> None:
-        name = node_text(node)
-        if name and not self._identifier_is_skipped(node):
-            qualified = self._var_qns.get(name)
-            if qualified is None:
-                qualified = self._import_qn.get(name)
-            if qualified is not None:
-                source_line = node.start_point.row + 1
-                source_column = node.start_point.column
-                self._record_symbol_reference(
-                    file_id,
-                    name,
-                    qualified,
-                    source_line,
-                    source_column,
-                    "access",
-                    name,
-                    (qualified, "access", source_line, source_column),
-                )
+        if not self._identifier_is_skipped(node):
+            name = node_text(node)
+            if name:
+                qualified = self._var_qns.get(name)
+                if qualified is None:
+                    qualified = self._import_qn.get(name)
+                if qualified is not None:
+                    source_line = node.start_point.row + 1
+                    source_column = node.start_point.column
+                    self._record_symbol_reference(
+                        file_id,
+                        name,
+                        qualified,
+                        source_line,
+                        source_column,
+                        "access",
+                        name,
+                        (qualified, "access", source_line, source_column),
+                    )
 
     def _identifier_is_skipped(self, node: Node) -> bool:
         parent = node.parent
@@ -1244,17 +1243,19 @@ class PythonParser(ParserBase):
     def _parent_skips_identifier(self, parent: Node, node: Node) -> bool:
         parent_type = parent.type
         skipped = parent_type in _ALWAYS_SKIP_PARENTS
-        if parent_type in _LEFT_SKIP_PARENTS:
-            skipped = parent.child_by_field_name("left") == node
-        elif parent_type in _NAME_SKIP_PARENTS:
-            skipped = parent.child_by_field_name("name") == node
-        elif parent_type == "attribute":
-            skipped = parent.child_by_field_name("attribute") == node
-        elif parent_type == "call":
-            skipped = parent.child_by_field_name("function") == node
-        elif parent_type == "as_pattern":
-            skipped = parent.child_by_field_name("alias") == node
+        if not skipped:
+            skip_fields = _SKIP_IDENTIFIER_FIELDS.get(parent_type)
+            if skip_fields is not None:
+                skipped = self._child_field_name(parent, node) in skip_fields
         return skipped
+
+    def _child_field_name(self, parent: Node, node: Node) -> str | None:
+        field = None
+        for index, child in enumerate(parent.children):
+            if child == node:
+                field = parent.field_name_for_child(index)
+                break
+        return field
 
     def _extract_reference(self, node: Node, ref_kind: str, file_id: int) -> None:
         """Extract Reference (Call, Access, Type Annotation)."""
