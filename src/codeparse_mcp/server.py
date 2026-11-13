@@ -93,6 +93,7 @@ def get_entry_points(ctx: Context) -> str:
 def get_directory_tree(ctx: Context, path: str | None = None) -> str:
     """
     Return the repo's directory/file tree. Files are (lines L, symbols S).
+
     Optional ``path`` scopes to one directory tree (exact path).
     """
     return _processor(ctx).run_query(lambda db: run_directory_tree(db, path=path))
@@ -193,8 +194,8 @@ def get_symbol_relations(
 @mcp.tool()
 def get_class_tree(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return the inheritance tree for a class: straight parent chain up, then all
-    descendant subclasses with directory-tree glyphs. Includes external bases.
+    Return the inheritance tree for a class (parents up, subclasses down)
+
     Excludes test file classes by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
