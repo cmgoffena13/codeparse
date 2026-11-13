@@ -103,3 +103,17 @@ def test_class_tree_unknown_qn_is_single_node(indexed_hierarchy: Path) -> None:
         assert "non-empty qualified_name" in get_class_tree(db, "  ", include_tests=False)
     finally:
         db.close()
+
+
+def test_class_tree_truncates_once(
+    indexed_hierarchy: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.codeparse_mcp import class_tree
+
+    monkeypatch.setattr(class_tree, "_MAX_NODES", 2)
+    db = CodeDB(indexed_hierarchy)
+    try:
+        out = get_class_tree(db, "pkg.base.Parent", include_tests=False)
+        assert out.count("...[truncated]") == 1
+    finally:
+        db.close()

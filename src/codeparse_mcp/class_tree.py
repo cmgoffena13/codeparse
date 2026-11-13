@@ -73,7 +73,9 @@ def _descendant_lines(
     ]
     last_index = len(siblings) - 1
     for index, child in enumerate(siblings):
-        if budget[0] <= 0:
+        if budget[0] < 0:
+            break
+        if budget[0] == 0:
             lines.append(f"{branch_prefix}...[truncated]")
             budget[0] = -1
             break

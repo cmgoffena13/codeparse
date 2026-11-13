@@ -244,7 +244,7 @@ async def _print_tools() -> None:
             _body(
                 await client.call_tool(
                     "get_class_tree",
-                    {"qualified_name": "sqlmesh.core.snapshot.evaluator.EvaluationStrategy"},
+                    {"qualified_name": "abc.ABC"},
                 )
             ),
         )
