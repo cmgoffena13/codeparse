@@ -1,9 +1,25 @@
 import asyncio
 from pathlib import Path
 
+import pytest
 import yaml
 
-from src.codeparse_mcp.skill import DESCRIPTION, SKILL_INSTRUCTIONS, materialize_skill, sync_skill
+from src.codeparse_mcp.skill import (
+    DESCRIPTION,
+    SKILL_INSTRUCTIONS,
+    available_skill_dirs,
+    materialize_skill,
+    sync_skill,
+)
+
+
+def test_available_skill_dirs_returns_existing_vendor_roots(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    cursor = tmp_path / ".cursor" / "skills"
+    cursor.mkdir(parents=True)
+    assert cursor in available_skill_dirs()
 
 
 def test_frontmatter_description_parses() -> None:

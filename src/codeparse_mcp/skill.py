@@ -85,39 +85,31 @@ def materialize_skill(base: Path) -> Path:
     return path
 
 
-def available_skill_dirs() -> list[Path]:
-    """Skill directories FastMCP already knows about that exist on disk."""
-    from fastmcp.server.providers.skills import (
-        ClaudeSkillsProvider,
-        CodexSkillsProvider,
-        CopilotSkillsProvider,
-        CursorSkillsProvider,
-        GeminiSkillsProvider,
-        GooseSkillsProvider,
-        OpenCodeSkillsProvider,
-        VSCodeSkillsProvider,
-    )
+def _vendor_skill_roots() -> list[Path]:
+    home = Path.home()
+    return [
+        home / ".claude" / "skills",
+        Path("/etc/codex/skills"),
+        home / ".codex" / "skills",
+        home / ".copilot" / "skills",
+        home / ".cursor" / "skills",
+        home / ".gemini" / "skills",
+        home / ".config" / "agents" / "skills",
+        home / ".config" / "opencode" / "skills",
+    ]
 
-    providers = (
-        ClaudeSkillsProvider,
-        CodexSkillsProvider,
-        CopilotSkillsProvider,
-        CursorSkillsProvider,
-        GeminiSkillsProvider,
-        GooseSkillsProvider,
-        OpenCodeSkillsProvider,
-        VSCodeSkillsProvider,
-    )
+
+def available_skill_dirs() -> list[Path]:
+    """Skill directories FastMCP vendor clients use that exist on disk."""
     found: list[Path] = []
     seen: set[Path] = set()
-    for provider_cls in providers:
-        for path in provider_cls()._roots:
-            if not path.is_dir():
-                continue
-            if path in seen:
-                continue
-            seen.add(path)
-            found.append(path)
+    for path in _vendor_skill_roots():
+        if not path.is_dir():
+            continue
+        if path in seen:
+            continue
+        seen.add(path)
+        found.append(path)
     return found
 
 
