@@ -6,13 +6,13 @@ from typing import Any, Literal
 
 from fastmcp import Context, FastMCP
 
+from src.codeparse_mcp.class_tree import get_class_tree as run_get_class_tree
 from src.codeparse_mcp.directory_tree import get_directory_tree as run_directory_tree
 from src.codeparse_mcp.entry_points import (
     get_entry_points as run_get_entry_points,
 )
 from src.codeparse_mcp.file_symbol_tree import get_file_symbol_tree as run_get_file_symbol_tree
 from src.codeparse_mcp.import_relations import get_import_relations as run_get_import_relations
-from src.codeparse_mcp.list_subclasses import list_subclasses as run_list_subclasses
 from src.codeparse_mcp.search_symbols import search_symbols as run_symbol_search
 from src.codeparse_mcp.session_stats import SessionStatsMiddleware, format_session_stats_report
 from src.codeparse_mcp.skill import DESCRIPTION, materialize_skill
@@ -191,13 +191,14 @@ def get_symbol_relations(
 
 
 @mcp.tool()
-def list_subclasses(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
+def get_class_tree(qualified_name: str, ctx: Context, include_tests: bool = False) -> str:
     """
-    Return classes that directly inherit from a given class, grouped by file.
+    Return the inheritance tree for a class: straight parent chain up, then all
+    descendant subclasses with directory-tree glyphs. Includes external bases.
     Excludes test file classes by default; set ``include_tests`` to include them.
     """
     return _processor(ctx).run_query(
-        lambda db: run_list_subclasses(db, qualified_name, include_tests=include_tests)
+        lambda db: run_get_class_tree(db, qualified_name, include_tests=include_tests)
     )
 
 

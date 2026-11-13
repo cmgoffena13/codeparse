@@ -243,7 +243,7 @@ async def _print_tools() -> None:
             "LIST SUBCLASSES",
             _body(
                 await client.call_tool(
-                    "list_subclasses",
+                    "get_class_tree",
                     {"qualified_name": "sqlmesh.core.snapshot.evaluator.EvaluationStrategy"},
                 )
             ),

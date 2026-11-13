@@ -12,7 +12,7 @@ from src.codeparse_mcp.skill import SKILL_INSTRUCTIONS
 
 _PROJECT = Path(__file__).resolve().parent / "test_project"
 _TOOLS = {
-    "list_subclasses",
+    "get_class_tree",
     "get_directory_tree",
     "get_file_symbol_tree",
     "get_entry_points",
@@ -100,11 +100,12 @@ def test_client_tools_read_the_workspace(
             )
             assert "tests/test_child.py" in with_tests
 
-            subclasses = _text(
-                await mcp_client.call_tool("list_subclasses", {"qualified_name": "pkg.base.Parent"})
+            class_tree = _text(
+                await mcp_client.call_tool("get_class_tree", {"qualified_name": "pkg.base.Parent"})
             )
-            assert "pkg.child.Child" in subclasses
-            assert "TestChild" not in subclasses
+            assert "pkg.child.Child" in class_tree
+            assert "TestChild" not in class_tree
+            assert "pkg/" not in class_tree
 
             relations = _text(
                 await mcp_client.call_tool("get_import_relations", {"target": "pkg.base"})

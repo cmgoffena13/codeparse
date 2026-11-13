@@ -45,7 +45,7 @@ The information that is provided to you will determine the tool you should use.
  - Use `-n` to get the line number and then use ``get_symbol_at_lines`` to get the symbol.
  - Use ``get_import_relations`` for module dependents or dependencies; DO NOT grep for this.
  - Use ``get_symbol_relations`` for symbol dependents or dependencies; DO NOT grep for this.
- - Use ``list_subclasses`` to find subclasses of a class; DO NOT grep for this.
+ - Use ``get_class_tree`` for a class inheritance tree; DO NOT grep for this.
 
 #### ``search_symbols``
  - Use when the clue is a reference to a symbol name.

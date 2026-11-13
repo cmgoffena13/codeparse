@@ -33,7 +33,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | `get_symbol_relations` | Return dependents or dependencies for one symbol. |
 | `get_import_relations` | Return dependents or dependencies for one module. |
 | `search_symbols` | Full Text Search symbol names. |
-| `list_subclasses` | Return the classes that directly inherit from a class. |
+| `get_class_tree` | Return the inheritance tree for a class (parents up, subclasses down). |
 
 ## Resources
 
