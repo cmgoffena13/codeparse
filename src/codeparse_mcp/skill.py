@@ -12,7 +12,7 @@ DESCRIPTION = (
 _SKILL_BODY = """\
 # IMPORTANT RULES
  - ALWAYS use codeparse tools to get symbol definitions.
- - NEVER use ``read`` on a Python file.
+ - NEVER use ``read`` or ``grep .`` on a Python file or directory.
  - Only ``include_tests`` when making changes to the codebase. 
  - DO NOT ``include_tests`` when investigating unless explicitly asked.
 
