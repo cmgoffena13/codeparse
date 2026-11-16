@@ -84,3 +84,27 @@ def test_file_symbol_tree_labels_property_methods(tmp_path: Path) -> None:
         assert "method  mod.Box.grow" in out
     finally:
         db.close()
+
+
+def test_file_symbol_tree_omits_inherited_members(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "mod.py").write_text(
+        "class Parent:\n"
+        "    def shared(self) -> None:\n"
+        "        pass\n"
+        "\n"
+        "class Child(Parent):\n"
+        "    def own(self) -> None:\n"
+        "        pass\n",
+        encoding="utf-8",
+    )
+    db = CodeDB(tmp_path)
+    try:
+        CodeProcessor(db, tmp_path).process()
+        out = get_file_symbol_tree(db, "mod.py")
+        assert "mod.Parent.shared" in out
+        assert "mod.Child.own" in out
+        assert "mod.Child.shared" not in out
+        assert "Total Symbols: 4" in out
+    finally:
+        db.close()

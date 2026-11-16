@@ -14,6 +14,7 @@ SELECT
     end_line
 FROM symbols
 WHERE file_id = ?
+  AND is_inherited = 0
 ORDER BY start_line, end_line, qualified_name
 """
 
