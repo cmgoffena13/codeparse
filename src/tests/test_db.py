@@ -75,6 +75,34 @@ def test_index_root_links_the_database_back_to_the_workspace(tmp_path: Path) -> 
     assert index_workspace_paths() == [(db_file, workspace.resolve())]
 
 
+def test_cleanup_orphan_indexes_removes_missing_workspaces_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from src.db import cleanup_orphan_indexes
+
+    keep = tmp_path / "keep"
+    gone = tmp_path / "gone"
+    keep.mkdir()
+    gone.mkdir()
+    keep_db = CodeDB(keep)
+    keep_file = keep_db.db_file
+    keep_db.close()
+    gone_db = CodeDB(gone)
+    gone_file = gone_db.db_file
+    gone_db.close()
+    gone.rmdir()
+
+    removed = cleanup_orphan_indexes()
+    out = capsys.readouterr().out
+
+    assert removed == [gone_file]
+    assert not gone_file.exists()
+    assert keep_file.exists()
+    assert f"Removing index for missing workspace {gone.resolve()}" in out
+    assert cleanup_orphan_indexes() == []
+    assert "No orphan indexes found." in capsys.readouterr().out
+
+
 def test_delete_files_leaves_session_stats_for_that_file(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     db.connection.execute(

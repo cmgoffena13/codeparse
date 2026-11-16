@@ -50,6 +50,22 @@ def remove_index_files() -> None:
     print("Removed all index files.")
 
 
+def cleanup_orphan_indexes() -> list[Path]:
+    """Delete index DBs whose recorded workspace directory no longer exists."""
+    removed: list[Path] = []
+    for db_file, root in index_workspace_paths():
+        if root.is_dir():
+            continue
+        print(f"Removing index for missing workspace {root}")
+        db_file.unlink(missing_ok=True)
+        db_file.with_suffix(".db-wal").unlink(missing_ok=True)
+        db_file.with_suffix(".db-shm").unlink(missing_ok=True)
+        removed.append(db_file)
+    if not removed:
+        print("No orphan indexes found.")
+    return removed
+
+
 class CodeDB:
     def __init__(self, root: Path, *, apply_schema: bool = True):
         self.root = root.resolve()

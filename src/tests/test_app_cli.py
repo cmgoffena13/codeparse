@@ -320,6 +320,15 @@ def test_reload_recreates_the_index(
         db.close()
 
 
+def test_cleanup_command_exits_zero(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["codeparse", "cleanup"])
+    monkeypatch.setattr("src.app.cleanup_orphan_indexes", list)
+    assert main() == 0
+    assert capsys.readouterr().err == ""
+
+
 def test_reload_missing_cwd_exits_one(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

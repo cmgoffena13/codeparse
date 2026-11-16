@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from src.cli.commands import build_arg_parser, make_parser
-from src.db import remove_index_files
+from src.db import cleanup_orphan_indexes, remove_index_files
 from src.git_utils import is_git_controlled
 from src.utils import get_code_parse_config_dir, get_version
 
@@ -90,6 +90,9 @@ def main() -> int:
         remove_skill()
         remove_index_files()
         return 0 if ok else 1
+    if args.command == "cleanup":
+        cleanup_orphan_indexes()
+        return 0
     if args.command == "update":
         from src.cli.upgrade import upgrade
 

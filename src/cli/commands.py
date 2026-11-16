@@ -49,6 +49,10 @@ def make_parser() -> argparse.ArgumentParser:
         "uninstall",
         help="Remove the codeparse MCP server, skill, and indexes",
     )
+    subparsers.add_parser(
+        "cleanup",
+        help="Remove indexes whose workspace directories no longer exist",
+    )
     update_parser = subparsers.add_parser(
         "update",
         help="Replace this binary with a GitHub release and update the skill",
