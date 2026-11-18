@@ -79,13 +79,11 @@ compile:
 		--include-package-data=certifi \
 		--include-distribution-metadata=caio \
 		--include-distribution-metadata=aiofile \
-		--nofollow-import-to=src.tests \
 		--nofollow-import-to=pytest \
 		--nofollow-import-to=fastmcp.cli \
 		--include-data-files=pyproject.toml=pyproject.toml \
 		--include-data-files=src/schema.sql=src/schema.sql \
 		--include-data-files=src/drop_schema.sql=src/drop_schema.sql \
-		--noinclude-data-files=src/tests/* \
 		--output-dir=dist/
 
 bump:

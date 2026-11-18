@@ -8,7 +8,7 @@ from src.utils import get_code_parse_config_dir, get_version
 
 
 def test_get_version_reads_pyproject() -> None:
-    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
     with pyproject.open("rb") as f:
         expected = tomllib.load(f)["project"]["version"]
     assert get_version() == expected

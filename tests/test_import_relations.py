@@ -6,7 +6,7 @@ from src.codeparse_mcp import import_relations as import_relations_mod
 from src.codeparse_mcp.import_relations import _format_rows, get_import_relations
 from src.db import CodeDB
 from src.processor import CodeProcessor
-from src.tests.fixtures.import_relations import (
+from tests.fixtures.import_relations import (
     index_directory_package,
     index_external_user,
     index_internal_package,

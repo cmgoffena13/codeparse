@@ -1,4 +1,4 @@
-from src.tests.python_parser._assertions import (
+from tests.python_parser._assertions import (
     assert_symbol_references_invariants,
     assert_symbols_invariants,
     index_symbols,
@@ -127,5 +127,5 @@ def test_python_fixture_another_file_has_fakeclass_call_reference(python_parser,
     # Base classes extracted as resolved qualified names
     assert "AnotherClass" in by_qn
     assert by_qn["AnotherClass"]["base_qualified_names"] == [
-        "src.tests.files_to_parse.python.file.FakeClass"
+        "tests.files_to_parse.python.file.FakeClass"
     ]

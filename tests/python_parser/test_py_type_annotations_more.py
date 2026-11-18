@@ -1,4 +1,4 @@
-from src.tests.python_parser._assertions import assert_symbol_references_invariants
+from tests.python_parser._assertions import assert_symbol_references_invariants
 
 
 def test_type_annotations_optional_generics_and_forward_refs(python_parser, fixture_bytes):

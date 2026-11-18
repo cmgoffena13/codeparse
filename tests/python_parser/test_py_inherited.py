@@ -1,4 +1,4 @@
-from src.tests.python_parser._assertions import index_symbols
+from tests.python_parser._assertions import index_symbols
 
 
 def test_same_module_subclass_gets_base_members(python_parser) -> None:

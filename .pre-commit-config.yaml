@@ -11,21 +11,21 @@ repos:
         language: system
         types: [python]
         pass_filenames: true
-        exclude: ^src/tests/files_to_parse/
+        exclude: ^tests/files_to_parse/
       - id: ruff-format
         name: ruff-format
         entry: uv run -- ruff format
         language: system
         types: [python]
         pass_filenames: true
-        exclude: ^src/tests/files_to_parse/
+        exclude: ^tests/files_to_parse/
       - id: ty-check
         name: ty-check
         entry: uv run -- ty check
         language: system
         types: [python]
         pass_filenames: true
-        exclude: ^src/tests/files_to_parse/
+        exclude: ^tests/files_to_parse/
 
   - repo: local
     hooks:
@@ -36,4 +36,4 @@ repos:
         types: [python]
         pass_filenames: false
         stages: [pre-push]
-        files: ^src/.*\.py$
+        files: ^(src|tests)/.*\.py$

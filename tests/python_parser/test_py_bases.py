@@ -1,6 +1,6 @@
 """Resolved class bases land in ``base_qualified_names`` and ``symbol_bases``."""
 
-from src.tests.python_parser._assertions import index_symbols
+from tests.python_parser._assertions import index_symbols
 
 
 def _bases(symbols: list[dict], name: str) -> list[str]:

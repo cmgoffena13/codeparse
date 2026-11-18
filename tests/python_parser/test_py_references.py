@@ -1,4 +1,4 @@
-from src.tests.python_parser._assertions import (
+from tests.python_parser._assertions import (
     assert_reference_shape,
     assert_symbol_references_invariants,
     assert_symbols_invariants,

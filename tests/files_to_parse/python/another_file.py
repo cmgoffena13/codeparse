@@ -1,4 +1,4 @@
-from src.tests.files_to_parse.python.file import FakeClass
+from tests.files_to_parse.python.file import FakeClass
 
 # Symbol Call Reference
 fake_class_instance = FakeClass()

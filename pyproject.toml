@@ -27,11 +27,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = [ "src/tests" ]
+testpaths = [ "tests" ]
 pythonpath = [ "." ]
 
 [tool.coverage.run]
-omit = ["src/tests/*"]
+omit = ["tests/*"]
 
 [tool.coverage.report]
 fail_under = 90
@@ -39,7 +39,7 @@ show_missing = true
 
 [tool.ruff]
 target-version = "py315"
-extend-exclude = ["src/tests/files_to_parse/"]
+extend-exclude = ["tests/files_to_parse/"]
 line-length = 100
 force-exclude = true
 lint.extend-select = [
@@ -71,4 +71,4 @@ lint.extend-select = [
 python-version = "3.15"
 
 [tool.ty.src]
-exclude = ["src/tests/files_to_parse/"]
+exclude = ["tests/files_to_parse/"]
