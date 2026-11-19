@@ -4,7 +4,7 @@
 
 <p align="center">
   <img alt="Lines of Code" src="https://aschey.tech/tokei/github/cmgoffena13/codeparse?category=code">
-  <a href="https://github.com/cmgoffena13/selene-ai/actions"><img alt="Build Status" src="https://github.com/cmgoffena13/codeparse/actions/workflows/build-release.yml/badge.svg"></a>
+  <a href="https://github.com/cmgoffena13/codeparse/actions"><img alt="Build Status" src="https://github.com/cmgoffena13/codeparse/actions/workflows/build-release.yml/badge.svg"></a>
   <img alt="License" src="https://img.shields.io/badge/license-MIT-informational?style=flat">
 </p>
 
