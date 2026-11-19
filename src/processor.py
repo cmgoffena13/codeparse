@@ -147,28 +147,21 @@ class CodeProcessor:
             prior_mtime_ns = prior["mtime_ns"]
             prior_size_bytes = prior["size_bytes"]
             prior_symbol_count = prior["symbol_count"]
-            prior_line_count = prior["line_count"]
-            prior_is_test = prior["is_test"]
         else:
             file_id = self.assigner.reserve("files", 1)[0]
             prior_hash = None
             prior_mtime_ns = None
             prior_size_bytes = None
             prior_symbol_count = 0
-            prior_line_count = 0
-            prior_is_test = False
 
         if not full and existed and prior_mtime_ns == mtime_ns and prior_size_bytes == size_bytes:
             self.files_snapshot[file_relative_path] = {
                 "id": file_id,
-                "directory_id": directory_id,
                 "seen": True,
                 "content_hash": prior_hash,
                 "mtime_ns": mtime_ns,
                 "size_bytes": size_bytes,
-                "line_count": prior_line_count,
                 "symbol_count": prior_symbol_count,
-                "is_test": prior_is_test,
             }
             return
 
@@ -206,14 +199,11 @@ class CodeProcessor:
             self.db_batches["files"].append(file_row)
         snap = {
             "id": file_id,
-            "directory_id": directory_id,
             "seen": True,
             "content_hash": file_hash,
             "mtime_ns": mtime_ns,
             "size_bytes": size_bytes,
-            "line_count": line_count,
             "symbol_count": prior_symbol_count,
-            "is_test": is_test,
         }
         self.files_snapshot[file_relative_path] = snap
 

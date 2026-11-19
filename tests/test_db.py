@@ -39,6 +39,30 @@ def test_recreate_schema_drops_session_stats_before_their_parents(tmp_path: Path
     db.close()
 
 
+def test_files_snapshot_keeps_only_incremental_fields(tmp_path: Path) -> None:
+    db = CodeDB(tmp_path)
+    db.connection.execute(
+        """
+        INSERT INTO files (
+            id, name, path, normalized_path, content_hash, mtime_ns, size_bytes,
+            line_count, symbol_count, is_test, directory_id
+        )
+        VALUES (10, 'mod.py', 'pkg/mod.py', 'pkg.mod', 'abc', 1, 2, 3, 4, 1, NULL)
+        """
+    )
+    db.connection.commit()
+    snapshot = db.get_files_snapshot()
+    assert snapshot["pkg/mod.py"] == {
+        "id": 10,
+        "seen": False,
+        "content_hash": "abc",
+        "mtime_ns": 1,
+        "size_bytes": 2,
+        "symbol_count": 4,
+    }
+    db.close()
+
+
 def test_schema_seeds_external_packages_file_outside_files_snapshot(tmp_path: Path) -> None:
     db = CodeDB(tmp_path)
     row = db.connection.execute(
