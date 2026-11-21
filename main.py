@@ -131,127 +131,127 @@ async def _print_tools() -> None:
                 )
             ),
         )
-        _print_section(
-            "SYMBOL",
-            _body(
-                await client.call_tool(
-                    "get_symbol",
-                    {"qualified_name": "sqlmesh.core.context.GenericContext"},
-                )
-            ),
-        )
-        _print_section(
-            "SYMBOL AT LINES",
-            _body(
-                await client.call_tool(
-                    "get_symbol_at_lines",
-                    {
-                        "file_path": "sqlmesh/__init__.py",
-                        "start_line": 96,
-                        "end_line": 98,
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "SYMBOL AT LINES MULTIPLE",
-            _body(
-                await client.call_tool(
-                    "get_symbol_at_lines",
-                    {
-                        "file_path": "sqlmesh/__init__.py",
-                        "start_line": 125,
-                        "end_line": 128,
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "SYMBOL RELATIONS (dependents)",
-            _body(
-                await client.call_tool(
-                    "get_symbol_relations",
-                    {
-                        "qualified_name": ("sqlmesh.core.context.Context"),
-                        "include_tests": False,
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "SYMBOL RELATIONS (dependencies)",
-            _body(
-                await client.call_tool(
-                    "get_symbol_relations",
-                    {
-                        "qualified_name": "sqlmesh.core.context.GenericContext",
-                        "relation": "dependencies",
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "IMPORT RELATIONS (external dependents)",
-            _body(
-                await client.call_tool(
-                    "get_import_relations",
-                    {
-                        "target": "re",
-                        "relation": "dependents",
-                    },
-                )
-            ),
-        )
-        # NOTE: This is a 3rd party module, so no dependencies are available.
-        _print_section(
-            "IMPORT RELATIONS (external dependencies)",
-            _body(
-                await client.call_tool(
-                    "get_import_relations",
-                    {
-                        "target": "sqlglot.dialects.athena",
-                        "relation": "dependencies",
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "IMPORT RELATIONS (internal dependents)",
-            _body(
-                await client.call_tool(
-                    "get_import_relations",
-                    {
-                        "target": "sqlmesh.core",
-                        "relation": "dependents",
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "IMPORT RELATIONS (internal dependencies)",
-            _body(
-                await client.call_tool(
-                    "get_import_relations",
-                    {
-                        "target": "sqlmesh.core",
-                        "relation": "dependencies",
-                    },
-                )
-            ),
-        )
-        _print_section(
-            "LIST SUBCLASSES",
-            _body(
-                await client.call_tool(
-                    "get_class_tree",
-                    {"qualified_name": "abc.ABC"},
-                )
-            ),
-        )
-        _print_section(
-            "ENTRY POINTS",
-            _body(await client.call_tool("get_entry_points")),
-        )
+        # _print_section(
+        #     "SYMBOL",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_symbol",
+        #             {"qualified_name": "sqlmesh.core.context.GenericContext"},
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "SYMBOL AT LINES",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_symbol_at_lines",
+        #             {
+        #                 "file_path": "sqlmesh/__init__.py",
+        #                 "start_line": 96,
+        #                 "end_line": 98,
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "SYMBOL AT LINES MULTIPLE",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_symbol_at_lines",
+        #             {
+        #                 "file_path": "sqlmesh/__init__.py",
+        #                 "start_line": 125,
+        #                 "end_line": 128,
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "SYMBOL RELATIONS (dependents)",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_symbol_relations",
+        #             {
+        #                 "qualified_name": ("sqlmesh.core.context.Context"),
+        #                 "include_tests": False,
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "SYMBOL RELATIONS (dependencies)",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_symbol_relations",
+        #             {
+        #                 "qualified_name": "sqlmesh.core.context.GenericContext",
+        #                 "relation": "dependencies",
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "IMPORT RELATIONS (external dependents)",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_import_relations",
+        #             {
+        #                 "target": "re",
+        #                 "relation": "dependents",
+        #             },
+        #         )
+        #     ),
+        # )
+        # # NOTE: This is a 3rd party module, so no dependencies are available.
+        # _print_section(
+        #     "IMPORT RELATIONS (external dependencies)",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_import_relations",
+        #             {
+        #                 "target": "sqlglot.dialects.athena",
+        #                 "relation": "dependencies",
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "IMPORT RELATIONS (internal dependents)",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_import_relations",
+        #             {
+        #                 "target": "sqlmesh.core",
+        #                 "relation": "dependents",
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "IMPORT RELATIONS (internal dependencies)",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_import_relations",
+        #             {
+        #                 "target": "sqlmesh.core",
+        #                 "relation": "dependencies",
+        #             },
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "LIST SUBCLASSES",
+        #     _body(
+        #         await client.call_tool(
+        #             "get_class_tree",
+        #             {"qualified_name": "abc.ABC"},
+        #         )
+        #     ),
+        # )
+        # _print_section(
+        #     "ENTRY POINTS",
+        #     _body(await client.call_tool("get_entry_points")),
+        # )
         report = "No session stats recorded.\n"
         for _ in range(50):
             report = _resource_text(await client.read_resource("stats://codeparse/sessions"))
