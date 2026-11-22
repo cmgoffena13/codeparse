@@ -67,24 +67,8 @@ eval-clean:
 
 compile:
 	rm -rf dist
-	uv run --no-dev -- nuitka src/app.py \
-		--standalone \
-		--onefile \
-		--lto=yes \
-		--assume-yes-for-downloads \
-		--output-filename=codeparse \
-		--python-flag=no_warnings \
-		--include-package=src \
-		--include-package=certifi \
-		--include-package-data=certifi \
-		--include-distribution-metadata=caio \
-		--include-distribution-metadata=aiofile \
-		--nofollow-import-to=pytest \
-		--nofollow-import-to=fastmcp.cli \
-		--include-data-files=pyproject.toml=pyproject.toml \
-		--include-data-files=src/schema.sql=src/schema.sql \
-		--include-data-files=src/drop_schema.sql=src/drop_schema.sql \
-		--output-dir=dist/
+	chmod +x .github/nuitka_build.sh
+	./.github/nuitka_build.sh
 
 bump:
 	uv version --bump $(filter major minor patch,$(MAKECMDGOALS))
