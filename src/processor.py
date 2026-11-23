@@ -49,6 +49,7 @@ def _join_rel(dir_rel: str, name: str) -> str:
 
 class CodeProcessor:
     def __init__(self, db: CodeDB, root: Path):
+        self.start_time: float | None = time.perf_counter()
         self.db = db
         self.assigner = GlobalIDAssigner(db)
         self.root = root.resolve()
@@ -327,6 +328,7 @@ class CodeProcessor:
         self.db.resolve_symbol_references()
 
     def _reset_run_state(self) -> None:
+        self.start_time = None
         self.files_skipped = 0
         self.files_indexed = 0
         self._added_external_qns = set()
@@ -346,10 +348,10 @@ class CodeProcessor:
             return fn(self.db)
 
     def _process_unlocked(self, full: bool = False) -> None:
+        start_time = time.perf_counter() if self.start_time is None else self.start_time
         self._reset_run_state()
         if not self.class_catalog.by_qualified_name:
             self.class_catalog.seed_from_db(self.db.connection)
-        start_time = time.perf_counter()
         root_s = str(self.root)
         for directory_path, directory_names, file_names in os.walk(root_s):
             dir_rel = (

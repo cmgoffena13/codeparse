@@ -6,6 +6,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -387,5 +389,28 @@ def test_process_survives_line_numbers_past_interned_ints(tmp_path: Path) -> Non
             "SELECT COUNT(*) AS c FROM symbols WHERE name = 'past_interned'"
         ).fetchone()["c"]
         assert count == 1
+    finally:
+        db.close()
+
+
+def test_process_timing_includes_init_then_resets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import time
+
+    (tmp_path / ".gitignore").write_text("# test fixture\n", encoding="utf-8")
+    (tmp_path / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    ticks = iter([1.0, 2.5, 10.0, 10.2])
+    monkeypatch.setattr(time, "perf_counter", lambda: next(ticks))
+    db = CodeDB(tmp_path)
+    try:
+        processor = CodeProcessor(db, tmp_path)
+        assert processor.start_time == 1.0
+        processor.process(full=True)
+        assert processor.start_time is None
+        assert "in 1500ms" in capsys.readouterr().err
+        processor.process()
+        assert processor.start_time is None
+        assert "in 200ms" in capsys.readouterr().err
     finally:
         db.close()
