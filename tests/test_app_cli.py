@@ -143,8 +143,10 @@ def test_install_registers_the_binary(
     )
     assert cursor_config["command"] == command
     assert cursor_config["args"] == ["mcp", "--cwd", "${workspaceFolder}"]
+    assert cursor_config["cwd"] == "${workspaceFolder}"
     assert claude["mcpServers"]["codeparse"]["command"] == command
     assert claude["mcpServers"]["codeparse"]["args"] == ["mcp"]
+    assert not claude["mcpServers"]["codeparse"].get("cwd")
     assert cli_calls == [
         ["/usr/bin/claude", "mcp", "add", "codeparse", "--", command, "mcp"],
         ["/usr/bin/gemini", "mcp", "add", "codeparse", command, "--", "mcp"],

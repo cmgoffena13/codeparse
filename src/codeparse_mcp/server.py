@@ -27,6 +27,7 @@ _INSTRUCTIONS = """\
 codeparse tools read an up-to-date view of Python codebases.
 Utilize the ``codeparse`` skill for guided exploration workflows.
 Use the ``skill://codeparse/SKILL.md`` resource if the skill is not found.
+Read ``workspace://codeparse/root`` when the indexed tree may not match the codebase.
 """
 
 
@@ -75,6 +76,16 @@ def codeparse_skill() -> str:
 )
 def session_stats_resource() -> str:
     return format_session_stats_report(index_root())
+
+
+@mcp.resource(
+    "workspace://codeparse/root",
+    name="codeparse/root",
+    description="Absolute path of the workspace this MCP server is indexing.",
+    mime_type="text/plain",
+)
+def workspace_root_resource() -> str:
+    return f"{index_root()}\n"
 
 
 def _processor(ctx: Context) -> CodeProcessor:

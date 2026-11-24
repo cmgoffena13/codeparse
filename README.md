@@ -40,6 +40,7 @@ CodeParse is a codebase indexer that gives agents fast, accurate, and compact co
 | Resource | Description |
 | --- | --- |
 | `skill://codeparse/SKILL.md` | Guided exploration skill for navigating Python codebases. |
+| `workspace://codeparse/root` | Absolute path of the workspace this MCP server is indexing. |
 | `stats://codeparse/sessions` | Per-session markdown table of files with tool calls and a tokens-saved range. |
 
 ## Commands

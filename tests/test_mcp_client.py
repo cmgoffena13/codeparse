@@ -50,6 +50,8 @@ def test_client_lists_tools_and_reads_skill(
 
             skill = _resource_text(await mcp_client.read_resource("skill://codeparse/SKILL.md"))
             assert skill == SKILL_INSTRUCTIONS
+            root = _resource_text(await mcp_client.read_resource("workspace://codeparse/root"))
+            assert root.strip() == str(_PROJECT.resolve())
 
     asyncio.run(run())
 

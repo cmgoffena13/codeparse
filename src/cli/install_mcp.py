@@ -38,7 +38,10 @@ def _server(cli: Path, *, cwd: str | None = None) -> StdioMCPServer:
     args = ["mcp"]
     if cwd is not None:
         args.extend(["--cwd", cwd])
-    return StdioMCPServer(command=str(cli), args=args, type="stdio")
+        server = StdioMCPServer(command=str(cli), args=args, cwd=cwd, type="stdio")
+    else:
+        server = StdioMCPServer(command=str(cli), args=args, type="stdio")
+    return server
 
 
 def _note_installed(installed: list[str], client: str) -> None:

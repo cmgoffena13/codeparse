@@ -70,3 +70,4 @@ def test_server_exposes_skill_resource() -> None:
     assert "skill://codeparse/SKILL.md" in uris
     assert "skill://codeparse/_manifest" not in uris
     assert "stats://codeparse/sessions" in uris
+    assert "workspace://codeparse/root" in uris
