@@ -15,6 +15,8 @@ _SKILL_BODY = """\
  - NEVER use ``read`` or ``grep .`` on a Python file or directory.
  - Only ``include_tests`` when making changes to the codebase. 
  - DO NOT ``include_tests`` when investigating unless explicitly asked.
+ - If ``workspace://codeparse/root`` does not match the codebase, STOP IMMEDIATELY.
+    - Inform the user to restart the codeparse MCP server.
 
 # INSTRUCTIONS
 
@@ -55,7 +57,6 @@ The information that is provided to you will determine the tool you should use.
 
 ## ``workspace://codeparse/root``
  - Absolute path of the workspace this MCP server is indexing.
- - If path doesn't match the codebase, stop and tell the user to restart the codeparse MCP server.
 
 ## ``stats://codeparse/sessions``
  - Only use when the question is about codeparse sessions, cost, or decision quality.
