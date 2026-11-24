@@ -56,7 +56,7 @@ The information that is provided to you will determine the tool you should use.
 # RESOURCES
 
 ## ``workspace://codeparse/root``
- - Absolute path of the workspace this MCP server is indexing.
+ - Only use when results appear to be from the wrong codebase.
 
 ## ``stats://codeparse/sessions``
  - Only use when the question is about codeparse sessions, cost, or decision quality.
