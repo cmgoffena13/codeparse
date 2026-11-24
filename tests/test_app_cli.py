@@ -148,7 +148,10 @@ def test_install_registers_the_binary(
     assert claude["mcpServers"]["codeparse"]["args"] == ["mcp"]
     assert not claude["mcpServers"]["codeparse"].get("cwd")
     assert cli_calls == [
+        ["/usr/bin/claude", "mcp", "remove", "codeparse", "--scope", "user"],
+        ["/usr/bin/claude", "mcp", "remove", "codeparse", "--scope", "local"],
         ["/usr/bin/claude", "mcp", "add", "codeparse", "--", command, "mcp"],
+        ["/usr/bin/gemini", "mcp", "remove", "codeparse"],
         ["/usr/bin/gemini", "mcp", "add", "codeparse", command, "--", "mcp"],
     ]
     assert any(url.startswith("cursor://") for url in deeplinks)

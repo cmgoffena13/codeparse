@@ -1,5 +1,6 @@
 """Register the codeparse binary with MCP clients."""
 
+import contextlib
 import json
 import os
 import subprocess
@@ -49,6 +50,23 @@ def _note_installed(installed: list[str], client: str) -> None:
     print(f"Installed MCP server → {client}")
 
 
+def _install_cli_mcp(
+    remove_commands: list[list[str]],
+    add_command: list[str],
+    client: str,
+) -> bool:
+    for remove_command in remove_commands:
+        with contextlib.suppress(OSError, subprocess.CalledProcessError):
+            run_cli_command(remove_command)
+    ok = False
+    try:
+        run_cli_command(add_command)
+        ok = True
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"Failed to install codeparse in {client}: {exc}", file=sys.stderr)
+    return ok
+
+
 def install_mcp() -> list[str] | None:
     """Install the codeparse binary into each MCP client that is present.
 
@@ -86,21 +104,24 @@ def install_mcp() -> list[str] | None:
     claude_cmd = find_claude_command()
     if claude_cmd:
         saw_client = True
-        try:
-            run_cli_command([claude_cmd, "mcp", "add", SERVER_NAME, "--", str(cli), "mcp"])
-        except (OSError, subprocess.CalledProcessError) as exc:
-            print(f"Failed to install codeparse in Claude Code: {exc}", file=sys.stderr)
-        else:
+        if _install_cli_mcp(
+            [
+                [claude_cmd, "mcp", "remove", SERVER_NAME, "--scope", "user"],
+                [claude_cmd, "mcp", "remove", SERVER_NAME, "--scope", "local"],
+            ],
+            [claude_cmd, "mcp", "add", SERVER_NAME, "--", str(cli), "mcp"],
+            "Claude Code",
+        ):
             _note_installed(installed, "Claude Code")
 
     gemini_cmd = find_gemini_command()
     if gemini_cmd:
         saw_client = True
-        try:
-            run_cli_command([gemini_cmd, "mcp", "add", SERVER_NAME, str(cli), "--", "mcp"])
-        except (OSError, subprocess.CalledProcessError) as exc:
-            print(f"Failed to install codeparse in Gemini CLI: {exc}", file=sys.stderr)
-        else:
+        if _install_cli_mcp(
+            [[gemini_cmd, "mcp", "remove", SERVER_NAME]],
+            [gemini_cmd, "mcp", "add", SERVER_NAME, str(cli), "--", "mcp"],
+            "Gemini CLI",
+        ):
             _note_installed(installed, "Gemini CLI")
 
     if _goose_config_dir().is_dir():
